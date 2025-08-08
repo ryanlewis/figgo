@@ -8,7 +8,7 @@ set -eu
 # Requires: figlet (C implementation) in PATH unless FIGLET is set
 
 FIGLET="${FIGLET:-figlet}"
-OUT_DIR="${OUT_DIR:-tests/goldens}"
+OUT_DIR="${OUT_DIR:-testdata/goldens}"
 FONTS="${FONTS:-standard slant small big}"
 LAYOUTS="${LAYOUTS:-full kern smush}"
 INDEX_FILE="${OUT_DIR}/index.md"
@@ -169,7 +169,7 @@ cat >> "$INDEX_FILE" << 'EOF'
 To verify golden files haven't been modified:
 
 ```bash
-cd tests/goldens
+cd testdata/goldens
 sha256sum -c checksums.txt
 ```
 
@@ -196,7 +196,7 @@ cat << 'EON'
 
 ✅ Generation complete!
 
-Files created in: tests/goldens/
+Files created in: testdata/goldens/
 - Individual golden files: {font}/{layout}/{input}.md
 - Index file: index.md
 - Checksums: checksums.txt
@@ -206,7 +206,7 @@ Each .md file contains:
 - The ASCII art output in a code block
 
 To verify integrity:
-  cd tests/goldens && sha256sum -c checksums.txt
+  cd testdata/goldens && sha256sum -c checksums.txt
 
 Tests should parse the front matter and compare Figgo output
 against the ASCII art in the code block.

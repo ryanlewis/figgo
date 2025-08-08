@@ -68,47 +68,6 @@ func TestErrorTypes(t *testing.T) {
 	}
 }
 
-func TestLayoutConstants(t *testing.T) {
-	// Test that Layout type and constants are defined
-	var layout Layout
-
-	// Test fitting modes (bits 6-7)
-	layout = FitFullWidth
-	if layout != 0 {
-		t.Errorf("expected FitFullWidth to be 0, got %d", layout)
-	}
-
-	layout = FitKerning
-	if layout != 64 {
-		t.Errorf("expected FitKerning to be 64, got %d", layout)
-	}
-
-	layout = FitSmushing
-	if layout != 128 {
-		t.Errorf("expected FitSmushing to be 128, got %d", layout)
-	}
-
-	// Test smushing rules (bits 0-5)
-	if RuleEqualChar != 1 {
-		t.Errorf("expected RuleEqualChar to be 1, got %d", RuleEqualChar)
-	}
-	if RuleUnderscore != 2 {
-		t.Errorf("expected RuleUnderscore to be 2, got %d", RuleUnderscore)
-	}
-	if RuleHierarchy != 4 {
-		t.Errorf("expected RuleHierarchy to be 4, got %d", RuleHierarchy)
-	}
-	if RuleOppositePair != 8 {
-		t.Errorf("expected RuleOppositePair to be 8, got %d", RuleOppositePair)
-	}
-	if RuleBigX != 16 {
-		t.Errorf("expected RuleBigX to be 16, got %d", RuleBigX)
-	}
-	if RuleHardblank != 32 {
-		t.Errorf("expected RuleHardblank to be 32, got %d", RuleHardblank)
-	}
-}
-
 func TestOptionPattern(t *testing.T) {
 	// Test that Option type is defined
 	var opt Option

@@ -49,7 +49,13 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            go test -v -race -coverprofile=coverage.txt ./...
+          else
+            go test -v -race -coverprofile=coverage.out ./...
+          fi
+        shell: bash
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == env.GO_VERSION_STABLE

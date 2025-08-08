@@ -1,26 +1,29 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
-# Generate golden fixtures by calling the C `figlet` binary.
+# Generate golden fixtures as markdown files with metadata
 # Usage:
-#   FIGLET=/path/to/figlet FIGLET_ARGS="-w 120" ./tools/generate_goldens.sh
-# or just:
-#   ./tools/generate_goldens.sh
-# Requires: figlet (C implementation) in $PATH unless FIGLET is set.
+#   FIGLET=/path/to/figlet ./tools/generate-goldens.sh
+#   FONTS="standard slant" LAYOUTS="full kern smush" ./tools/generate-goldens.sh
+# Requires: figlet (C implementation) in PATH unless FIGLET is set
 
 FIGLET="${FIGLET:-figlet}"
-FIGLET_ARGS=${FIGLET_ARGS:-}
-OUT_DIR=${OUT_DIR:-tests/goldens}
-FONTS=(${FONTS:-standard slant small big})
+OUT_DIR="${OUT_DIR:-tests/goldens}"
+FONTS="${FONTS:-standard slant small big}"
+LAYOUTS="${LAYOUTS:-full kern smush}"
+INDEX_FILE="${OUT_DIR}/index.md"
 
 # Sample strings (ASCII only, quoted to preserve characters)
-readarray -t SAMPLES < <(cat <<'EOS'
-Hello, World!
+SAMPLES='Hello, World!
 FIGgo 1.0
 |/\[]{}()<>
-The quick brown fox jumps over the lazy dog 0123456789 ~!@#$%^&*()-_=+[]{};:'",.<>?/\|
-EOS
-)
+The quick brown fox jumps over the lazy dog
+""
+" "
+a
+   
+$$$$
+!@#$%^&*()_+-=[]{}:;'"'"'",.<>?/\|'
 
 # Ensure dependencies
 if ! command -v "$FIGLET" >/dev/null 2>&1; then
@@ -28,25 +31,180 @@ if ! command -v "$FIGLET" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Check figlet version
+FIGLET_VERSION=$("$FIGLET" -I 2 2>/dev/null || echo "unknown")
+echo "Using figlet version: $FIGLET_VERSION"
+
+# Create output directory
 mkdir -p "$OUT_DIR"
 
+# Initialize index file
+cat > "$INDEX_FILE" << 'EOF'
+# Golden Test Fixtures
+
+Generated test fixtures for Figgo compliance testing.
+
+## Generation Info
+
+EOF
+
+printf '- **Generated:** %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)" >> "$INDEX_FILE"
+printf '- **Figlet Version:** %s\n' "$FIGLET_VERSION" >> "$INDEX_FILE"
+printf '- **Script:** tools/generate-goldens.sh\n\n' >> "$INDEX_FILE"
+
+cat >> "$INDEX_FILE" << 'EOF'
+## Files
+
+| Font | Layout | Input | File | SHA256 |
+|------|--------|-------|------|--------|
+EOF
+
 slugify() {
-  # Replace non-alnum with _, collapse repeats
-  printf '%s' "$1" | tr -c 'A-Za-z0-9_' '_' | sed -E 's/_+/_/g;s/^_+//;s/_+$//'
+  # Replace non-alnum with _, handle empty string
+  if [ -z "$1" ]; then
+    printf "empty"
+  else
+    printf '%s' "$1" | tr -c 'A-Za-z0-9' '_' | sed 's/^_*//;s/_*$//;s/__*/_/g'
+  fi
 }
 
-for font in "${FONTS[@]}"; do
-  for sample in "${SAMPLES[@]}"; do
-    slug=$(slugify "$sample")
-    out="$OUT_DIR/${font}.${slug}.txt"
-    printf 'Generating %s\n' "$out"
-    # Use printf to avoid echo interpreting backslashes
-    printf '%s\n' "$sample" | "$FIGLET" -f "$font" $FIGLET_ARGS > "$out"
+get_layout_args() {
+  case "$1" in
+    full)  echo "" ;;
+    kern)  echo "-k" ;;
+    smush) echo "-S" ;;
+    *)     echo "" ;;
+  esac
+}
+
+get_layout_name() {
+  case "$1" in
+    full)  echo "full-width" ;;
+    kern)  echo "kerning" ;;
+    smush) echo "smushing" ;;
+    *)     echo "$1" ;;
+  esac
+}
+
+# Process each combination
+for font in $FONTS; do
+  # Check if font is available
+  if ! printf "test" | "$FIGLET" -f "$font" >/dev/null 2>&1; then
+    echo "Warning: Font '$font' not available, skipping" >&2
+    continue
+  fi
+  
+  for layout in $LAYOUTS; do
+    layout_args=$(get_layout_args "$layout")
+    layout_name=$(get_layout_name "$layout")
+    
+    # Create font/layout directory
+    mkdir -p "$OUT_DIR/$font/$layout_name"
+    
+    # Process each sample
+    printf '%s\n' "$SAMPLES" | while IFS= read -r sample; do
+      slug=$(slugify "$sample")
+      out_file="$OUT_DIR/$font/$layout_name/${slug}.md"
+      
+      # Skip if sample is null (between newlines in SAMPLES)
+      if [ "$slug" = "_" ]; then
+        continue
+      fi
+      
+      printf 'Generating %s/%s/%s.md\n' "$font" "$layout_name" "$slug"
+      
+      # Generate the ASCII art
+      art_output=$(printf '%s' "$sample" | "$FIGLET" -f "$font" $layout_args 2>/dev/null || echo "ERROR: Generation failed")
+      
+      # Calculate checksum of the art output
+      checksum=$(printf '%s' "$art_output" | sha256sum | cut -d' ' -f1)
+      
+      # Escape sample for YAML (handle quotes and special chars)
+      escaped_sample=$(printf '%s' "$sample" | sed 's/"/\\"/g')
+      
+      # Create markdown file with front matter
+      cat > "$out_file" << EOF
+---
+font: $font
+layout: $layout_name
+figlet_args: "$layout_args"
+input: "$escaped_sample"
+generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)
+figlet_version: "$FIGLET_VERSION"
+checksum_sha256: "$checksum"
+---
+
+\`\`\`
+$art_output
+\`\`\`
+EOF
+      
+      # Add entry to index
+      printf '| %s | %s | `%s` | [%s.md](%s/%s/%s.md) | %s |\n' \
+        "$font" \
+        "$layout_name" \
+        "$(printf '%s' "$escaped_sample" | cut -c1-20)..." \
+        "$slug" \
+        "$font" \
+        "$layout_name" \
+        "$slug" \
+        "${checksum:0:8}..." >> "$INDEX_FILE"
+    done
   done
 done
 
-cat <<'EON'
-Done. Committed goldens should be treated as **fixtures**:
-- Do not hand-edit; regenerate via this script when fonts/inputs change.
-- Tests should compare Figgo output byte-for-byte against these files.
+# Generate checksums file
+printf '\nGenerating checksums file...\n'
+find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec sha256sum {} \; | \
+  sed "s|$OUT_DIR/||" | sort > "$OUT_DIR/checksums.txt"
+
+# Add checksums info to index
+cat >> "$INDEX_FILE" << 'EOF'
+
+## Verification
+
+To verify golden files haven't been modified:
+
+```bash
+cd tests/goldens
+sha256sum -c checksums.txt
+```
+
+## Regeneration
+
+To regenerate all golden files:
+
+```bash
+./tools/generate-goldens.sh
+```
+
+To regenerate specific combinations:
+
+```bash
+FONTS="standard" LAYOUTS="smush" ./tools/generate-goldens.sh
+```
+
+---
+
+*Note: These files are auto-generated. Do not edit manually.*
+EOF
+
+cat << 'EON'
+
+✅ Generation complete!
+
+Files created in: tests/goldens/
+- Individual golden files: {font}/{layout}/{input}.md
+- Index file: index.md
+- Checksums: checksums.txt
+
+Each .md file contains:
+- YAML front matter with metadata
+- The ASCII art output in a code block
+
+To verify integrity:
+  cd tests/goldens && sha256sum -c checksums.txt
+
+Tests should parse the front matter and compare Figgo output
+against the ASCII art in the code block.
 EON

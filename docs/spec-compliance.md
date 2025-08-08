@@ -68,20 +68,101 @@ If `FullLayout` is also present, **`FullLayout` takes precedence** (see below).
 
 When smushing is active and an overlap column is considered, apply rules **in order**:
 
-1. **Equal character** — identical non‑space; keep that character.
-2. **Underscore** — `_` + border chars (`|/\\[]{}()<>`) → the border char.
-3. **Hierarchy** — class order `|` > `/\\` > `[]` > `{}` > `()`; higher class survives.
-4. **Opposite pairs** — `[]`, `{}`, `()` → `|`.
-5. **Big‑X** — `/\\` → `X`, `><` → `X`.
-6. **Hardblank** — two hardblanks smush to one hardblank.
+### Rule 1: Equal Character
+Identical non‑space characters merge into one.
+```
+Left: "H"    Right: "H"    Result: "H"
+Left: "#"    Right: "#"    Result: "#"
+Left: "@"    Right: "@"    Result: "@"
+```
 
-If no controlled rule matches for a candidate column but smushing is allowed, fall back to **universal smushing**: take right if left is space, left if right is space; otherwise **do not smush** that column (keep kerning distance). **Hardblank collisions never universal‑smush.**
+### Rule 2: Underscore
+`_` merges with border characters (`|/\\[]{}()<>`), keeping the border char.
+```
+Left: "_"    Right: "|"    Result: "|"
+Left: "|"    Right: "_"    Result: "|"
+Left: "_"    Right: "/"    Result: "/"
+Left: "_"    Right: "["    Result: "["
+```
+
+### Rule 3: Hierarchy
+Class order: `|` > `/\\` > `[]` > `{}` > `()`; higher class survives.
+```
+Left: "/"    Right: "|"    Result: "|"  (| beats /)
+Left: "["    Right: "/"    Result: "/"  (/ beats [)
+Left: "{"    Right: "]"    Result: "]"  (] beats {)
+Left: "("    Right: "}"    Result: "}"  (} beats ()
+```
+
+### Rule 4: Opposite Pairs
+Matching bracket pairs merge into `|`.
+```
+Left: "["    Right: "]"    Result: "|"
+Left: "{"    Right: "}"    Result: "|"
+Left: "("    Right: ")"    Result: "|"
+```
+
+### Rule 5: Big‑X
+Diagonal pairs form X patterns.
+```
+Left: "/"    Right: "\\"   Result: "X"
+Left: ">"    Right: "<"    Result: "X"
+Left: "\\"   Right: "/"    Result: "Y"  (reverse order creates Y)
+```
+
+### Rule 6: Hardblank
+Two hardblanks merge into one (replaced with space at final output).
+```
+Left: "$"    Right: "$"    Result: "$"  (if $ is hardblank)
+```
+
+### Universal Smushing Fallback
+If no controlled rule matches but smushing is allowed:
+- Take right if left is space
+- Take left if right is space
+- Otherwise **do not smush** (keep kerning distance)
+- **Hardblank collisions never universal‑smush**
 
 ---
 
 ## 6) Overlap Selection Algorithm
 
-For each glyph boundary, choose the **maximum** overlap such that **every** overlapped column is valid by either a controlled rule or the universal rule. If any overlapped column would violate the rules, reduce the overlap; if no valid overlap remains, fall back to the **kerning distance**.
+For each glyph boundary, choose the **maximum** overlap such that **every** overlapped column is valid by either a controlled rule or the universal rule.
+
+### Step-by-Step Process
+
+```
+Glyph A (right edge)    Glyph B (left edge)
+      ...|                 |...
+      ...#                 #...
+      .../                 \\...
+```
+
+1. **Calculate maximum potential overlap** (limited by glyph widths)
+2. **For each overlap amount (max → 1)**:
+   - Check each overlapped column pair
+   - Verify ALL columns satisfy a rule (controlled or universal)
+   - If yes: use this overlap amount
+   - If no: try smaller overlap
+3. **If no valid overlap**: fall back to kerning distance
+
+### Example: Attempting 2-column overlap
+
+```
+Trying overlap=2:
+  Column 1: '|' + '|' → '|' (Rule 1: Equal) ✓
+  Column 2: '#' + '#' → '#' (Rule 1: Equal) ✓
+Result: Valid 2-column overlap
+
+Trying overlap=2:
+  Column 1: '/' + '\\' → 'X' (Rule 5: Big-X) ✓
+  Column 2: ' ' + 'a' → 'a' (Universal) ✓
+Result: Valid 2-column overlap
+
+Trying overlap=2:
+  Column 1: 'a' + 'b' → ??? (No rule applies) ✗
+Result: Reduce to overlap=1 or kerning
+```
 
 ---
 
@@ -105,10 +186,18 @@ For each glyph boundary, choose the **maximum** overlap such that **every** over
 * **Layouts:** full‑width, kerning, smushing (rules on/off)
 * **Inputs:**
 
-  * `"Hello, World!"`
-  * `"FIGgo 1.0"`
-  * `"|/\\[]{}()<>"` (rule‑trigger set)
-  * A long ASCII line (> 120 chars)
+  * `"Hello, World!"` — Basic test
+  * `"FIGgo 1.0"` — Mixed alphanumeric
+  * `"|/\\[]{}()<>"` — Rule trigger set
+  * `"The quick brown fox jumps over the lazy dog"` — Full alphabet
+  * Long ASCII line (> 120 chars) — Stress test
+  * `""` — Empty string (edge case)
+  * `" "` — Single space (edge case)
+  * `"a"` — Single character (edge case)
+  * `"   "` — Multiple spaces (edge case)
+  * `"$$$$"` — Consecutive hardblanks (edge case)
+  * `"\t\n\r"` — Control characters (edge case)
+  * Mixed case with symbols: `"!@#$%^&*()_+-=[]{}"` (edge case)
 
 ---
 

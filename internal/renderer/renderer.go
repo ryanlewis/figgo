@@ -21,4 +21,3 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	// TODO: Implement rendering logic
 	return "", fmt.Errorf("renderer not yet implemented")
 }
-

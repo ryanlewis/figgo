@@ -38,6 +38,15 @@ fi
 FIGLET_VERSION=$("$FIGLET" -I 5 2>/dev/null | head -1 || echo "unknown")
 echo "Using figlet version: $FIGLET_VERSION"
 
+# Define hash function for portability
+hash_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum
+  else
+    shasum -a 256
+  fi
+}
+
 # Create output directory
 mkdir -p "$OUT_DIR"
 
@@ -110,22 +119,21 @@ for font in $FONTS; do
       slug=$(slugify "$sample")
       out_file="$OUT_DIR/$font/$layout_name/${slug}.md"
       
-      # Skip if sample is null (between newlines in SAMPLES)
-      if [ "$slug" = "_" ]; then
+      # Skip if sample is empty
+      if [ "$slug" = "empty" ] || [ -z "$slug" ]; then
         continue
       fi
       
       printf 'Generating %s/%s/%s.md\n' "$font" "$layout_name" "$slug"
       
       # Generate the ASCII art
-      art_output=$(printf '%s' "$sample" | "$FIGLET" -f "$font" $layout_args 2>/dev/null || echo "ERROR: Generation failed")
-      
-      # Calculate checksum of the art output (macOS compatible)
-      if command -v sha256sum >/dev/null 2>&1; then
-        checksum=$(printf '%s' "$art_output" | sha256sum | awk '{print $1}')
-      else
-        checksum=$(printf '%s' "$art_output" | shasum -a 256 | awk '{print $1}')
+      if ! art_output=$(printf '%s' "$sample" | "$FIGLET" -f "$font" $layout_args 2>/dev/null); then
+        echo "Warning: figlet failed for font=$font layout=$layout_name sample=$slug" >&2
+        continue
       fi
+      
+      # Calculate checksum of the art output
+      checksum=$(printf '%s' "$art_output" | hash_sha256 | awk '{print $1}')
       
       # Escape sample for YAML (handle quotes and special chars)
       escaped_sample=$(printf '%s' "$sample" | sed 's/"/\\"/g')
@@ -142,14 +150,14 @@ figlet_version: "$FIGLET_VERSION"
 checksum_sha256: "$checksum"
 ---
 
-\`\`\`text
+~~~
 $art_output
-\`\`\`
+~~~
 EOF
       
-      # Add entry to index
+      # Add entry to index (escape pipe characters for markdown tables)
       short_checksum=$(printf '%s' "$checksum" | cut -c1-8)
-      short_sample=$(printf '%s' "$escaped_sample" | cut -c1-20)
+      short_sample=$(printf '%s' "$escaped_sample" | cut -c1-20 | sed 's/|/\\|/g')
       printf '| %s | %s | `%s...` | [%s.md](%s/%s/%s.md) | %s... |\n' \
         "$font" \
         "$layout_name" \
@@ -163,15 +171,17 @@ EOF
   done
 done
 
-# Generate checksums file (macOS compatible)
+# Generate checksums file
 printf '\nGenerating checksums file...\n'
-if command -v sha256sum >/dev/null 2>&1; then
-  find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec sha256sum {} \; | \
-    sed "s|$OUT_DIR/||" | LC_ALL=C sort > "$OUT_DIR/checksums.txt"
-else
-  find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec shasum -a 256 {} \; | \
-    sed "s|$OUT_DIR/||" | LC_ALL=C sort > "$OUT_DIR/checksums.txt"
-fi
+find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -print0 | \
+  xargs -0 -I {} sh -c 'hash_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$1"
+    else
+      shasum -a 256 "$1"
+    fi
+  }; hash_sha256 "$1"' _ {} | \
+  sed "s|$OUT_DIR/||" | LC_ALL=C sort > "$OUT_DIR/checksums.txt"
 
 # Add checksums info to index
 cat >> "$INDEX_FILE" << 'EOF'

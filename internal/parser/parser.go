@@ -50,4 +50,3 @@ func Parse(r io.Reader) (*Font, error) {
 	// TODO: Implement FIGfont parsing
 	return nil, fmt.Errorf("parser not yet implemented")
 }
-

@@ -13,8 +13,9 @@ FONTS="${FONTS:-standard slant small big}"
 LAYOUTS="${LAYOUTS:-full kern smush}"
 INDEX_FILE="${OUT_DIR}/index.md"
 
-# Sample strings (ASCII only, quoted to preserve characters)
-SAMPLES='Hello, World!
+# Sample strings (ASCII only, one per line)
+SAMPLES=$(cat <<'EOS'
+Hello, World!
 FIGgo 1.0
 |/\[]{}()<>
 The quick brown fox jumps over the lazy dog
@@ -23,7 +24,9 @@ The quick brown fox jumps over the lazy dog
 a
    
 $$$$
-!@#$%^&*()_+-=[]{}:;'"'"'",.<>?/\|'
+!@#$%^&*()_+-=[]{}:;'",.<>?/\|
+EOS
+)
 
 # Ensure dependencies
 if ! command -v "$FIGLET" >/dev/null 2>&1; then
@@ -117,8 +120,12 @@ for font in $FONTS; do
       # Generate the ASCII art
       art_output=$(printf '%s' "$sample" | "$FIGLET" -f "$font" $layout_args 2>/dev/null || echo "ERROR: Generation failed")
       
-      # Calculate checksum of the art output
-      checksum=$(printf '%s' "$art_output" | sha256sum | cut -d' ' -f1)
+      # Calculate checksum of the art output (macOS compatible)
+      if command -v sha256sum >/dev/null 2>&1; then
+        checksum=$(printf '%s' "$art_output" | sha256sum | awk '{print $1}')
+      else
+        checksum=$(printf '%s' "$art_output" | shasum -a 256 | awk '{print $1}')
+      fi
       
       # Escape sample for YAML (handle quotes and special chars)
       escaped_sample=$(printf '%s' "$sample" | sed 's/"/\\"/g')
@@ -135,7 +142,7 @@ figlet_version: "$FIGLET_VERSION"
 checksum_sha256: "$checksum"
 ---
 
-\`\`\`
+\`\`\`text
 $art_output
 \`\`\`
 EOF
@@ -156,10 +163,15 @@ EOF
   done
 done
 
-# Generate checksums file
+# Generate checksums file (macOS compatible)
 printf '\nGenerating checksums file...\n'
-find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec sha256sum {} \; | \
-  sed "s|$OUT_DIR/||" | sort > "$OUT_DIR/checksums.txt"
+if command -v sha256sum >/dev/null 2>&1; then
+  find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec sha256sum {} \; | \
+    sed "s|$OUT_DIR/||" | LC_ALL=C sort > "$OUT_DIR/checksums.txt"
+else
+  find "$OUT_DIR" -name "*.md" -type f ! -name "index.md" -exec shasum -a 256 {} \; | \
+    sed "s|$OUT_DIR/||" | LC_ALL=C sort > "$OUT_DIR/checksums.txt"
+fi
 
 # Add checksums info to index
 cat >> "$INDEX_FILE" << 'EOF'

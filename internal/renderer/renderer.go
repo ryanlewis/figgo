@@ -18,6 +18,8 @@ type Options struct {
 
 // Render converts text to ASCII art using the specified font and options.
 func Render(text string, font *parser.Font, opts *Options) (string, error) {
-	// TODO: Implement rendering logic
+	_ = text // TODO: Implement rendering logic
+	_ = font
+	_ = opts
 	return "", fmt.Errorf("renderer not yet implemented")
 }

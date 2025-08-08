@@ -28,16 +28,16 @@ func convertParserFont(pf *parser.Font) *Font {
 		return nil
 	}
 	return &Font{
-		Name:           "", // Will be set based on filename or metadata
+		Glyphs:         pf.Characters,
+		Name:           "",                                // Will be set based on filename or metadata
+		FullLayout:     Layout(pf.FullLayout % (1 << 32)), //nolint:gosec // Overflow handled by modulo
 		Hardblank:      pf.Hardblank,
 		Height:         pf.Height,
 		Baseline:       pf.Baseline,
 		MaxLen:         pf.MaxLength,
 		OldLayout:      pf.OldLayout,
-		FullLayout:     Layout(pf.FullLayout),
 		PrintDirection: pf.PrintDirection,
 		CommentLines:   pf.CommentLines,
-		Glyphs:         pf.Characters,
 	}
 }
 

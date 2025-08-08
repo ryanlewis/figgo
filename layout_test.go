@@ -34,9 +34,9 @@ func TestLayoutConstants(t *testing.T) {
 
 func TestLayoutValidation(t *testing.T) {
 	tests := []struct {
+		wantErr     error
 		name        string
 		layout      Layout
-		wantErr     error
 		wantFitting Layout
 	}{
 		{
@@ -109,84 +109,82 @@ func TestLayoutValidation(t *testing.T) {
 	}
 }
 
-func TestLayoutHelpers(t *testing.T) {
-	t.Run("HasRule", func(t *testing.T) {
-		layout := FitSmushing | RuleEqualChar | RuleBigX
+func TestLayoutHasRule(t *testing.T) {
+	layout := FitSmushing | RuleEqualChar | RuleBigX
 
-		if !layout.HasRule(RuleEqualChar) {
-			t.Error("HasRule(RuleEqualChar) = false, want true")
-		}
-		if !layout.HasRule(RuleBigX) {
-			t.Error("HasRule(RuleBigX) = false, want true")
-		}
-		if layout.HasRule(RuleHierarchy) {
-			t.Error("HasRule(RuleHierarchy) = true, want false")
-		}
-		if layout.HasRule(RuleUnderscore) {
-			t.Error("HasRule(RuleUnderscore) = true, want false")
-		}
-	})
+	if !layout.HasRule(RuleEqualChar) {
+		t.Error("HasRule(RuleEqualChar) = false, want true")
+	}
+	if !layout.HasRule(RuleBigX) {
+		t.Error("HasRule(RuleBigX) = false, want true")
+	}
+	if layout.HasRule(RuleHierarchy) {
+		t.Error("HasRule(RuleHierarchy) = true, want false")
+	}
+	if layout.HasRule(RuleUnderscore) {
+		t.Error("HasRule(RuleUnderscore) = true, want false")
+	}
+}
 
-	t.Run("FittingMode", func(t *testing.T) {
-		tests := []struct {
-			name   string
-			layout Layout
-			want   Layout
-		}{
-			{"FitFullWidth only", FitFullWidth, FitFullWidth},
-			{"FitKerning only", FitKerning, FitKerning},
-			{"FitSmushing only", FitSmushing, FitSmushing},
-			{"FitSmushing with rules", FitSmushing | RuleEqualChar | RuleHardblank, FitSmushing},
-			{"Rules only (no fitting)", RuleEqualChar | RuleHierarchy, 0},
-			{"Multiple fitting modes", FitKerning | FitSmushing, FitKerning | FitSmushing}, // Returns all fitting bits
-		}
+func TestLayoutFittingMode(t *testing.T) {
+	tests := []struct {
+		name   string
+		layout Layout
+		want   Layout
+	}{
+		{"FitFullWidth only", FitFullWidth, FitFullWidth},
+		{"FitKerning only", FitKerning, FitKerning},
+		{"FitSmushing only", FitSmushing, FitSmushing},
+		{"FitSmushing with rules", FitSmushing | RuleEqualChar | RuleHardblank, FitSmushing},
+		{"Rules only (no fitting)", RuleEqualChar | RuleHierarchy, 0},
+		{"Multiple fitting modes", FitKerning | FitSmushing, FitKerning | FitSmushing}, // Returns all fitting bits
+	}
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				if got := tt.layout.FittingMode(); got != tt.want {
-					t.Errorf("FittingMode() = 0x%08X, want 0x%08X", uint32(got), uint32(tt.want))
-				}
-			})
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.layout.FittingMode(); got != tt.want {
+				t.Errorf("FittingMode() = 0x%08X, want 0x%08X", uint32(got), uint32(tt.want))
+			}
+		})
+	}
+}
 
-	t.Run("Rules", func(t *testing.T) {
-		layout := FitSmushing | RuleEqualChar | RuleBigX | RuleHardblank
-		rules := layout.Rules()
+func TestLayoutRules(t *testing.T) {
+	layout := FitSmushing | RuleEqualChar | RuleBigX | RuleHardblank
+	rules := layout.Rules()
 
-		expectedRules := RuleEqualChar | RuleBigX | RuleHardblank
-		if rules != expectedRules {
-			t.Errorf("Rules() = 0x%08X, want 0x%08X", uint32(rules), uint32(expectedRules))
-		}
+	expectedRules := RuleEqualChar | RuleBigX | RuleHardblank
+	if rules != expectedRules {
+		t.Errorf("Rules() = 0x%08X, want 0x%08X", uint32(rules), uint32(expectedRules))
+	}
 
-		// Test that fitting bits are not included
-		if rules&FitSmushing != 0 {
-			t.Error("Rules() should not include fitting bits")
-		}
-	})
+	// Test that fitting bits are not included
+	if rules&FitSmushing != 0 {
+		t.Error("Rules() should not include fitting bits")
+	}
+}
 
-	t.Run("String representation", func(t *testing.T) {
-		tests := []struct {
-			layout Layout
-			want   string
-		}{
-			{FitFullWidth, "FitFullWidth"},
-			{FitKerning, "FitKerning"},
-			{FitSmushing, "FitSmushing"},
-			{FitSmushing | RuleEqualChar, "FitSmushing|RuleEqualChar"},
-			{FitSmushing | RuleEqualChar | RuleBigX, "FitSmushing|RuleEqualChar|RuleBigX"},
-			{0, "0x00000000"},
-			{Layout(0x12345678), "0x12345678"}, // Unknown bits
-		}
+func TestLayoutString(t *testing.T) {
+	tests := []struct {
+		want   string
+		layout Layout
+	}{
+		{"FitFullWidth", FitFullWidth},
+		{"FitKerning", FitKerning},
+		{"FitSmushing", FitSmushing},
+		{"FitSmushing|RuleEqualChar", FitSmushing | RuleEqualChar},
+		{"FitSmushing|RuleEqualChar|RuleBigX", FitSmushing | RuleEqualChar | RuleBigX},
+		{"0x00000000", 0},
+		{"0x12345678", Layout(0x12345678)}, // Unknown bits
+	}
 
-		for _, tt := range tests {
-			t.Run(tt.want, func(t *testing.T) {
-				if got := tt.layout.String(); got != tt.want {
-					t.Errorf("String() = %q, want %q", got, tt.want)
-				}
-			})
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			if got := tt.layout.String(); got != tt.want {
+				t.Errorf("String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestLayoutNormalizationFromOldLayout(t *testing.T) {
@@ -239,7 +237,7 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 		},
 		{
 			name:      "smushing with all rules",
-			oldLayout: 126, // 2 + 4 + 8 + 16 + 32 + 64 = 126
+			oldLayout: 126,
 			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank,
 		},
 		{

@@ -7,7 +7,13 @@ import (
 )
 
 // Font represents a parsed FIGfont with all its metadata and character glyphs.
-type Font struct {
+type Font struct { //nolint:govet // Field order optimized for clarity
+	// Characters maps ASCII codes to their glyph representations
+	Characters map[rune][]string
+
+	// Comments contains the font comments
+	Comments []string
+
 	// Signature contains the FIGfont signature (e.g., "flf2a")
 	Signature string
 
@@ -37,16 +43,10 @@ type Font struct {
 
 	// CodetagCount specifies the number of code-tagged characters
 	CodetagCount int
-
-	// Comments contains the font comments
-	Comments []string
-
-	// Characters maps ASCII codes to their glyph representations
-	Characters map[rune][]string
 }
 
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
 func Parse(r io.Reader) (*Font, error) {
-	// TODO: Implement FIGfont parsing
+	_ = r // TODO: Implement FIGfont parsing
 	return nil, fmt.Errorf("parser not yet implemented")
 }

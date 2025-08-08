@@ -71,9 +71,7 @@ func TestErrorTypes(t *testing.T) {
 func TestOptionPattern(t *testing.T) {
 	// Test that Option type is defined
 	var opt Option
-	if opt == nil {
-		// Option should be a function type
-	}
+	_ = opt // Option should be a function type
 
 	// Test WithLayout option
 	opt = WithLayout(FitSmushing | RuleEqualChar)

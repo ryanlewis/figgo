@@ -7,8 +7,14 @@ import "errors"
 // Font data is loaded once and never modified, making it safe for concurrent use
 // without locking.
 type Font struct {
+	// Glyphs maps runes to their multi-line ASCII art representations
+	Glyphs map[rune][]string
+
 	// Name is the font name (e.g., "standard")
 	Name string
+
+	// FullLayout contains the full layout bitmask combining fitting mode and smushing rules
+	FullLayout Layout
 
 	// Hardblank is the character used for hard blanks in the font
 	Hardblank rune
@@ -25,17 +31,11 @@ type Font struct {
 	// OldLayout is the old layout value for backward compatibility (-1 if not present)
 	OldLayout int
 
-	// FullLayout contains the full layout bitmask combining fitting mode and smushing rules
-	FullLayout Layout
-
 	// PrintDirection specifies the print direction (0=LTR, 1=RTL)
 	PrintDirection int
 
 	// CommentLines is the number of comment lines in the font file
 	CommentLines int
-
-	// Glyphs maps runes to their multi-line ASCII art representations
-	Glyphs map[rune][]string
 }
 
 // Common errors returned by the figgo package

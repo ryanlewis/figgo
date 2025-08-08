@@ -4,14 +4,10 @@
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor
-    - testdata
-  skip-files:
-    - ".*\\.generated\\.go$"
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
 
@@ -30,7 +26,7 @@ linters:
     - bodyclose
     - dogsled
     - dupl
-    - exportloopref
+    - copyloopvar
     - gochecknoinits
     - gocognit
     - goconst
@@ -38,7 +34,7 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - lll
@@ -59,7 +55,7 @@ linters:
     - exhaustive
     - gochecknoglobals
     - godox
-    - goerr113
+    - err113
     - nestif
     - testpackage
     - wsl
@@ -70,8 +66,8 @@ linters-settings:
     check-blank: true
 
   govet:
-    check-shadowing: true
     enable-all: true
+    shadow: true
 
   gocyclo:
     min-complexity: 15
@@ -133,27 +129,30 @@ linters-settings:
       - name: unreachable-code
       - name: redefines-builtin-id
 
-  gomnd:
-    settings:
-      mnd:
-        checks:
-          - argument
-          - case
-          - condition
-          - operation
-          - return
-          - assign
-        ignored-numbers:
-          - '0'
-          - '1'
-          - '2'
-          - '10'
-          - '32'
-          - '64'
-          - '128'
-          - '256'
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '10'
+      - '32'
+      - '64'
+      - '128'
+      - '256'
 
 issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+  exclude-files:
+    - ".*\\.generated\\.go$"
   exclude-rules:
     # Exclude some linters from running on tests files
     - path: _test\.go
@@ -162,7 +161,7 @@ issues:
         - errcheck
         - dupl
         - gosec
-        - gomnd
+        - mnd
         - lll
 
     # Exclude generated files
@@ -172,7 +171,7 @@ issues:
         - errcheck
         - dupl
         - gosec
-        - gomnd
+        - mnd
 
     # Allow longer lines in Justfile parsing
     - path: cmd/figgo/main\.go

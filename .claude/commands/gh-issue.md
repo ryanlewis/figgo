@@ -132,8 +132,7 @@ func Render(text string, f *Font, opts ...Option) (string, error) {
 
 ### 7.1 Format Code
 ```bash
-go fmt ./...
-gofmt -s -w .
+just fmt
 ```
 
 ### 7.2 Run Linting
@@ -226,7 +225,7 @@ If implementing FIGfont features:
 ### 10.3 Run Final Checks
 ```bash
 go test -v ./...
-go fmt ./...
+just fmt
 go vet ./...
 ```
 

@@ -223,4 +223,3 @@ func (l Layout) String() string {
 
 	return strings.Join(parts, "|")
 }
-

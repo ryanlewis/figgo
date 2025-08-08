@@ -28,7 +28,7 @@ lint:
 
 # Format all Go code
 fmt:
-    go fmt ./...
+    goimports -w .
     gofmt -s -w .
 
 # Run benchmarks

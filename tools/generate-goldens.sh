@@ -31,8 +31,8 @@ if ! command -v "$FIGLET" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Check figlet version
-FIGLET_VERSION=$("$FIGLET" -I 2 2>/dev/null || echo "unknown")
+# Check figlet version (use -I 5 for version info)
+FIGLET_VERSION=$("$FIGLET" -I 5 2>/dev/null | head -1 || echo "unknown")
 echo "Using figlet version: $FIGLET_VERSION"
 
 # Create output directory
@@ -48,9 +48,10 @@ Generated test fixtures for Figgo compliance testing.
 
 EOF
 
-printf '- **Generated:** %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)" >> "$INDEX_FILE"
-printf '- **Figlet Version:** %s\n' "$FIGLET_VERSION" >> "$INDEX_FILE"
-printf '- **Script:** tools/generate-goldens.sh\n\n' >> "$INDEX_FILE"
+printf '%s\n' "- **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)" >> "$INDEX_FILE"
+printf '%s\n' "- **Figlet Version:** $FIGLET_VERSION" >> "$INDEX_FILE"
+printf '%s\n' "- **Script:** tools/generate-goldens.sh" >> "$INDEX_FILE"
+printf '\n' >> "$INDEX_FILE"
 
 cat >> "$INDEX_FILE" << 'EOF'
 ## Files
@@ -140,15 +141,17 @@ $art_output
 EOF
       
       # Add entry to index
-      printf '| %s | %s | `%s` | [%s.md](%s/%s/%s.md) | %s |\n' \
+      short_checksum=$(printf '%s' "$checksum" | cut -c1-8)
+      short_sample=$(printf '%s' "$escaped_sample" | cut -c1-20)
+      printf '| %s | %s | `%s...` | [%s.md](%s/%s/%s.md) | %s... |\n' \
         "$font" \
         "$layout_name" \
-        "$(printf '%s' "$escaped_sample" | cut -c1-20)..." \
+        "$short_sample" \
         "$slug" \
         "$font" \
         "$layout_name" \
         "$slug" \
-        "${checksum:0:8}..." >> "$INDEX_FILE"
+        "$short_checksum" >> "$INDEX_FILE"
     done
   done
 done

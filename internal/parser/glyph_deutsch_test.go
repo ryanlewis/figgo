@@ -6,6 +6,78 @@ import (
 	"testing"
 )
 
+// Helper to validate a German character with specific content
+func validateGermanCharacter(t *testing.T, f *Font, char rune, expectedLines []string, charName string) {
+	t.Helper()
+	if glyph, exists := f.Characters[char]; exists {
+		if len(glyph) != len(expectedLines) {
+			t.Errorf("German %s should have %d lines, got %d", charName, len(expectedLines), len(glyph))
+			return
+		}
+		for i, expectedLine := range expectedLines {
+			if glyph[i] != expectedLine {
+				t.Errorf("German %s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
+			}
+		}
+	} else {
+		t.Errorf("German %s (%d) not found", charName, char)
+	}
+}
+
+// Helper functions to reduce complexity
+func validateAllASCIICharacters(t *testing.T, f *Font) {
+	t.Helper()
+	for r := rune(32); r <= 126; r++ {
+		if _, exists := f.Characters[r]; !exists {
+			t.Errorf("Missing ASCII character %d (%c)", r, r)
+		}
+	}
+}
+
+func validateAllGermanCharacters(t *testing.T, f *Font) {
+	t.Helper()
+	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
+	deutschNames := []string{"Ä", "Ö", "Ü", "ä", "ö", "ü", "ß"}
+	for i, r := range deutschChars {
+		if _, exists := f.Characters[r]; !exists {
+			t.Errorf("Missing German character %d (%s)", r, deutschNames[i])
+		}
+	}
+}
+
+func validateCharacterCount(t *testing.T, f *Font, expected int) {
+	t.Helper()
+	if len(f.Characters) != expected {
+		t.Errorf("Expected %d characters, got %d", expected, len(f.Characters))
+	}
+}
+
+func validateGermanCharactersEmpty(t *testing.T, f *Font) {
+	t.Helper()
+	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
+	for _, r := range deutschChars {
+		if glyph, exists := f.Characters[r]; exists {
+			for i, line := range glyph {
+				if line != "" {
+					t.Errorf("German char %d line %d should be empty, got %q", r, i, line)
+				}
+			}
+		} else {
+			t.Errorf("German character %d not found", r)
+		}
+	}
+}
+
+func validateGermanCharactersAbsent(t *testing.T, f *Font) {
+	t.Helper()
+	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
+	for _, r := range deutschChars {
+		if _, exists := f.Characters[r]; exists {
+			t.Errorf("German character %d should not exist in partial font", r)
+		}
+	}
+}
+
 // TestParseGlyphs_RequiredDeutschCharacters tests that the parser correctly
 // handles the 7 required German characters after ASCII 126, as specified in
 // the FIGfont v2 specification (lines 1046-1060).
@@ -19,26 +91,9 @@ func TestParseGlyphs_RequiredDeutschCharacters(t *testing.T) {
 			name:  "all_102_required_characters",
 			input: generateFontWithDeutschCharacters(),
 			validate: func(t *testing.T, f *Font) {
-				// Should have exactly 102 characters (95 ASCII + 7 German)
-				if len(f.Characters) != 102 {
-					t.Errorf("Expected 102 characters, got %d", len(f.Characters))
-				}
-
-				// Check all ASCII characters are present
-				for r := rune(32); r <= 126; r++ {
-					if _, exists := f.Characters[r]; !exists {
-						t.Errorf("Missing ASCII character %d (%c)", r, r)
-					}
-				}
-
-				// Check all German characters are present
-				deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
-				deutschNames := []string{"Ä", "Ö", "Ü", "ä", "ö", "ü", "ß"}
-				for i, r := range deutschChars {
-					if _, exists := f.Characters[r]; !exists {
-						t.Errorf("Missing German character %d (%s)", r, deutschNames[i])
-					}
-				}
+				validateCharacterCount(t, f, 102)
+				validateAllASCIICharacters(t, f)
+				validateAllGermanCharacters(t, f)
 			},
 		},
 		{
@@ -76,29 +131,8 @@ func TestParseGlyphs_RequiredDeutschCharacters(t *testing.T) {
  / _ \@
 | |_/ @@`,
 			validate: func(t *testing.T, f *Font) {
-				// Check German Ä (196)
-				if glyph, exists := f.Characters[196]; exists {
-					if len(glyph) != 3 {
-						t.Errorf("German Ä should have 3 lines, got %d", len(glyph))
-					}
-					if glyph[0] != " _   _ " {
-						t.Errorf("German Ä line 0 = %q, want %q", glyph[0], " _   _ ")
-					}
-				} else {
-					t.Error("German Ä (196) not found")
-				}
-
-				// Check German ß (223)
-				if glyph, exists := f.Characters[223]; exists {
-					if len(glyph) != 3 {
-						t.Errorf("German ß should have 3 lines, got %d", len(glyph))
-					}
-					if glyph[0] != "  ___ " {
-						t.Errorf("German ß line 0 = %q, want %q", glyph[0], "  ___ ")
-					}
-				} else {
-					t.Error("German ß (223) not found")
-				}
+				validateGermanCharacter(t, f, 196, []string{" _   _ ", "(_) (_)", "|_| |_|"}, "Ä")
+				validateGermanCharacter(t, f, 223, []string{"  ___ ", " / _ \\", "| |_/ "}, "ß")
 			},
 		},
 		{
@@ -122,19 +156,7 @@ func TestParseGlyphs_RequiredDeutschCharacters(t *testing.T) {
 @@
 @@`,
 			validate: func(t *testing.T, f *Font) {
-				// All German characters should be empty (zero-width)
-				deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
-				for _, r := range deutschChars {
-					if glyph, exists := f.Characters[r]; exists {
-						for i, line := range glyph {
-							if line != "" {
-								t.Errorf("German char %d line %d should be empty, got %q", r, i, line)
-							}
-						}
-					} else {
-						t.Errorf("German character %d not found", r)
-					}
-				}
+				validateGermanCharactersEmpty(t, f)
 			},
 		},
 		{
@@ -144,18 +166,8 @@ func TestParseGlyphs_RequiredDeutschCharacters(t *testing.T) {
  @@
 ` + strings.Repeat("x@\nx@@\n", 94), // Only ASCII 33-126, no German chars
 			validate: func(t *testing.T, f *Font) {
-				// Should have 95 ASCII characters
-				if len(f.Characters) != 95 {
-					t.Errorf("Expected 95 ASCII characters, got %d", len(f.Characters))
-				}
-
-				// German characters should NOT be present (graceful degradation)
-				deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
-				for _, r := range deutschChars {
-					if _, exists := f.Characters[r]; exists {
-						t.Errorf("German character %d should not exist in partial font", r)
-					}
-				}
+				validateCharacterCount(t, f, 95)
+				validateGermanCharactersAbsent(t, f)
 			},
 		},
 	}

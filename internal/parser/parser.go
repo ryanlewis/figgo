@@ -20,10 +20,17 @@ const (
 	firstNonSpaceASCII = 33
 	// lastPrintableASCII is the last printable ASCII character (~)
 	lastPrintableASCII = 126
+
+	// Buffer size constants
+	defaultBufferSize = 64 * 1024
+	maxBufferSize     = 4 * 1024 * 1024
+
+	// ASCII threshold for fast-path optimization
+	asciiThreshold = 0x80
 )
 
 // Font represents a parsed FIGfont with all its metadata and character glyphs.
-type Font struct { //nolint:govet // Field order optimized for clarity
+type Font struct {
 	// Characters maps ASCII codes to their glyph representations
 	Characters map[rune][]string
 
@@ -65,7 +72,7 @@ type Font struct { //nolint:govet // Field order optimized for clarity
 func Parse(r io.Reader) (*Font, error) {
 	scanner := bufio.NewScanner(r)
 	// Increase buffer size for large fonts (default is 64KB, set max to 4MB)
-	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
 
 	// Parse header and comments first
 	font, err := parseHeaderWithScanner(scanner)
@@ -87,7 +94,7 @@ func Parse(r io.Reader) (*Font, error) {
 func ParseHeader(r io.Reader) (*Font, error) {
 	scanner := bufio.NewScanner(r)
 	// Increase buffer size for large fonts
-	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
 	return parseHeaderWithScanner(scanner)
 }
 
@@ -276,7 +283,7 @@ func parseOptionalFields(fields []string, font *Font) error {
 			font.CodetagCount = val
 		}
 	}
-	
+
 	return nil
 }
 
@@ -349,7 +356,7 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 
 	// Fast-path for ASCII endmarks (common case)
 	lastByte := line[len(line)-1]
-	if lastByte < 0x80 {
+	if lastByte < asciiThreshold {
 		// ASCII character - do byte-wise operations for speed
 		i := len(line) - 1
 		for i >= 0 && line[i] == lastByte {
@@ -387,12 +394,12 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 }
 
 // parseGlyph parses a single character glyph
-func parseGlyph(scanner *bufio.Scanner, height int, maxLength int) ([]string, error) {
+func parseGlyph(scanner *bufio.Scanner, height, maxLength int) ([]string, error) {
 	glyph := make([]string, 0, height)
 	var width int
 	var widthSet bool
 	var firstRowByteLen int
-	var allASCII bool = true
+	allASCII := true
 
 	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
@@ -404,7 +411,7 @@ func parseGlyph(scanner *bufio.Scanner, height int, maxLength int) ([]string, er
 
 		// Get the raw line for MaxLength validation
 		rawLine := scanner.Text()
-		
+
 		// Validate MaxLength (spec defines it as maximum line length in font file)
 		// We check the raw line length before stripping endmarks
 		if len(rawLine) > maxLength {
@@ -437,7 +444,7 @@ func parseGlyph(scanner *bufio.Scanner, height int, maxLength int) ([]string, er
 					allASCII = false
 				}
 			}
-			
+
 			if w != width {
 				return nil, fmt.Errorf("inconsistent row width in glyph: row %d has %d, expected %d", row+1, w, width)
 			}

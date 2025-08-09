@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+const (
+	// Test content constants
+	testContent = "test"
+	dataContent = "data"
+	endContent  = "end!"
+)
+
 // Helper function to get a glyph for a character, with better error reporting
 func mustGlyph(t *testing.T, f *Font, char rune) []string {
 	t.Helper()
@@ -25,11 +32,11 @@ func TestParseGlyphs_CRLF(t *testing.T) {
 	}
 
 	space := mustGlyph(t, font, ' ')
-	if space[0] != "test" {
-		t.Errorf("Line 0 = %q, want %q", space[0], "test")
+	if space[0] != testContent {
+		t.Errorf("Line 0 = %q, want %q", space[0], testContent)
 	}
-	if space[1] != "data" {
-		t.Errorf("Line 1 = %q, want %q", space[1], "data")
+	if space[1] != dataContent {
+		t.Errorf("Line 1 = %q, want %q", space[1], dataContent)
 	}
 }
 
@@ -65,7 +72,7 @@ test@@
     @@@@
 data##
 `,
-			expected: []string{"test", "    ", "data"},
+			expected: []string{testContent, "    ", dataContent},
 		},
 	}
 
@@ -112,9 +119,9 @@ func TestParseGlyphs_VeryLongLine(t *testing.T) {
 // TestParseHeader_HardblankValidation tests that invalid hardblank characters are rejected
 func TestParseHeader_HardblankValidation(t *testing.T) {
 	tests := []struct {
+		wantErr     bool
 		name        string
 		input       string
-		wantErr     bool
 		errContains string
 	}{
 		{
@@ -219,7 +226,7 @@ func TestParseHeader_PrintDirectionValidation(t *testing.T) {
 			t.Helper()
 			r := strings.NewReader(tt.input)
 			font, err := ParseHeader(r)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Fatalf("ParseHeader() expected error for invalid print direction, got nil")
@@ -251,14 +258,14 @@ func TestStripTrailingRun_InvalidUTF8(t *testing.T) {
 		{
 			name:        "valid_utf8",
 			input:       "test@@",
-			wantBody:    "test",
+			wantBody:    testContent,
 			wantEndmark: '@',
 			wantRunLen:  2,
 		},
 		{
 			name:        "invalid_utf8_at_end",
 			input:       "test\xff\xff\xff",
-			wantBody:    "test",
+			wantBody:    testContent,
 			wantEndmark: rune(0xff),
 			wantRunLen:  3,
 		},
@@ -290,9 +297,9 @@ func TestStripTrailingRun_InvalidUTF8(t *testing.T) {
 // TestParseHeader_AllValidations tests all header validations together
 func TestParseHeader_AllValidations(t *testing.T) {
 	tests := []struct {
+		wantErr     bool
 		name        string
 		input       string
-		wantErr     bool
 		errContains string
 	}{
 		{
@@ -364,4 +371,3 @@ func TestParseHeader_AllValidations(t *testing.T) {
 		})
 	}
 }
-

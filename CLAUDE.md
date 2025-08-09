@@ -103,3 +103,13 @@ The project uses GitHub Actions for CI with the following jobs:
 ## Current Status
 
 The CLI at `cmd/figgo/main.go` is a work-in-progress stub. Core library functionality for font parsing and rendering is being implemented according to the Product Requirements Document (`docs/prd.md`).
+
+### Recent Updates (Issue #6 - Glyph Parser)
+
+The glyph parser is now **fully spec-compliant** with FIGfont v2:
+- ✅ Parses all 102 required characters: ASCII 32-126 (95) + German 196,214,220,228,246,252,223 (7)
+- ✅ Dynamic endmark detection from glyph data
+- ✅ Support for empty FIGcharacters (zero-width)
+- ✅ Handles single/double/multiple endmarks correctly
+- ✅ Unicode support for hardblank and endmark characters
+- ✅ Graceful handling of partial fonts (backward compatibility)

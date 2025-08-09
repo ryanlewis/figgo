@@ -8,9 +8,9 @@ import (
 // TestParseGlyph_MaxLengthValidation tests that MaxLength is properly enforced
 func TestParseGlyph_MaxLengthValidation(t *testing.T) {
 	tests := []struct {
+		expectError bool
 		name        string
 		input       string
-		expectError bool
 		errContains string
 	}{
 		{
@@ -69,10 +69,8 @@ data@@@@@@@@@@
 				if !strings.Contains(err.Error(), tt.errContains) {
 					t.Errorf("Parse() error = %v, want error containing %q", err, tt.errContains)
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("Parse() unexpected error = %v", err)
-				}
+			} else if err != nil {
+				t.Fatalf("Parse() unexpected error = %v", err)
 			}
 		})
 	}

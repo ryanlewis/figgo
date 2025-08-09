@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestRenderDefaulting verifies that Render uses the font's default layout and direction
-// when no options are provided.
-func TestRenderDefaulting(t *testing.T) {
-	// Create a minimal font for testing
+// createTestFont creates a minimal font for testing
+func createTestFont(t *testing.T) *Font {
 	fontData := `flf2a$ 4 3 10 -1 1
 Test font
 $@
@@ -36,22 +34,38 @@ o@@
 	if err != nil {
 		t.Fatalf("ParseFontBytes() error = %v", err)
 	}
+	return font
+}
+
+// skipIfRendererNotImplemented skips the test if renderer is not yet implemented
+func skipIfRendererNotImplemented(t *testing.T, err error) {
+	if err != nil && strings.Contains(err.Error(), "not yet implemented") {
+		t.Skip("Renderer not yet implemented")
+	}
+}
+
+// verifyRenderOutput checks that render produced valid output
+func verifyRenderOutput(t *testing.T, output string, err error, context string) {
+	skipIfRendererNotImplemented(t, err)
+	if err != nil {
+		t.Errorf("Render() %s error = %v", context, err)
+	}
+	if output == "" {
+		t.Errorf("Render() %s returned empty output", context)
+	}
+}
+
+// TestRenderDefaulting verifies that Render uses the font's default layout and direction
+// when no options are provided.
+func TestRenderDefaulting(t *testing.T) {
+	font := createTestFont(t)
 
 	// Test that Render works with no options (should use font's defaults)
 	t.Run("render with font defaults", func(t *testing.T) {
 		output, err := Render("Hello", font)
-		// Skip if renderer not implemented yet
-		if err != nil && strings.Contains(err.Error(), "not yet implemented") {
-			t.Skip("Renderer not yet implemented")
-		}
-		if err != nil {
-			t.Errorf("Render() error = %v", err)
-		}
-		if output == "" {
-			t.Error("Render() returned empty output")
-		}
+		verifyRenderOutput(t, output, err, "with defaults")
 		// Verify we got some ASCII art back
-		if !strings.Contains(output, "H") || !strings.Contains(output, "e") {
+		if err == nil && (!strings.Contains(output, "H") || !strings.Contains(output, "e")) {
 			t.Errorf("Render() output doesn't seem to contain expected characters: %q", output)
 		}
 	})
@@ -73,31 +87,13 @@ o@@
 	// Test with explicit layout option to verify overrides work
 	t.Run("render with layout override", func(t *testing.T) {
 		output, err := Render("Hello", font, WithLayout(FitKerning))
-		// Skip if renderer not implemented yet
-		if err != nil && strings.Contains(err.Error(), "not yet implemented") {
-			t.Skip("Renderer not yet implemented")
-		}
-		if err != nil {
-			t.Errorf("Render() with layout override error = %v", err)
-		}
-		if output == "" {
-			t.Error("Render() with layout override returned empty output")
-		}
+		verifyRenderOutput(t, output, err, "with layout override")
 	})
 
 	// Test with print direction override
 	t.Run("render with direction override", func(t *testing.T) {
 		output, err := Render("Hello", font, WithPrintDirection(1)) // RTL
-		// Skip if renderer not implemented yet
-		if err != nil && strings.Contains(err.Error(), "not yet implemented") {
-			t.Skip("Renderer not yet implemented")
-		}
-		if err != nil {
-			t.Errorf("Render() with direction override error = %v", err)
-		}
-		if output == "" {
-			t.Error("Render() with direction override returned empty output")
-		}
+		verifyRenderOutput(t, output, err, "with direction override")
 	})
 }
 

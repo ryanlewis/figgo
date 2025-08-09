@@ -67,15 +67,15 @@ func LoadFont(path string) (*Font, error) {
 		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
 	defer file.Close()
-	
+
 	font, err := ParseFont(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font %s: %w", path, err)
 	}
-	
+
 	// Set font name based on filename (without extension)
 	font.Name = deriveNameFromPath(path, true)
-	
+
 	return font, nil
 }
 
@@ -136,17 +136,17 @@ func deriveNameFromPath(filePath string, useOSPath bool) string {
 		base = path.Base(filePath)
 		ext = path.Ext(filePath)
 	}
-	
+
 	// Early return if no extension
 	if ext == "" {
 		return base
 	}
-	
+
 	// Handle both .flf and .flc extensions (for potential future control file support)
 	if ext == ".flf" || ext == ".flc" {
 		return strings.TrimSuffix(base, ext)
 	}
-	
+
 	// Fallback: remove any extension
 	return strings.TrimSuffix(base, ext)
 }
@@ -161,7 +161,7 @@ func deriveNameFromPath(filePath string, useOSPath bool) string {
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func LoadFontDir(dir string, fontName string) (*Font, error) {
+func LoadFontDir(dir, fontName string) (*Font, error) {
 	fsys := os.DirFS(dir)
 	return LoadFontFS(fsys, fontName)
 }
@@ -326,7 +326,7 @@ func convertToParserFont(f *Font) *parser.Font {
 		// IMPORTANT: We pass glyphs directly without cloning. The renderer MUST NOT
 		// mutate this map or its contents to maintain Font immutability guarantees.
 		// If mutation becomes necessary, add defensive cloning here (with performance note).
-		Characters:     f.glyphs,
+		Characters: f.glyphs,
 	}
 }
 

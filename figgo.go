@@ -24,6 +24,13 @@ import (
 	"github.com/ryanlewis/figgo/internal/renderer"
 )
 
+const (
+	// maxZipSize is the maximum size of a ZIP archive we'll accept (5 MiB)
+	maxZipSize = 5 << 20 // 5 MiB
+	// maxEntrySize is the maximum size of a single font file in a ZIP (5 MiB)
+	maxEntrySize = 5 << 20 // 5 MiB
+)
+
 // ParseFont reads a FIGfont from the provided reader and returns a Font instance.
 // The returned Font is immutable and safe for concurrent use across goroutines.
 //
@@ -68,10 +75,14 @@ func ParseFont(r io.Reader) (*Font, error) {
 	// Check for ZIP magic bytes (including empty archive signature)
 	if n == zipMagicLen && (bytes.Equal(magic, []byte("PK\x03\x04")) ||
 		bytes.Equal(magic, []byte("PK\x05\x06"))) {
-		// Handle as ZIP file - need to read all for zip.NewReader
-		data, readErr := io.ReadAll(combined)
+		// Handle as ZIP file - limit size to prevent ZIP bombs
+		limited := io.LimitReader(combined, maxZipSize+1)
+		data, readErr := io.ReadAll(limited)
 		if readErr != nil {
 			return nil, fmt.Errorf("failed to read ZIP data: %w", readErr)
+		}
+		if len(data) > maxZipSize {
+			return nil, fmt.Errorf("ZIP archive exceeds maximum size of %d bytes", maxZipSize)
 		}
 		return parseCompressedFont(data)
 	}
@@ -87,6 +98,11 @@ func ParseFont(r io.Reader) (*Font, error) {
 
 // parseCompressedFont extracts and parses a FIGfont from ZIP data
 func parseCompressedFont(data []byte) (*Font, error) {
+	// Check total archive size first
+	if len(data) > maxZipSize {
+		return nil, fmt.Errorf("ZIP archive exceeds maximum size of %d bytes", maxZipSize)
+	}
+
 	// Create a reader for the ZIP data
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -111,15 +127,30 @@ func parseCompressedFont(data []byte) (*Font, error) {
 		return nil, errors.New("ZIP archive contains only directories, no font files")
 	}
 
-	// Open and read the font file
+	// Check the uncompressed size from metadata
+	if fontFile.UncompressedSize64 > uint64(maxEntrySize) {
+		return nil, fmt.Errorf("font file exceeds maximum size of %d bytes", maxEntrySize)
+	}
+
+	// Open the font file
 	rc, err := fontFile.Open()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open font file in ZIP: %w", err)
 	}
 	defer rc.Close()
 
+	// Read with size limit to prevent bombs regardless of metadata
+	limited := io.LimitReader(rc, int64(maxEntrySize)+1)
+	fontData, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read font file from ZIP: %w", err)
+	}
+	if len(fontData) > maxEntrySize {
+		return nil, fmt.Errorf("font file exceeds maximum size of %d bytes", maxEntrySize)
+	}
+
 	// Parse the extracted font data
-	pf, err := parser.Parse(rc)
+	pf, err := parser.Parse(bytes.NewReader(fontData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font from ZIP: %w", err)
 	}

@@ -6,44 +6,6 @@ import (
 	"testing"
 )
 
-// Helper function to validate a specific character's glyph
-func validateCharacterGlyph(t *testing.T, f *Font, char rune, expected []string, charName string) {
-	t.Helper()
-	glyph, exists := f.Characters[char]
-	if !exists {
-		t.Fatalf("%s character not found", charName)
-	}
-	if len(glyph) != len(expected) {
-		t.Errorf("%s glyph length = %d, want %d", charName, len(glyph), len(expected))
-		return
-	}
-	for i, expectedLine := range expected {
-		if glyph[i] != expectedLine {
-			t.Errorf("%s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
-		}
-	}
-}
-
-// Helper for validating multiple character glyphs in sequence
-func validateMultipleGlyphs(t *testing.T, f *Font, validations []glyphValidation) {
-	t.Helper()
-	for _, v := range validations {
-		validateCharacterGlyph(t, f, v.char, v.expected, v.name)
-	}
-}
-
-type glyphValidation struct {
-	char     rune
-	name     string
-	expected []string
-}
-
-// Helper specifically for validating space character (commonly used)
-func validateSpaceGlyphWithLines(t *testing.T, f *Font, expected []string) {
-	t.Helper()
-	validateCharacterGlyph(t, f, ' ', expected, "space")
-}
-
 // TestParseGlyphs_StripEntireTrailingRun tests that the parser strips the ENTIRE
 // trailing run of the endmark character, not just 1 or 2 occurrences.
 // Per spec: "eliminate the last block of consecutive equal characters"
@@ -61,7 +23,7 @@ data######
 end!$$$$$$$
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent, "end!"})
+				ValidateSpace(t, f, []string{testContent, dataContent, "end!"})
 			},
 		},
 		{
@@ -71,7 +33,7 @@ hello@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 world@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{"hello", "world"})
+				ValidateSpace(t, f, []string{"hello", "world"})
 			},
 		},
 		{
@@ -81,7 +43,7 @@ te@st@@@
 da@ta@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{"te@st", "da@ta"})
+				ValidateSpace(t, f, []string{"te@st", "da@ta"})
 			},
 		},
 	}
@@ -120,10 +82,10 @@ foo$$
 bar$$
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateMultipleGlyphs(t, f, []glyphValidation{
-					{' ', "space", []string{testContent, dataContent}},
-					{'!', "exclamation", []string{"next", "line"}},
-					{'"', "quote", []string{"foo", "bar"}},
+				ValidateMultipleChars(t, f, []CharValidation{
+					{Char: ' ', Name: "space", Expected: []string{testContent, dataContent}},
+					{Char: '!', Name: "exclamation", Expected: []string{"next", "line"}},
+					{Char: '"', Name: "quote", Expected: []string{"foo", "bar"}},
 				})
 			},
 		},
@@ -136,9 +98,9 @@ data@@
 @pic##
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateMultipleGlyphs(t, f, []glyphValidation{
-					{' ', "space", []string{testContent, dataContent}},
-					{'!', "exclamation", []string{"@art", "@pic"}},
+				ValidateMultipleChars(t, f, []CharValidation{
+					{Char: ' ', Name: "space", Expected: []string{testContent, dataContent}},
+					{Char: '!', Name: "exclamation", Expected: []string{"@art", "@pic"}},
 				})
 			},
 		},
@@ -171,21 +133,21 @@ func TestParseGlyphs_MultiByteEndmark(t *testing.T) {
 			name:  "emoji_endmark",
 			input: "flf2a@ 2 2 12 0 0\ntest😀😀\ndata😀😀\n",
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent})
+				ValidateSpace(t, f, []string{testContent, dataContent})
 			},
 		},
 		{
 			name:  "chinese_character_endmark",
 			input: "flf2a@ 2 2 14 0 0\nhello中中中\nworld中中中\n",
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{"hello", "world"})
+				ValidateSpace(t, f, []string{"hello", "world"})
 			},
 		},
 		{
 			name:  "mixed_endmarks_with_multibyte",
 			input: "flf2a@ 3 3 13 0 0\ntest@@\ndata££\nend!世世世\n",
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent, "end!"})
+				ValidateSpace(t, f, []string{testContent, dataContent, "end!"})
 			},
 		},
 	}
@@ -335,13 +297,13 @@ func TestParseGlyphs_PartialFontEOF(t *testing.T) {
 	}
 
 	// Space should be parsed
-	space := mustGlyph(t, f, ' ')
+	space := MustGetChar(t, f, ' ')
 	if space[0] != "sp" || space[1] != "ce" {
 		t.Errorf("space = %v, want [sp, ce]", space)
 	}
 
 	// '!' should be parsed
-	excl := mustGlyph(t, f, '!')
+	excl := MustGetChar(t, f, '!')
 	if excl[0] != "ex" || excl[1] != "cl" {
 		t.Errorf("! = %v, want [ex, cl]", excl)
 	}
@@ -359,7 +321,7 @@ func TestParseGlyphs_EmptyRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	space := mustGlyph(t, f, ' ')
+	space := MustGetChar(t, f, ' ')
 	if space[0] != "" || space[1] != "" {
 		t.Fatalf("expected empty rows, got %q", space)
 	}
@@ -382,7 +344,7 @@ func TestParseGlyphs_InvalidUTF8Endmark(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	space := mustGlyph(t, f, ' ')
+	space := MustGetChar(t, f, ' ')
 	if space[0] != "x" {
 		t.Fatalf("got %q, want \"x\"", space[0])
 	}

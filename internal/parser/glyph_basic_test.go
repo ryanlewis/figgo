@@ -16,23 +16,6 @@ func parseAndValidate(t *testing.T, input string) *Font {
 	return font
 }
 
-// validateSpaceGlyph validates the space character glyph
-func validateSpaceGlyph(t *testing.T, font *Font, expectedLines []string) {
-	t.Helper()
-	space, exists := font.Characters[' ']
-	if !exists {
-		t.Fatal("Space character not found")
-	}
-	if len(space) != len(expectedLines) {
-		t.Errorf("Space has %d lines, want %d", len(space), len(expectedLines))
-	}
-	for i, expected := range expectedLines {
-		if i < len(space) && space[i] != expected {
-			t.Errorf("Space line %d = %q, want %q", i, space[i], expected)
-		}
-	}
-}
-
 // TestParseGlyphs_SingleGlyph tests parsing a single glyph
 func TestParseGlyphs_SingleGlyph(t *testing.T) {
 	input := `flf2a$ 3 2 10 0 1
@@ -50,7 +33,7 @@ Single line comment
 		t.Errorf("Height = %d, want %d", font.Height, 3)
 	}
 
-	validateSpaceGlyph(t, font, []string{"  _ ", " | |", " |_|"})
+	ValidateSpace(t, font, []string{"  _ ", " | |", " |_|"})
 }
 
 // TestParseGlyphs_MultipleGlyphs tests parsing multiple glyphs
@@ -67,7 +50,7 @@ func TestParseGlyphs_MultipleGlyphs(t *testing.T) {
 		t.Errorf("Hardblank = %q, want %q", font.Hardblank, '#')
 	}
 
-	validateSpaceGlyph(t, font, []string{" ", "!"})
+	ValidateSpace(t, font, []string{" ", "!"})
 
 	// Check exclamation mark (ASCII 33)
 	excl, exists := font.Characters['!']
@@ -108,7 +91,7 @@ func TestParseGlyphs_EmptyLines(t *testing.T) {
    @@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"   ", "   ", "   ", "   "})
+	ValidateSpace(t, font, []string{"   ", "   ", "   ", "   "})
 }
 
 // TestParseGlyphs_TrailingSpaces tests glyph with trailing spaces
@@ -118,7 +101,7 @@ test   @
 line   @@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"test   ", "line   "})
+	ValidateSpace(t, font, []string{"test   ", "line   "})
 }
 
 // TestParseGlyphs_UnicodeEndmark tests unicode endmark handling
@@ -129,7 +112,7 @@ func TestParseGlyphs_UnicodeEndmark(t *testing.T) {
 	if font.Hardblank != '£' {
 		t.Errorf("Hardblank = %q, want %q", font.Hardblank, '£')
 	}
-	validateSpaceGlyph(t, font, []string{"test", "data"})
+	ValidateSpace(t, font, []string{"test", "data"})
 }
 
 // TestParseGlyphs_HardblankInGlyph tests hardblank preservation in glyphs
@@ -139,7 +122,7 @@ te$t@@
 da$t@@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"te$t", "da$t"})
+	ValidateSpace(t, font, []string{"te$t", "da$t"})
 }
 
 // TestParseGlyphs_DoubleEndmark tests that ALL trailing endmarks are stripped
@@ -151,7 +134,7 @@ data@@@
 	font := parseAndValidate(t, input)
 	// Per spec: "eliminate the last block of consecutive equal characters"
 	// So test@@ becomes test, data@@@ becomes data
-	validateSpaceGlyph(t, font, []string{"test", "data"})
+	ValidateSpace(t, font, []string{"test", "data"})
 }
 
 // TestParseGlyphs_EndmarkOnlyLines tests endmark-only lines
@@ -163,7 +146,7 @@ func TestParseGlyphs_EndmarkOnlyLines(t *testing.T) {
 `
 	font := parseAndValidate(t, input)
 	// Lines with ONLY endmarks should be empty (zero-width)
-	validateSpaceGlyph(t, font, []string{"", "", ""})
+	ValidateSpace(t, font, []string{"", "", ""})
 }
 
 // TestParseGlyphs_ErrorCases tests error handling

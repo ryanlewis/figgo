@@ -137,9 +137,24 @@ func TestRenderFullWidth(t *testing.T) {
 			want: " AA BBB \nA  AB  B\nA  ABBB ",
 		},
 		{
-			name: "unsupported rune error",
-			text: "~",
-			font: createMinimalFont(),
+			name: "unsupported rune error - missing question mark",
+			text: "?",
+			font: &parser.Font{
+				Hardblank:      '$',
+				Height:         3,
+				Baseline:       2,
+				MaxLength:      5,
+				OldLayout:      -1,
+				PrintDirection: 0,
+				Characters: map[rune][]string{
+					// No '?' glyph - should error
+					'H': {
+						"H  H ",
+						"HHHH ",
+						"H  H ",
+					},
+				},
+			},
 			opts: &Options{
 				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
@@ -629,8 +644,9 @@ func TestRenderKerning(t *testing.T) {
 				Layout:         common.FitKerning,
 				PrintDirection: 1, // RTL
 			},
-			// Should kern first, then reverse
-			want: " V   V A  \n  V V  A A \n   V   A   A",
+			// RTL composes glyphs in reverse order (V then A), not mirrored
+			// V first, then A with kerning
+			want: "V   V   A   \n V V  A A  \n  V A   A ",
 		},
 	}
 
@@ -682,10 +698,8 @@ func TestRenderKerningWithHardblanks(t *testing.T) {
 			text: "XY",
 			// Hardblanks should be treated as visible for collision detection
 			// But replaced with spaces in final output
-			// Row 0: X ends at 4, Y starts at 0, need 1 space
-			// Row 1: X ends at 4, Y starts at 0, need 1 space
-			// Row 2: X ends at 4, Y starts at 2, need 3 spaces
-			want: "X   X Y   Y\n X X   Y Y \nX   X   Y  ",
+			// All hardblanks count as visible, preventing any kerning
+			want: "X   XY   Y\n X X  Y Y \nX   X  Y  ",
 		},
 	}
 
@@ -701,6 +715,77 @@ func TestRenderKerningWithHardblanks(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("Render() with hardblanks:\ngot:\n%q\nwant:\n%q", got, tt.want)
+				t.Logf("Visual:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderKerningZeroGap(t *testing.T) {
+	// Test that glyphs can touch (zero gap) when they don't collide
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      4,
+		OldLayout:      0, // kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'L': {
+				"L   ",
+				"L   ",
+				"LLL ",
+			},
+			'J': {
+				"  J ",
+				"  J ",
+				"JJJ ",
+			},
+			'T': {
+				"TTT ",
+				" T  ",
+				" T  ",
+			},
+			'I': {
+				" I  ",
+				" I  ",
+				" I  ",
+			},
+		},
+	}
+
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "L and J can touch - perfect fit",
+			text: "LJ",
+			// L ends at col 2 on row 2, J starts at col 0 - actually touching!
+			want: "L  J \nL  J \nLLLJJJ ",
+		},
+		{
+			name: "T and I - zero gap possible",
+			text: "TI",
+			// T ends at col 2 on row 0, I starts at col 1 - but row 1 and 2
+			// have T ending at col 1, I starting at col 1 - zero gap (touching)
+			want: "TTT I  \n T I  \n T I  ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Render(tt.text, font, &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			})
+			if err != nil {
+				t.Errorf("Render() error = %v", err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Render() zero-gap mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
 				t.Logf("Visual:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
 			}
 		})
@@ -735,8 +820,8 @@ func TestRenderKerningDefaultFromFont(t *testing.T) {
 	}
 
 	// Kerning should tighten I and T
-	// I ends at col 1, T starts at col 0, need 1 space minimum
-	want := " I TTT\n I  T "
+	// I ends at col 1, T starts at col 0 - touching allowed
+	want := " ITTT\n I T "
 	if got != want {
 		t.Errorf("Render() with default kerning:\ngot:\n%q\nwant:\n%q", got, want)
 	}

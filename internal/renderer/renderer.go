@@ -227,20 +227,12 @@ func reverseBytes(b []byte) {
 	}
 }
 
-// lookupGlyph finds a glyph for a rune, with fallback to '?' or space
+// lookupGlyph finds a glyph for a rune in the font
+// Returns ErrUnsupportedRune if the glyph is missing (no fallback)
 func lookupGlyph(font *parser.Font, r rune, h int) ([]string, error) {
 	glyph, ok := font.Characters[r]
 	if !ok {
-		// Try '?' as fallback
-		if r == '?' {
-			if spaceGlyph, hasSpace := font.Characters[' ']; hasSpace {
-				glyph = spaceGlyph
-				ok = true
-			}
-		}
-		if !ok {
-			return nil, common.ErrUnsupportedRune
-		}
+		return nil, common.ErrUnsupportedRune
 	}
 
 	if len(glyph) != h {
@@ -258,6 +250,7 @@ func appendGlyph(lines [][]byte, glyph []string) {
 }
 
 // findRightmostVisible finds the rightmost non-space character in a line
+// Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
 func findRightmostVisible(line []byte) int {
 	for j := len(line) - 1; j >= 0; j-- {
 		if line[j] != ' ' {
@@ -268,6 +261,7 @@ func findRightmostVisible(line []byte) int {
 }
 
 // findLeftmostVisible finds the leftmost non-space character in a string
+// Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
 func findLeftmostVisible(s string) int {
 	for j := 0; j < len(s); j++ {
 		if s[j] != ' ' {
@@ -277,40 +271,39 @@ func findLeftmostVisible(s string) int {
 	return len(s)
 }
 
-// calculateKerningDistance calculates minimal safe distance between glyphs
+// calculateKerningDistance calculates the maximum required gap to avoid collision
+// Returns the maximum gap needed across all rows (touching is allowed when gap=0)
 func calculateKerningDistance(lines [][]byte, glyph []string, h int) int {
-	minDistance := -1
+	maxRequired := 0
 
 	for row := 0; row < h; row++ {
 		rightmost := findRightmostVisible(lines[row])
 		leftmost := findLeftmostVisible(glyph[row])
 
-		var rowDistance int
+		var need int
 		switch {
 		case rightmost == -1:
 			// Current line is all blanks
-			rowDistance = leftmost
+			need = leftmost
 		case leftmost == len(glyph[row]):
 			// New glyph line is all blanks
-			rowDistance = 0
+			need = 0
 		default:
 			// Both have visible characters
-			existingTrailingSpaces := len(lines[row]) - rightmost - 1
-			rowDistance = leftmost - existingTrailingSpaces
-			if rowDistance < 1 {
-				rowDistance = 1 // Always maintain at least 1 space
+			// Calculate: leftmost - trailing spaces in current line
+			trailing := len(lines[row]) - rightmost - 1
+			need = leftmost - trailing
+			if need < 0 {
+				need = 0 // Touching is allowed (zero gap valid)
 			}
 		}
 
-		if minDistance == -1 || rowDistance > minDistance {
-			minDistance = rowDistance
+		if need > maxRequired {
+			maxRequired = need
 		}
 	}
 
-	if minDistance < 0 {
-		minDistance = 0
-	}
-	return minDistance
+	return maxRequired
 }
 
 // applyKerning adds a glyph with calculated kerning distance
@@ -352,6 +345,13 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 	runes := []rune(text)
 	filterNonASCII(runes)
 
+	// For RTL, reverse the order of runes (not the glyphs themselves)
+	if printDir == 1 {
+		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+			runes[i], runes[j] = runes[j], runes[i]
+		}
+	}
+
 	// Build output line by line, character by character
 	const avgGlyphWidth = 5 // Average glyph width estimate
 	lines := make([][]byte, h)
@@ -370,7 +370,7 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 		case idx == 0:
 			// First character - just append as-is
 			appendGlyph(lines, glyph)
-		case r == ' ' || runes[idx-1] == ' ':
+		case r == ' ' || (idx > 0 && runes[idx-1] == ' '):
 			// Space character should be preserved as-is (no kerning)
 			// Also no kerning after a space
 			appendGlyph(lines, glyph)
@@ -383,13 +383,6 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 
 	// Replace hardblanks with spaces
 	replaceHardblanks(lines, byte(font.Hardblank))
-
-	// Apply print direction (1 = RTL)
-	if printDir == 1 {
-		for i := range lines {
-			reverseBytes(lines[i])
-		}
-	}
 
 	// Convert to strings and join
 	result := make([]string, h)

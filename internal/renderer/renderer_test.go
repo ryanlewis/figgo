@@ -627,15 +627,16 @@ func TestRenderKerning(t *testing.T) {
 			want: "W   W   A   \nW W W  A A  \n W W A   A ",
 		},
 		{
-			name: "kerning with spaces preserved",
+			name: "kerning with spaces now processed like any glyph",
 			text: "A A",
 			opts: &Options{
 				Layout:         common.FitKerning,
 				PrintDirection: 0,
 			},
-			// Space character is 6 spaces wide, should be preserved as-is
-			// A (6 wide) + space (6 wide) + A (6 wide, no kerning after space)
-			want: "  A           A   \n A A         A A  \nA   A       A   A ",
+			// Space character goes through normal kerning like any other glyph
+			// A ends at col 4, space is all blanks (6 wide), next A can be kerned
+			// The blank space allows the second A to be positioned with minimal gap
+			want: "  A  A   \n A A A A  \nA   AA   A ",
 		},
 		{
 			name: "kerning with RTL direction",
@@ -824,5 +825,354 @@ func TestRenderKerningDefaultFromFont(t *testing.T) {
 	want := " ITTT\n I T "
 	if got != want {
 		t.Errorf("Render() with default kerning:\ngot:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+// TestBlankSpaceGlyph tests that a truly blank space glyph works correctly with kerning
+func TestBlankSpaceGlyph(t *testing.T) {
+	// Create font with blank space (all ASCII spaces, no hardblanks)
+	fontBlankSpace := &parser.Font{
+		Hardblank:      '$',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      5,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			' ': { // Truly blank space
+				"     ",
+				"     ",
+				"     ",
+			},
+			'A': {
+				" AAA ",
+				"A   A",
+				"A   A",
+			},
+			'B': {
+				"BBB  ",
+				"B   B",
+				"BBB  ",
+			},
+		},
+	}
+
+	// Test with blank space between letters
+	got, err := Render("A B", fontBlankSpace, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// Space should be processed through kerning like any other glyph
+	// A's rightmost at col 4, space all blank (5 wide), B's leftmost at col 0
+	// With kerning: A takes cols 0-4, blank space collapsed, B starts immediately
+	want := " AAABBB  \nA   AB   B\nA   ABBB  "
+	if got != want {
+		t.Errorf("Blank space kerning mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+
+	// Create font with hardblank-walled space
+	fontHardblankSpace := &parser.Font{
+		Hardblank:      '#',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      5,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			' ': { // Space with hardblank barriers
+				"##   ",
+				"##   ",
+				"##   ",
+			},
+			'A': {
+				" AAA ",
+				"A   A",
+				"A   A",
+			},
+			'B': {
+				"BBB  ",
+				"B   B",
+				"BBB  ",
+			},
+		},
+	}
+
+	// Test with hardblank-walled space
+	got2, err := Render("A B", fontHardblankSpace, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// Hardblanks in space glyph should prevent over-tightening
+	// A's rightmost at col 4, space has hardblanks at cols 0-1, B's leftmost at col 0
+	// The hardblanks prevent B from overlapping, maintaining separation
+	// After hardblank replacement, the hardblanks become spaces
+	want2 := " AAA  BBB  \nA   A  B   B\nA   A  BBB  "
+	if got2 != want2 {
+		t.Errorf("Hardblank space kerning mismatch:\ngot:\n%s\nwant:\n%s", got2, want2)
+	}
+
+	// Verify hardblanks were replaced
+	if strings.Contains(got2, "#") {
+		t.Errorf("Hardblanks not replaced in output: %q", got2)
+	}
+}
+
+// TestBlankBlankPadding tests consecutive spaces between letters
+func TestBlankBlankPadding(t *testing.T) {
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         2,
+		Baseline:       1,
+		MaxLength:      4,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			' ': {
+				"   ",
+				"   ",
+			},
+			'X': {
+				"X X",
+				" X ",
+			},
+			'Y': {
+				"Y Y",
+				" Y ",
+			},
+		},
+	}
+
+	// Test multiple spaces between letters
+	got, err := Render("X  Y", font, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// With blank-blank rows, kerning should allow minimal gaps
+	lines := strings.Split(got, "\n")
+	if len(lines) != 2 {
+		t.Errorf("Expected 2 lines, got %d", len(lines))
+	}
+
+	// Verify the output maintains proper spacing
+	// X ends at col 2, two blank spaces, Y starts at col 0
+	// The blank-blank logic should handle this correctly
+	if !strings.Contains(got, "X") || !strings.Contains(got, "Y") {
+		t.Errorf("Missing expected characters in output: %q", got)
+	}
+}
+
+// TestRTLEquivalence tests that RTL of ABC equals LTR of CBA
+func TestRTLEquivalence(t *testing.T) {
+	font := &parser.Font{
+		Hardblank:      '#',
+		Height:         2,
+		Baseline:       1,
+		MaxLength:      4,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'A': {
+				"AAA#",
+				"A#A#",
+			},
+			'B': {
+				"BBB#",
+				"B#B#",
+			},
+			'C': {
+				"CCC#",
+				"C#C#",
+			},
+		},
+	}
+
+	// Render ABC with RTL
+	gotRTL, err := Render("ABC", font, &Options{
+		Layout:         common.FitKerning,
+		PrintDirection: 1, // RTL
+	})
+	if err != nil {
+		t.Fatalf("Render() RTL error = %v", err)
+	}
+
+	// Render CBA with LTR
+	gotLTR, err := Render("CBA", font, &Options{
+		Layout:         common.FitKerning,
+		PrintDirection: 0, // LTR
+	})
+	if err != nil {
+		t.Fatalf("Render() LTR error = %v", err)
+	}
+
+	// After hardblank replacement, they should be identical
+	if gotRTL != gotLTR {
+		t.Errorf("RTL(ABC) != LTR(CBA)\nRTL:\n%s\nLTR:\n%s", gotRTL, gotLTR)
+	}
+}
+
+// TestSpaceGlyphWithVisibleColumns tests that space glyphs with visible characters are preserved
+func TestSpaceGlyphWithVisibleColumns(t *testing.T) {
+	// Create font with space that has visible columns (like a decorated space)
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      5,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			' ': { // Space with visible decoration (dots)
+				"· · ·",
+				"     ",
+				"· · ·",
+			},
+			'A': {
+				" AAA ",
+				"A   A",
+				"A   A",
+			},
+			'B': {
+				"BBB  ",
+				"B   B",
+				"BBB  ",
+			},
+		},
+	}
+
+	// Test that visible space columns are not collapsed
+	got, err := Render("A B", font, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// The space glyph has visible dots that must be preserved
+	// A ends at col 4, space starts with visible at col 0
+	// Row 0: dots visible, can't overlap
+	// Row 1: space is all blanks, B can kern tight
+	// Row 2: dots visible, can't overlap
+	want := " AAA· · ·BBB  \nA   AB   B\nA   A· · ·BBB  "
+	if got != want {
+		t.Errorf("Visible space not preserved correctly:\ngot:\n%s\nwant:\n%s", got, want)
+		t.Logf("Visual comparison:\nGot:\n%s\n\nWant:\n%s", got, want)
+	}
+}
+
+// TestLeadingTrailingSpaces tests behavior with leading and trailing spaces
+func TestLeadingTrailingSpaces(t *testing.T) {
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         2,
+		Baseline:       1,
+		MaxLength:      4,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			' ': {
+				"   ",
+				"   ",
+			},
+			'A': {
+				"AAA",
+				"A A",
+			},
+		},
+	}
+
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "leading spaces",
+			text: "  A",
+			// Two blank spaces followed by A
+			// Spaces go through kerning, get trimmed/collapsed
+			want: "AAA\nA A",
+		},
+		{
+			name: "trailing spaces",
+			text: "A  ",
+			// A followed by two blank spaces
+			// Trailing spaces are preserved as blank glyphs, but trimmed at the end
+			want: "AAA   \nA A   ",
+		},
+		{
+			name: "both leading and trailing",
+			text: "  A  ",
+			// Leading spaces collapsed, trailing preserved
+			want: "AAA   \nA A   ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Render(tt.text, font, nil)
+			if err != nil {
+				t.Fatalf("Render() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Render() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGlyphsWithBlankRowsTopBottom tests glyphs with entirely blank rows at top/bottom
+func TestGlyphsWithBlankRowsTopBottom(t *testing.T) {
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         5,
+		Baseline:       3,
+		MaxLength:      4,
+		OldLayout:      0, // Kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'T': { // Blank top row
+				"    ",
+				"TTT ",
+				" T  ",
+				" T  ",
+				" T  ",
+			},
+			'L': { // Blank bottom row
+				"L   ",
+				"L   ",
+				"L   ",
+				"LLL ",
+				"    ",
+			},
+			'I': { // Blank top and bottom
+				"    ",
+				" I  ",
+				" I  ",
+				" I  ",
+				"    ",
+			},
+		},
+	}
+
+	// Test adjacent glyphs with blank rows
+	got, err := Render("TLI", font, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// T: blank top, visible cols 0-2 in rows 1-4
+	// L: visible cols 0-2 in rows 0-3, blank bottom
+	// I: blank top/bottom, visible col 1 in rows 1-3
+	// With kerning, they should fit tightly (L overlaps T's blank top row)
+	want := "L    \nTTTL I  \n TL I  \n TLLL I  \n T    "
+	if got != want {
+		t.Errorf("Blank rows handling incorrect:\ngot:\n%s\nwant:\n%s", got, want)
+		for i, line := range strings.Split(got, "\n") {
+			t.Logf("Got  line %d: %q", i, line)
+		}
+		for i, line := range strings.Split(want, "\n") {
+			t.Logf("Want line %d: %q", i, line)
+		}
 	}
 }

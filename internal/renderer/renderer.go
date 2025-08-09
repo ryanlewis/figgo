@@ -131,7 +131,7 @@ func filterNonASCII(runes []rune) {
 
 // composeGlyphs assembles glyphs into lines
 func composeGlyphs(runes []rune, font *parser.Font, h int) ([][]byte, error) {
-	const avgGlyphWidth = 5 // Average glyph width estimate
+	const avgGlyphWidth = 10 // Average glyph width estimate (increased to reduce reslices)
 	estimatedWidth := len(runes) * avgGlyphWidth
 	lines := make([][]byte, h)
 	for i := range lines {
@@ -273,12 +273,26 @@ func findLeftmostVisible(s string) int {
 
 // calculateKerningDistance calculates the maximum required gap to avoid collision
 // Returns the maximum gap needed across all rows (touching is allowed when gap=0)
-func calculateKerningDistance(lines [][]byte, glyph []string, h int) int {
+//
+// INVARIANT: Blank = ASCII space only; hardblank is visible.
+// Trailing spaces are trimmed later in applyKerning, so the computed gap
+// assumes those spaces are not preserved.
+func calculateKerningDistance(lines [][]byte, glyph []string, trims []parser.GlyphTrim, h int) int {
 	maxRequired := 0
 
 	for row := 0; row < h; row++ {
 		rightmost := findRightmostVisible(lines[row])
-		leftmost := findLeftmostVisible(glyph[row])
+		// Use precomputed trim if available, otherwise compute on the fly
+		var leftmost int
+		if trims != nil && row < len(trims) {
+			if trims[row].LeftmostVisible == -1 {
+				leftmost = len(glyph[row]) // All spaces
+			} else {
+				leftmost = trims[row].LeftmostVisible
+			}
+		} else {
+			leftmost = findLeftmostVisible(glyph[row])
+		}
 
 		var need int
 		switch {
@@ -357,7 +371,7 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 	}
 
 	// Build output line by line, character by character
-	const avgGlyphWidth = 5 // Average glyph width estimate
+	const avgGlyphWidth = 10 // Average glyph width estimate (increased to reduce reslices)
 	lines := make([][]byte, h)
 	for i := range lines {
 		lines[i] = make([]byte, 0, len(runes)*avgGlyphWidth)
@@ -370,18 +384,18 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 			return "", err
 		}
 
-		switch {
-		case idx == 0:
+		if idx == 0 {
 			// First character - just append as-is
 			appendGlyph(lines, glyph)
-		case r == ' ' || (idx > 0 && runes[idx-1] == ' '):
-			// Space characters should be preserved as-is to maintain
-			// the font designer's intended spacing
-			// Also no kerning after a space
-			appendGlyph(lines, glyph)
-		default:
-			// Calculate and apply kerning for other characters
-			distance := calculateKerningDistance(lines, glyph, h)
+		} else {
+			// Calculate and apply kerning for all non-first characters
+			// (including spaces - they're controlled by font design)
+			// Use precomputed trims if available
+			var trims []parser.GlyphTrim
+			if font.CharacterTrims != nil {
+				trims = font.CharacterTrims[r]
+			}
+			distance := calculateKerningDistance(lines, glyph, trims, h)
 			applyKerning(lines, glyph, distance)
 		}
 	}

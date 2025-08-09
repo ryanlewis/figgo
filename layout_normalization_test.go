@@ -81,34 +81,8 @@ func TestNormalizeLayoutFromOldLayout(t *testing.T) { //nolint:gocognit // Test 
 			wantErr: false,
 		},
 		{
-			name:          "OldLayout -2 -> Fitting (alias for 0)",
+			name:          "OldLayout -2 -> Invalid",
 			oldLayout:     -2,
-			fullLayout:    0,
-			fullLayoutSet: false,
-			want: NormalizedLayout{
-				HorzMode:  ModeFitting,
-				HorzRules: 0,
-				VertMode:  ModeFull,
-				VertRules: 0,
-			},
-			wantErr: false,
-		},
-		{
-			name:          "OldLayout -3 -> Universal Smushing",
-			oldLayout:     -3,
-			fullLayout:    0,
-			fullLayoutSet: false,
-			want: NormalizedLayout{
-				HorzMode:  ModeSmushingUniversal,
-				HorzRules: 0,
-				VertMode:  ModeFull,
-				VertRules: 0,
-			},
-			wantErr: false,
-		},
-		{
-			name:          "OldLayout -4 -> Invalid",
-			oldLayout:     -4,
 			fullLayout:    0,
 			fullLayoutSet: false,
 			want:          NormalizedLayout{},
@@ -750,12 +724,12 @@ func TestNormalizeOldLayoutRange(t *testing.T) {
 		oldLayout int
 		wantErr   bool
 	}{
-		{"Valid: -3 (universal smushing)", -3, false},
-		{"Valid: -2 (fitting alias)", -2, false},
 		{"Valid: -1 (full width)", -1, false},
 		{"Valid: 0 (fitting)", 0, false},
 		{"Valid: 1 (smushing rule 1)", 1, false},
 		{"Valid: 63 (all rules)", 63, false},
+		{"Invalid: -2", -2, true},
+		{"Invalid: -3", -3, true},
 		{"Invalid: -4", -4, true},
 		{"Invalid: -10", -10, true},
 		{"Invalid: -100", -100, true},

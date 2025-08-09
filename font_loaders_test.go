@@ -551,3 +551,41 @@ type errorReader struct {
 func (r *errorReader) Read([]byte) (int, error) {
 	return 0, r.err
 }
+
+// Test ParseFontBytes convenience function
+func TestParseFontBytes(t *testing.T) {
+	fontData := []byte(`flf2a$ 4 3 10 -1 5
+Test font
+$@
+$@
+$@
+$@@
+ @
+|@
+ @
+ @@
+`)
+
+	font, err := ParseFontBytes(fontData)
+	if err != nil {
+		t.Fatalf("ParseFontBytes() error = %v", err)
+	}
+	if font == nil {
+		t.Fatal("ParseFontBytes() returned nil font")
+	}
+	if font.Height != 4 {
+		t.Errorf("Height = %d, want 4", font.Height)
+	}
+
+	// Test with invalid data
+	_, err = ParseFontBytes([]byte("invalid"))
+	if err == nil {
+		t.Error("ParseFontBytes() should return error for invalid data")
+	}
+
+	// Test with empty data
+	_, err = ParseFontBytes([]byte(""))
+	if err == nil {
+		t.Error("ParseFontBytes() should return error for empty data")
+	}
+}

@@ -9,6 +9,7 @@
 package figgo
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
@@ -25,6 +26,11 @@ import (
 
 // ParseFont reads a FIGfont from the provided reader and returns a Font instance.
 // The returned Font is immutable and safe for concurrent use across goroutines.
+//
+// ParseFont supports both uncompressed FIGfont files (.flf) and compressed
+// FIGfont files (.flc). Compressed files are standard ZIP archives containing
+// a .flf file. When a ZIP file is detected (by checking for ZIP magic bytes),
+// the first entry in the archive is extracted and parsed.
 //
 // ParseFont expects a valid FIGfont v2 format file with at least the required
 // ASCII characters (32-126). The font's layout settings are normalized according
@@ -43,10 +49,81 @@ import (
 //	    log.Fatal(err)
 //	}
 func ParseFont(r io.Reader) (*Font, error) {
-	pf, err := parser.Parse(r)
+	// Buffer the reader to allow peeking at magic bytes
+	// This is more efficient than reading all data upfront
+	buf := &bytes.Buffer{}
+	tee := io.TeeReader(r, buf)
+
+	// Peek at first 4 bytes for ZIP magic detection
+	const zipMagicLen = 4
+	magic := make([]byte, zipMagicLen)
+	n, err := io.ReadFull(tee, magic)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, fmt.Errorf("failed to read font data: %w", err)
+	}
+
+	// Create a reader that includes the peeked bytes
+	combined := io.MultiReader(buf, r)
+
+	// Check for ZIP magic bytes (including empty archive signature)
+	if n == zipMagicLen && (bytes.Equal(magic, []byte("PK\x03\x04")) ||
+		bytes.Equal(magic, []byte("PK\x05\x06"))) {
+		// Handle as ZIP file - need to read all for zip.NewReader
+		data, readErr := io.ReadAll(combined)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read ZIP data: %w", readErr)
+		}
+		return parseCompressedFont(data)
+	}
+
+	// Handle as regular FLF file - can stream directly
+	pf, err := parser.Parse(combined)
 	if err != nil {
 		return nil, err
 	}
+	// Convert internal parser.Font to public Font type
+	return convertParserFont(pf)
+}
+
+// parseCompressedFont extracts and parses a FIGfont from ZIP data
+func parseCompressedFont(data []byte) (*Font, error) {
+	// Create a reader for the ZIP data
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open ZIP archive: %w", err)
+	}
+
+	// Check for empty archive
+	if len(reader.File) == 0 {
+		return nil, errors.New("ZIP archive is empty")
+	}
+
+	// Find the first non-directory entry (following FIGlet convention)
+	var fontFile *zip.File
+	for _, f := range reader.File {
+		if !f.FileInfo().IsDir() {
+			fontFile = f
+			break
+		}
+	}
+
+	if fontFile == nil {
+		return nil, errors.New("ZIP archive contains only directories, no font files")
+	}
+
+	// Open and read the font file
+	rc, err := fontFile.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open font file in ZIP: %w", err)
+	}
+	defer rc.Close()
+
+	// Parse the extracted font data
+	pf, err := parser.Parse(rc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font from ZIP: %w", err)
+	}
+
 	// Convert internal parser.Font to public Font type
 	return convertParserFont(pf)
 }

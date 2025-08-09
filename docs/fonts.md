@@ -119,16 +119,22 @@ func init() {
 }
 ```
 
-### Runtime Loading (Phase 2)
+### Runtime Loading
 
-Future support for loading fonts from filesystem:
+The library supports loading fonts from various sources:
 
 ```go
 // Load from custom fs.FS (zip, embed, disk)
-engine.LoadFontFS(customFS, "fancy.flf")
+font, err := figgo.LoadFontFS(customFS, "fancy.flf")
+
+// Load compressed font (.flc - ZIP archive)
+font, err := figgo.LoadFontFS(customFS, "fancy.flc")
 
 // Load from disk path
-engine.LoadFontPath("/usr/share/fonts/figlet/fancy.flf")
+font, err := figgo.LoadFont("/usr/share/fonts/figlet/fancy.flf")
+
+// Parse from io.Reader (auto-detects compression)
+font, err := figgo.ParseFont(reader)
 ```
 
 ---
@@ -167,12 +173,19 @@ engine.LoadFontPath("/usr/share/fonts/figlet/fancy.flf")
 
 ---
 
+## Supported Font Formats
+
+* **`.flf`** - Standard FIGfont files (uncompressed)
+* **`.flc`** - Compressed FIGfont files (ZIP archives containing .flf)
+  - Auto-detected by ZIP magic bytes (`PK\x03\x04`)
+  - First non-directory entry in the archive is extracted and parsed
+  - Follows FIGlet convention for compressed fonts
+
 ## Non-goals (MVP)
 
-* `.flc` control files
-* Compressed/zipped font ingestion
 * Font downloading from remote URLs
 * Font format conversion
+* TOILet-specific font formats
 
 ---
 

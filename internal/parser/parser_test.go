@@ -140,7 +140,7 @@ Comment
 Comment
 `,
 			wantErr:     true,
-			errContains: "invalid signature",
+			errContains: "invalid hardblank",
 		},
 		{
 			name: "insufficient_fields",

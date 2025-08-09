@@ -46,7 +46,7 @@ func TestParseGlyphsEdgeCases(t *testing.T) {
 		},
 		{
 			name:    "very_long_glyph_line",
-			input:   "flf2a@ 1 1 1000 0 0\n" + strings.Repeat("x", 1000) + "@@\n",
+			input:   "flf2a@ 1 1 1002 0 0\n" + strings.Repeat("x", 1000) + "@@\n",
 			wantErr: false,
 		},
 		{

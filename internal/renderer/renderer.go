@@ -282,6 +282,10 @@ func calculateKerningDistance(lines [][]byte, glyph []string, h int) int {
 
 		var need int
 		switch {
+		case rightmost == -1 && leftmost == len(glyph[row]):
+			// Both current line and new glyph line are all blanks
+			// No gap needed when both sides are blank
+			need = 0
 		case rightmost == -1:
 			// Current line is all blanks
 			need = leftmost
@@ -371,11 +375,12 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 			// First character - just append as-is
 			appendGlyph(lines, glyph)
 		case r == ' ' || (idx > 0 && runes[idx-1] == ' '):
-			// Space character should be preserved as-is (no kerning)
+			// Space characters should be preserved as-is to maintain
+			// the font designer's intended spacing
 			// Also no kerning after a space
 			appendGlyph(lines, glyph)
 		default:
-			// Calculate and apply kerning
+			// Calculate and apply kerning for other characters
 			distance := calculateKerningDistance(lines, glyph, h)
 			applyKerning(lines, glyph, distance)
 		}

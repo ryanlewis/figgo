@@ -322,9 +322,45 @@ Mini font
 			wantErr: true,
 		},
 		{
-			name:    "path with ..",
+			name:    "path with .. traversal",
 			fs:      testFS,
 			path:    "../fonts/standard.flf",
+			wantErr: true,
+		},
+		{
+			name:    "path with .. in filename (not traversal)",
+			fs:      testFS,
+			path:    "fonts/my..font.flf",
+			wantErr: true, // Will fail because file doesn't exist, not validation
+		},
+		{
+			name:    "path with backslash",
+			fs:      testFS,
+			path:    "fonts\\standard.flf",
+			wantErr: true,
+		},
+		{
+			name:    "absolute path",
+			fs:      testFS,
+			path:    "/fonts/standard.flf",
+			wantErr: true,
+		},
+		{
+			name:    "path with ./",
+			fs:      testFS,
+			path:    "./fonts/standard.flf",
+			wantErr: true,
+		},
+		{
+			name:    "path is just .",
+			fs:      testFS,
+			path:    ".",
+			wantErr: true,
+		},
+		{
+			name:    "complex traversal attempt",
+			fs:      testFS,
+			path:    "fonts/../../../secret.flf",
 			wantErr: true,
 		},
 	}
@@ -348,6 +384,64 @@ Mini font
 // Test LoadFontFS with embedded fonts
 func TestLoadFontFSEmbedded(t *testing.T) {
 	t.Skip("Skipping embedded font test until actual font files are added")
+}
+
+// Test Name propagation from filename
+func TestLoadFontFS_NamePropagation(t *testing.T) {
+	testFS := fstest.MapFS{
+		"fonts/my-custom-font.flf": &fstest.MapFile{
+			Data: []byte(`flf2a$ 4 3 10 -1 5
+Test font
+$@
+$@
+$@
+$@@
+ @
+|@
+ @
+ @@
+`),
+		},
+		"deep/nested/path/special.flf": &fstest.MapFile{
+			Data: []byte(`flf2a$ 4 3 10 -1 5
+Test font
+$@
+$@
+$@
+$@@
+ @
+|@
+ @
+ @@
+`),
+		},
+	}
+
+	tests := []struct {
+		path     string
+		wantName string
+	}{
+		{
+			path:     "fonts/my-custom-font.flf",
+			wantName: "my-custom-font",
+		},
+		{
+			path:     "deep/nested/path/special.flf",
+			wantName: "special",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			font, err := LoadFontFS(testFS, tt.path)
+			if err != nil {
+				t.Fatalf("LoadFontFS() error = %v", err)
+			}
+			if font.Name != tt.wantName {
+				t.Errorf("Font.Name = %q, want %q", font.Name, tt.wantName)
+			}
+		})
+	}
 }
 
 // Test concurrent access to Font (verify thread-safety)

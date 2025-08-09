@@ -6,10 +6,11 @@
 package figgo
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/ryanlewis/figgo/internal/parser"
@@ -44,6 +45,31 @@ func ParseFont(r io.Reader) (*Font, error) {
 	return convertParserFont(pf)
 }
 
+// cleanFSPath validates and cleans a path for use with fs.FS.
+// It ensures the path is valid according to fs.ValidPath rules and
+// prevents directory traversal attacks.
+func cleanFSPath(p string) (string, error) {
+	if p == "" {
+		return "", errors.New("path cannot be empty")
+	}
+	// fs.FS disallows leading slash and uses '/' only
+	if strings.HasPrefix(p, "/") {
+		return "", errors.New("absolute paths not allowed")
+	}
+	if strings.ContainsRune(p, '\\') {
+		return "", errors.New("backslashes not allowed in fs paths")
+	}
+	if !fs.ValidPath(p) {
+		// rejects ".", ".." segments, empty elements, etc.
+		return "", fmt.Errorf("invalid fs path: %s", p)
+	}
+	clean := path.Clean(p) // purely slash semantics
+	if clean == "." || strings.HasPrefix(clean, "../") {
+		return "", errors.New("path traversal not allowed")
+	}
+	return clean, nil
+}
+
 // LoadFontFS loads a FIGfont from a filesystem at the specified path.
 // The returned Font is immutable and safe for concurrent use across goroutines.
 //
@@ -68,25 +94,20 @@ func ParseFont(r io.Reader) (*Font, error) {
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func LoadFontFS(fsys fs.FS, path string) (*Font, error) {
+func LoadFontFS(fsys fs.FS, fontPath string) (*Font, error) {
 	// Validate inputs
 	if fsys == nil {
 		return nil, fmt.Errorf("filesystem cannot be nil")
 	}
-	if path == "" {
-		return nil, fmt.Errorf("path cannot be empty")
-	}
 
-	// Security: prevent path traversal
-	if strings.Contains(path, "..") {
-		return nil, fmt.Errorf("path traversal not allowed: %s", path)
+	// Clean and validate the path
+	clean, err := cleanFSPath(fontPath)
+	if err != nil {
+		return nil, err
 	}
-
-	// Clean the path to ensure consistent behavior
-	path = filepath.Clean(path)
 
 	// Open the font file
-	file, err := fsys.Open(path)
+	file, err := fsys.Open(clean)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open font file: %w", err)
 	}
@@ -95,16 +116,20 @@ func LoadFontFS(fsys fs.FS, path string) (*Font, error) {
 	// Parse the font
 	font, err := ParseFont(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse font %s: %w", path, err)
+		return nil, fmt.Errorf("failed to parse font %s: %w", clean, err)
 	}
 
 	// Set font name based on filename (without extension)
-	font.Name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	// Use path package for fs.FS paths (not filepath)
+	font.Name = strings.TrimSuffix(path.Base(clean), path.Ext(clean))
 
 	return font, nil
 }
 
-// convertParserFont converts internal parser.Font to public Font type
+// convertParserFont converts internal parser.Font to public Font type.
+// Note: The returned Font shares the glyph map with the parser font for efficiency.
+// The parser and renderer must not mutate glyphs after parsing to maintain immutability.
+// TODO: Consider deep-copying glyphs if mutation becomes a concern.
 func convertParserFont(pf *parser.Font) (*Font, error) {
 	if pf == nil {
 		return nil, nil

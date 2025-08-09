@@ -64,6 +64,9 @@ type Font struct {
 	// FullLayout contains the full layout value
 	FullLayout int
 
+	// FullLayoutSet indicates whether FullLayout was present in the header
+	FullLayoutSet bool
+
 	// CodetagCount specifies the number of code-tagged characters
 	CodetagCount int
 }
@@ -275,6 +278,7 @@ func parseOptionalFields(fields []string, font *Font) error {
 	if len(fields) > fullLayoutField {
 		if val, err := strconv.Atoi(fields[fullLayoutField]); err == nil {
 			font.FullLayout = val
+			font.FullLayoutSet = true
 		}
 	}
 

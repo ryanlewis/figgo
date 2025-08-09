@@ -28,30 +28,65 @@ This document is the **source of truth** for how Figgo interprets **FIGfont v2**
 
 ## 3) Layout Normalization
 
-Figgo normalizes FIGfont layout data into a single `Layout` bitmask used at render time.
+Figgo normalizes FIGfont layout data into a single `Layout` bitmask used at render time. The normalization process handles both `OldLayout` and `FullLayout` with proper precedence as per FIGfont v2 specification.
 
 ### 3.1 OldLayout → Layout
 
+Valid range: `-1..63`
+* **`-1`** → Horizontal **Full width** (no overlap)
+* **`0`** → Horizontal **Fitting** (kerning - minimal spacing without character overlap)
+* **`>0`** → Horizontal **Smushing** (controlled by rule bits):
+  * Bits 0-5 encode smushing rules 1-6
+  * Example: `3` = bits 0+1 = rules 1+2 enabled
+
+**Note**: OldLayout cannot express universal smushing. Fonts requiring universal smushing as default set `OldLayout = 0` for backward compatibility.
+
+Invalid values (`< -1` or `> 63`) produce an error.
+
+### 3.2 FullLayout → Layout
+
+Valid range: `0..32767`
+
+#### Horizontal Layout (bits 0-7):
+* **Bits 0-5** — Smushing rules:
+  * Bit 0 → `RuleEqualChar`
+  * Bit 1 → `RuleUnderscore`
+  * Bit 2 → `RuleHierarchy`
+  * Bit 3 → `RuleOppositePair`
+  * Bit 4 → `RuleBigX`
+  * Bit 5 → `RuleHardblank`
+* **Bit 6** — Horizontal fitting → `FitKerning`
+* **Bit 7** — Horizontal smushing → `FitSmushing`
+
+#### Vertical Layout (bits 8-14):
+* **Bits 8-12** — Vertical smushing rules 1-5
+* **Bit 13** — Vertical fitting
+* **Bit 14** — Vertical smushing
+
+#### Layout Mode Determination:
+* **Universal smushing**: Smushing bit set (7 or 14) with NO rule bits for that axis
+* **Controlled smushing**: Smushing bit set with rule bits
+* **Fitting/Kerning**: Fitting bit set (6 or 13)
+* **Full width/height**: No mode bits set (default)
+
+### 3.3 Precedence Rules
+
+* If `FullLayout` is present in the header (tracked via field count), it **completely overrides** `OldLayout`
+* If `FullLayout` is absent, derive horizontal layout from `OldLayout`; vertical defaults to full height
+* `FullLayout = 0` with presence flag set means full width/height (different from absent)
+
+### 3.4 Implementation Details
+
+The normalization is implemented via:
+```go
+func NormalizeLayoutFromHeader(oldLayout int, fullLayout int, fullLayoutSet bool) (NormalizedLayout, error)
 ```
-OldLayout = -1  => FitFullWidth
-OldLayout = -2  => FitKerning
-OldLayout = -3  => FitSmushing  (no explicit rule bits ⇒ universal smushing only)
-```
 
-If `FullLayout` is also present, **`FullLayout` takes precedence** (see below).
-
-### 3.2 FullLayout (font) → Layout (Figgo) — horizontal subset
-
-* **Bit 0** — Equal character smushing → `RuleEqualChar`
-* **Bit 1** — Underscore smushing → `RuleUnderscore`
-* **Bit 2** — Hierarchy smushing → `RuleHierarchy`
-* **Bit 3** — Opposite pair smushing → `RuleOpposite`
-* **Bit 4** — Big‑X smushing → `RuleBigX`
-* **Bit 5** — Hardblank smushing → `RuleHardblank`
-* **Bit 6** — Kerning (mutually exclusive with smushing) → `FitKerning`
-* **Bit 7** — Smushing (mutually exclusive with kerning) → `FitSmushing`
-
-*If neither bit 6 nor 7 is set, Figgo uses `FitFullWidth`.*
+This function:
+1. Validates ranges (`OldLayout`: -1..63, `FullLayout`: 0..32767)
+2. Applies precedence rules based on `fullLayoutSet`
+3. Returns a `NormalizedLayout` struct with separate horizontal/vertical modes and rules
+4. Converts to the simplified `Layout` bitmask for rendering via `ToLayout()`
 
 ---
 
@@ -212,8 +247,11 @@ Result: Reduce to overlap=1 or kerning
 ## 11) PR Review Checklist (Plain Bullets)
 
 * Header parsing matches this page (unit tests included)
-* OldLayout → Layout normalization covered by tests
+* OldLayout → Layout normalization covered by tests (range validation, mode conversion)
 * FullLayout bit mapping and validation rules enforced (unit/property tests)
+* FullLayout presence tracking via field count implemented
+* Precedence rules tested (FullLayout overrides OldLayout when present)
+* Universal vs controlled smushing distinction tested
 * Controlled smushing precedence verified with targeted glyph‑pair tests
 * Goldens regenerated with `tools/generate_goldens.sh` and committed
 * CI compares Figgo output byte‑for‑byte to goldens (fails on drift)

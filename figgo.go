@@ -27,10 +27,10 @@ import (
 // ParseFont reads a FIGfont from the provided reader and returns a Font instance.
 // The returned Font is immutable and safe for concurrent use across goroutines.
 //
-// ParseFont supports both uncompressed FIGfont files (.flf) and compressed
-// FIGfont files (.flc). Compressed files are standard ZIP archives containing
-// a .flf file. When a ZIP file is detected (by checking for ZIP magic bytes),
-// the first entry in the archive is extracted and parsed.
+// ParseFont supports both plain text and ZIP-compressed FIGfont files.
+// ZIP-compressed fonts are automatically detected by checking for ZIP magic bytes.
+// When a ZIP file is detected, the first file (skipping directory entries) in
+// the archive is extracted and parsed.
 //
 // ParseFont expects a valid FIGfont v2 format file with at least the required
 // ASCII characters (32-126). The font's layout settings are normalized according
@@ -203,7 +203,7 @@ func cleanFSPath(p string) (string, error) {
 
 // deriveNameFromPath extracts the font name from a file path by removing the extension.
 // Set useOSPath=true for OS filesystem paths (uses filepath), false for fs.FS paths (uses path).
-// This also trims .flc extensions if support for FIGlet control files is added later.
+// Handles both .flf (font) and .flc (control file) extensions.
 func deriveNameFromPath(filePath string, useOSPath bool) string {
 	var base, ext string
 	if useOSPath {

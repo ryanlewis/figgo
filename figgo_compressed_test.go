@@ -20,7 +20,7 @@ Test font
 |_|@@
 `
 
-// TestParseFontCompressed tests ParseFont with compressed .flc files
+// TestParseFontCompressed tests ParseFont with ZIP-compressed font files
 func TestParseFontCompressed(t *testing.T) { //nolint:gocognit // Test function with many test cases
 	tests := []struct {
 		name        string
@@ -90,6 +90,51 @@ func TestParseFontCompressed(t *testing.T) { //nolint:gocognit // Test function 
 			},
 			wantErr:     true,
 			errContains: "empty",
+		},
+		{
+			name: "directory_first_then_file",
+			createZip: func() ([]byte, error) {
+				var buf bytes.Buffer
+				w := zip.NewWriter(&buf)
+				// First entry is a directory - should be skipped
+				_, err := w.Create("fonts/")
+				if err != nil {
+					return nil, err
+				}
+				// Second entry is the actual font file
+				f, err := w.Create("fonts/myfont.flf")
+				if err != nil {
+					return nil, err
+				}
+				if _, werr := f.Write([]byte(minimalFont)); werr != nil {
+					return nil, werr
+				}
+				if err := w.Close(); err != nil {
+					return nil, err
+				}
+				return buf.Bytes(), nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "inner_file_no_extension",
+			createZip: func() ([]byte, error) {
+				var buf bytes.Buffer
+				w := zip.NewWriter(&buf)
+				// Inner file has no extension - should still work
+				f, err := w.Create("FONT")
+				if err != nil {
+					return nil, err
+				}
+				if _, werr := f.Write([]byte(minimalFont)); werr != nil {
+					return nil, werr
+				}
+				if err := w.Close(); err != nil {
+					return nil, err
+				}
+				return buf.Bytes(), nil
+			},
+			wantErr: false,
 		},
 		{
 			name: "zip_with_directory_only",
@@ -174,13 +219,13 @@ func TestParseFontCompressed(t *testing.T) { //nolint:gocognit // Test function 
 	}
 }
 
-// TestLoadFontCompressed tests LoadFont with actual .flc files
+// TestLoadFontCompressed tests LoadFont with ZIP-compressed font files
 func TestLoadFontCompressed(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir := t.TempDir()
 
-	// Create a .flc file
-	flcPath := filepath.Join(tmpDir, "test.flc")
+	// Create a ZIP-compressed .flf file
+	flfPath := filepath.Join(tmpDir, "test.flf")
 
 	// Create ZIP content
 	var buf bytes.Buffer
@@ -197,12 +242,12 @@ func TestLoadFontCompressed(t *testing.T) {
 	}
 
 	// Write to file
-	if werr := os.WriteFile(flcPath, buf.Bytes(), 0o644); werr != nil {
+	if werr := os.WriteFile(flfPath, buf.Bytes(), 0o644); werr != nil {
 		t.Fatalf("Failed to write test file: %v", werr)
 	}
 
 	// Test loading
-	font, err := LoadFont(flcPath)
+	font, err := LoadFont(flfPath)
 	if err != nil {
 		t.Errorf("LoadFont() unexpected error = %v", err)
 	}
@@ -223,8 +268,8 @@ func TestLoadFontFSCompressed(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir := t.TempDir()
 
-	// Create a .flc file
-	flcPath := filepath.Join(tmpDir, "compressed.flc")
+	// Create a ZIP-compressed .flf file
+	flfPath := filepath.Join(tmpDir, "compressed.flf")
 
 	// Create ZIP content
 	var buf bytes.Buffer
@@ -241,13 +286,13 @@ func TestLoadFontFSCompressed(t *testing.T) {
 	}
 
 	// Write to file
-	if werr := os.WriteFile(flcPath, buf.Bytes(), 0o644); werr != nil {
+	if werr := os.WriteFile(flfPath, buf.Bytes(), 0o644); werr != nil {
 		t.Fatalf("Failed to write test file: %v", werr)
 	}
 
 	// Test loading with os.DirFS
 	fsys := os.DirFS(tmpDir)
-	font, err := LoadFontFS(fsys, "compressed.flc")
+	font, err := LoadFontFS(fsys, "compressed.flf")
 	if err != nil {
 		t.Errorf("LoadFontFS() unexpected error = %v", err)
 	}

@@ -127,8 +127,8 @@ The library supports loading fonts from various sources:
 // Load from custom fs.FS (zip, embed, disk)
 font, err := figgo.LoadFontFS(customFS, "fancy.flf")
 
-// Load compressed font (.flc - ZIP archive)
-font, err := figgo.LoadFontFS(customFS, "fancy.flc")
+// Load ZIP-compressed font (still uses .flf extension)
+font, err := figgo.LoadFontFS(customFS, "fancy.flf")
 
 // Load from disk path
 font, err := figgo.LoadFont("/usr/share/fonts/figlet/fancy.flf")
@@ -175,11 +175,11 @@ font, err := figgo.ParseFont(reader)
 
 ## Supported Font Formats
 
-* **`.flf`** - Standard FIGfont files (uncompressed)
-* **`.flc`** - Compressed FIGfont files (ZIP archives containing .flf)
+* **`.flf`** - Standard FIGfont files (plain text or ZIP-compressed)
   - Auto-detected by ZIP magic bytes (`PK\x03\x04`)
-  - First non-directory entry in the archive is extracted and parsed
-  - Follows FIGlet convention for compressed fonts
+  - When reading a ZIP, uses the first file in the archive (directory entries are skipped)
+  - ZIP-compressed fonts still use `.flf` extension per FIGfont spec
+* **`.flc`** - FIGlet control files (character mapping tables) - not yet supported
 
 ## Non-goals (MVP)
 

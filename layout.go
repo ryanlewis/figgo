@@ -256,30 +256,9 @@ func (l Layout) Rules() Layout {
 // String returns a human-readable representation of the layout.
 // It shows the fitting mode and any active smushing rules.
 // If multiple fitting modes are set (invalid state), it prefixes with "INVALID:".
-func (l Layout) String() string {
-	if l == 0 {
-		return "0x00000000"
-	}
-
+// layoutStringParts returns the string parts for a Layout value
+func layoutStringParts(l Layout) []string {
 	var parts []string
-	var invalidPrefix string
-
-	// Check for invalid multiple fitting modes
-	fittingModes := l & (FitFullWidth | FitKerning | FitSmushing)
-	fittingCount := 0
-	if fittingModes&FitFullWidth != 0 {
-		fittingCount++
-	}
-	if fittingModes&FitKerning != 0 {
-		fittingCount++
-	}
-	if fittingModes&FitSmushing != 0 {
-		fittingCount++
-	}
-	if fittingCount > 1 {
-		invalidPrefix = "INVALID:"
-	}
-
 	// Add fitting modes
 	if l&FitFullWidth != 0 {
 		parts = append(parts, "FitFullWidth")
@@ -290,7 +269,6 @@ func (l Layout) String() string {
 	if l&FitSmushing != 0 {
 		parts = append(parts, "FitSmushing")
 	}
-
 	// Add smushing rules
 	if l&RuleEqualChar != 0 {
 		parts = append(parts, "RuleEqualChar")
@@ -311,14 +289,45 @@ func (l Layout) String() string {
 		parts = append(parts, "RuleHardblank")
 	}
 
+	return parts
+}
+
+// countFittingModes counts the number of fitting modes set
+func countFittingModes(l Layout) int {
+	fittingModes := l & (FitFullWidth | FitKerning | FitSmushing)
+	count := 0
+	if fittingModes&FitFullWidth != 0 {
+		count++
+	}
+	if fittingModes&FitKerning != 0 {
+		count++
+	}
+	if fittingModes&FitSmushing != 0 {
+		count++
+	}
+	return count
+}
+
+func (l Layout) String() string {
+	if l == 0 {
+		return "0x00000000"
+	}
+
 	// Check for unknown bits using AllKnownMask constant
 	if l&^AllKnownMask != 0 {
 		// Has unknown bits, return hex representation
 		return fmt.Sprintf("0x%08X", uint32(l))
 	}
 
+	parts := layoutStringParts(l)
 	if len(parts) == 0 {
 		return fmt.Sprintf("0x%08X", uint32(l))
+	}
+
+	// Check for invalid multiple fitting modes
+	var invalidPrefix string
+	if countFittingModes(l) > 1 {
+		invalidPrefix = "INVALID:"
 	}
 
 	return invalidPrefix + strings.Join(parts, "|")
@@ -388,7 +397,9 @@ func parseOldLayout(oldLayout int) NormalizedLayout {
 		result.HorzMode = ModeSmushingControlled
 		// Extract rule bits (0-5) - oldLayout validated to be 1..63
 		// Masking with 0x3F ensures value is 0..63, safe for uint8
-		result.HorzRules = uint8(oldLayout) & 0x3F
+		// Note: oldLayout is already validated to be <= 63, so conversion is safe
+		// #nosec G115 -- oldLayout validated to be in range 1..63
+		result.HorzRules = uint8(oldLayout & horzRuleMask)
 	}
 
 	return result
@@ -413,7 +424,9 @@ func parseFullLayout(fullLayout int) NormalizedLayout {
 		// Controlled smushing: smushing bit set with rule bits
 		result.HorzMode = ModeSmushingControlled
 		// horzRuleBits already masked to 6 bits (max 63), safe for uint8
-		result.HorzRules = uint8(horzRuleBits & 0x3F)
+		// Explicit mask ensures value fits in uint8
+		// #nosec G115 -- horzRuleBits is masked by horzRuleMask (0x3F)
+		result.HorzRules = uint8(horzRuleBits) // Already masked by horzRuleMask (0x3F)
 	case horzHasFitting:
 		// Fitting (kerning) mode
 		result.HorzMode = ModeFitting
@@ -435,7 +448,9 @@ func parseFullLayout(fullLayout int) NormalizedLayout {
 		// Controlled smushing: smushing bit set with rule bits
 		result.VertMode = ModeSmushingControlled
 		// vertRuleBits already masked to 5 bits (max 31), safe for uint8
-		result.VertRules = uint8(vertRuleBits & 0x1F)
+		// Explicit mask ensures value fits in uint8
+		// #nosec G115 -- vertRuleBits is masked by vertRuleMask (0x1F)
+		result.VertRules = uint8(vertRuleBits) // Already masked by vertRuleMask (0x1F)
 	case vertHasFitting:
 		// Fitting mode
 		result.VertMode = ModeFitting

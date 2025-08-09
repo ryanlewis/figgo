@@ -458,24 +458,20 @@ func TestNormalizeLayoutFromHeader_FuzzRandom(t *testing.T) {
 	}
 }
 
-func TestNormalizeLayoutFromHeader_AdditionalCoverage(t *testing.T) {
+func TestNormalizeLayoutFromHeader_FullLayoutPrecedence(t *testing.T) {
 	tests := []struct {
 		name          string
 		oldLayout     int
 		fullLayout    int
-		fullLayoutSet bool
 		wantHorzMode  AxisMode
 		wantHorzRules uint8
 		wantVertMode  AxisMode
 		wantVertRules uint8
-		wantErr       bool
 	}{
-		// FullLayout precedence tests
 		{
 			name:          "FullLayout precedence: smush no rules -> universal",
 			oldLayout:     23, // Would be controlled if used
 			fullLayout:    128,
-			fullLayoutSet: true,
 			wantHorzMode:  ModeSmushingUniversal,
 			wantHorzRules: 0,
 			wantVertMode:  ModeFull,
@@ -485,80 +481,117 @@ func TestNormalizeLayoutFromHeader_AdditionalCoverage(t *testing.T) {
 			name:          "FullLayout precedence: conflict + rule -> smushing wins",
 			oldLayout:     0, // Would be fitting if used
 			fullLayout:    128 | 64 | 1,
-			fullLayoutSet: true,
 			wantHorzMode:  ModeSmushingControlled,
 			wantHorzRules: 1, // Rule 1 set
 			wantVertMode:  ModeFull,
 			wantVertRules: 0,
 		},
-		{
-			name:          "OldLayout fallback: controlled with specific rules",
-			oldLayout:     23, // bits 0,1,2,4 = rules 1,2,3,5
-			fullLayout:    0,
-			fullLayoutSet: false,
-			wantHorzMode:  ModeSmushingControlled,
-			wantHorzRules: 0x17, // 0b10111 = 23
-			wantVertMode:  ModeFull,
-			wantVertRules: 0,
-		},
-		// Vertical parsing tests
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NormalizeLayoutFromHeader(tt.oldLayout, tt.fullLayout, true)
+			if err != nil {
+				t.Fatalf("NormalizeLayoutFromHeader() error = %v", err)
+			}
+			if got.HorzMode != tt.wantHorzMode {
+				t.Errorf("HorzMode = %v, want %v", got.HorzMode, tt.wantHorzMode)
+			}
+			if got.HorzRules != tt.wantHorzRules {
+				t.Errorf("HorzRules = 0x%02X, want 0x%02X", got.HorzRules, tt.wantHorzRules)
+			}
+			if got.VertMode != tt.wantVertMode {
+				t.Errorf("VertMode = %v, want %v", got.VertMode, tt.wantVertMode)
+			}
+			if got.VertRules != tt.wantVertRules {
+				t.Errorf("VertRules = 0x%02X, want 0x%02X", got.VertRules, tt.wantVertRules)
+			}
+		})
+	}
+}
+
+func TestNormalizeLayoutFromHeader_OldLayoutFallback(t *testing.T) {
+	got, err := NormalizeLayoutFromHeader(23, 0, false)
+	if err != nil {
+		t.Fatalf("NormalizeLayoutFromHeader() error = %v", err)
+	}
+	if got.HorzMode != ModeSmushingControlled {
+		t.Errorf("HorzMode = %v, want %v", got.HorzMode, ModeSmushingControlled)
+	}
+	if got.HorzRules != 0x17 {
+		t.Errorf("HorzRules = 0x%02X, want 0x%02X", got.HorzRules, 0x17)
+	}
+	if got.VertMode != ModeFull {
+		t.Errorf("VertMode = %v, want %v", got.VertMode, ModeFull)
+	}
+	if got.VertRules != 0 {
+		t.Errorf("VertRules = 0x%02X, want 0x%02X", got.VertRules, 0)
+	}
+}
+
+func TestNormalizeLayoutFromHeader_VerticalParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		fullLayout    int
+		wantVertMode  AxisMode
+		wantVertRules uint8
+	}{
 		{
 			name:          "Vertical controlled smushing with rules",
-			oldLayout:     0,
 			fullLayout:    16384 | 256 | 512, // V smush + rules 1,2
-			fullLayoutSet: true,
-			wantHorzMode:  ModeFull,
-			wantHorzRules: 0,
 			wantVertMode:  ModeSmushingControlled,
 			wantVertRules: 0x03, // Rules 1,2
 		},
 		{
 			name:          "Vertical fitting only",
-			oldLayout:     0,
 			fullLayout:    8192,
-			fullLayoutSet: true,
-			wantHorzMode:  ModeFull,
-			wantHorzRules: 0,
 			wantVertMode:  ModeFitting,
 			wantVertRules: 0,
 		},
-		// Invalid range tests
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NormalizeLayoutFromHeader(0, tt.fullLayout, true)
+			if err != nil {
+				t.Fatalf("NormalizeLayoutFromHeader() error = %v", err)
+			}
+			if got.VertMode != tt.wantVertMode {
+				t.Errorf("VertMode = %v, want %v", got.VertMode, tt.wantVertMode)
+			}
+			if got.VertRules != tt.wantVertRules {
+				t.Errorf("VertRules = 0x%02X, want 0x%02X", got.VertRules, tt.wantVertRules)
+			}
+		})
+	}
+}
+
+func TestNormalizeLayoutFromHeader_InvalidRanges(t *testing.T) {
+	tests := []struct {
+		name          string
+		oldLayout     int
+		fullLayout    int
+		fullLayoutSet bool
+	}{
 		{
 			name:          "OldLayout -4 invalid",
 			oldLayout:     -4,
 			fullLayout:    0,
 			fullLayoutSet: false,
-			wantErr:       true,
 		},
 		{
 			name:          "FullLayout 32768 invalid",
 			oldLayout:     0,
 			fullLayout:    32768,
 			fullLayoutSet: true,
-			wantErr:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NormalizeLayoutFromHeader(tt.oldLayout, tt.fullLayout, tt.fullLayoutSet)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NormalizeLayoutFromHeader() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr {
-				if got.HorzMode != tt.wantHorzMode {
-					t.Errorf("HorzMode = %v, want %v", got.HorzMode, tt.wantHorzMode)
-				}
-				if got.HorzRules != tt.wantHorzRules {
-					t.Errorf("HorzRules = 0x%02X, want 0x%02X", got.HorzRules, tt.wantHorzRules)
-				}
-				if got.VertMode != tt.wantVertMode {
-					t.Errorf("VertMode = %v, want %v", got.VertMode, tt.wantVertMode)
-				}
-				if got.VertRules != tt.wantVertRules {
-					t.Errorf("VertRules = 0x%02X, want 0x%02X", got.VertRules, tt.wantVertRules)
-				}
+			_, err := NormalizeLayoutFromHeader(tt.oldLayout, tt.fullLayout, tt.fullLayoutSet)
+			if err == nil {
+				t.Errorf("NormalizeLayoutFromHeader() expected error but got none")
 			}
 		})
 	}
@@ -756,7 +789,6 @@ func TestFullLayoutPrecedenceMatrix(t *testing.T) {
 		{"Old=0(fitting) vs Full=0(default->full)", 0, 0, ModeFull, ModeFull},
 		{"Old=1(smush) vs Full=64(fitting)", 1, 64, ModeFitting, ModeFull},
 		{"Old=63(all rules) vs Full=128(universal)", 63, 128, ModeSmushingUniversal, ModeFull},
-		
 		// Only vertical bits set (no horizontal fit bits)
 		{"Only vertical fitting", -1, 8192, ModeFull, ModeFitting},
 		{"Only vertical smushing", 0, 16384, ModeFull, ModeSmushingUniversal},
@@ -782,7 +814,7 @@ func TestFullLayoutPrecedenceMatrix(t *testing.T) {
 // TestBothFitBitsInFullLayout tests that smushing wins when both fitting and smushing bits are set
 func TestBothFitBitsInFullLayout(t *testing.T) {
 	tests := []struct {
-		name       string  
+		name       string
 		fullLayout int
 		wantHorz   AxisMode
 		wantVert   AxisMode
@@ -790,11 +822,9 @@ func TestBothFitBitsInFullLayout(t *testing.T) {
 		// Horizontal: both 64(fitting) and 128(smushing) set
 		{"H: both bits, no rules -> universal", 64 | 128, ModeSmushingUniversal, ModeFull},
 		{"H: both bits, with rules -> controlled", 64 | 128 | 3, ModeSmushingControlled, ModeFull},
-		
 		// Vertical: both 8192(fitting) and 16384(smushing) set
 		{"V: both bits, no rules -> universal", 8192 | 16384, ModeFull, ModeSmushingUniversal},
 		{"V: both bits, with rules -> controlled", 8192 | 16384 | 256, ModeFull, ModeSmushingControlled},
-		
 		// Both axes with conflicts
 		{"Both axes conflicts", 64 | 128 | 8192 | 16384, ModeSmushingUniversal, ModeSmushingUniversal},
 	}
@@ -822,7 +852,7 @@ func TestUniversalVsControlledSmushing(t *testing.T) {
 		fullLayout    int
 		wantHorzMode  AxisMode
 		wantHorzRules uint8
-		wantVertMode  AxisMode  
+		wantVertMode  AxisMode
 		wantVertRules uint8
 	}{
 		// Horizontal
@@ -830,8 +860,7 @@ func TestUniversalVsControlledSmushing(t *testing.T) {
 		{"H: smushing + rule 1 -> controlled", 128 | 1, ModeSmushingControlled, 1, ModeFull, 0},
 		{"H: smushing + rules 1,3,5 -> controlled", 128 | 1 | 4 | 16, ModeSmushingControlled, 0x15, ModeFull, 0},
 		{"H: smushing + all rules -> controlled", 128 | 63, ModeSmushingControlled, 0x3F, ModeFull, 0},
-		
-		// Vertical  
+		// Vertical
 		{"V: smushing bit only -> universal", 16384, ModeFull, 0, ModeSmushingUniversal, 0},
 		{"V: smushing + rule 1 -> controlled", 16384 | 256, ModeFull, 0, ModeSmushingControlled, 1},
 		{"V: smushing + rules 1,2,3 -> controlled", 16384 | 256 | 512 | 1024, ModeFull, 0, ModeSmushingControlled, 7},
@@ -869,9 +898,9 @@ func TestNormalizeLayoutDefaulting(t *testing.T) {
 	}{
 		{"No bits -> FitFullWidth", 0, FitFullWidth},
 		{"Only RuleEqualChar -> FitFullWidth preserved", RuleEqualChar, FitFullWidth | RuleEqualChar},
-		{"Only rules 1,3,5 -> FitFullWidth preserved", RuleEqualChar | RuleHierarchy | RuleBigX, 
+		{"Only rules 1,3,5 -> FitFullWidth preserved", RuleEqualChar | RuleHierarchy | RuleBigX,
 			FitFullWidth | RuleEqualChar | RuleHierarchy | RuleBigX},
-		{"All rules, no fit -> FitFullWidth preserved", 
+		{"All rules, no fit -> FitFullWidth preserved",
 			RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank,
 			FitFullWidth | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank},
 	}

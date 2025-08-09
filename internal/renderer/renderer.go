@@ -43,7 +43,7 @@ var (
 // pickLayout determines the effective layout from font defaults and options
 func pickLayout(font *parser.Font, opts *Options) (int, error) {
 	// 1) start from opts if provided; else fall back to font defaults
-	layout := FitFullWidth
+	var layout int
 	if opts != nil {
 		layout = opts.Layout // 0 (full) is valid
 	} else {

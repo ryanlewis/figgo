@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - NEVER create files unless absolutely necessary - always prefer editing existing files
 - NEVER proactively create documentation files (*.md) unless explicitly requested
 - When running potentially destructive commands, explain what they do first
+- NEVER commit files when `just ci` returns errprs/warnings
 
 ## Project Overview
 

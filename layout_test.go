@@ -174,7 +174,7 @@ func TestLayoutString(t *testing.T) {
 		{"INVALID:FitKerning|FitSmushing", FitKerning | FitSmushing}, // Multiple fitting modes
 		{"FitSmushing|RuleEqualChar|RuleUnderscore|RuleHierarchy|RuleOppositePair|RuleBigX|RuleHardblank",
 			FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank}, // All rules
-		{"FitFullWidth", 0}, // FitFullWidth = 0
+		{"FitFullWidth", 0},                // Zero value represents FitFullWidth
 		{"0x12345678", Layout(0x12345678)}, // Unknown bits
 		{"0x80000000", Layout(0x80000000)}, // High bit set
 	}

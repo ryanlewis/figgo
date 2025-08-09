@@ -23,7 +23,8 @@
 
 * Unicode beyond ASCII (roadmap, see §4).
 * Vertical smushing (roadmap).
-* ~~Reading `.flc` control files or compressed fonts.~~ ✅ **Implemented in #21**
+* Reading `.flc` control files (character mapping tables).
+* ~~Reading ZIP-compressed `.flf` fonts.~~ ✅ **Implemented in #21**
 * Layout overrides that are not in the font (beyond explicit options).
 
 ---
@@ -54,7 +55,7 @@
 
 **Phase 2**
 
-* Latin-1 extension set; ~~optional `.flc` support.~~ ✅ **Implemented in #21**
+* Latin-1 extension set; optional `.flc` control file support.
 * Font discovery from `fs.FS` (embed/zip/disk) with `WithFS`.
 
 **Phase 3**
@@ -212,7 +213,7 @@ const (
 
 ## 8) File Loading & Fonts
 
-* Support `.flf` uncompressed and `.flc` compressed (ZIP) from `io.Reader` and `fs.FS`.
+* Support `.flf` files both uncompressed and ZIP-compressed (auto-detected) from `io.Reader` and `fs.FS`.
 * **Font is immutable**; safe to share across goroutines.
 * No word-level caches in `Font`. If caching is needed later, use a separate LRU keyed by `(fontID, layout, text)`.
 

@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-// TestParseGlyph_MaxLengthValidation tests that MaxLength is properly enforced
-func TestParseGlyph_MaxLengthValidation(t *testing.T) {
+// TestParseGlyph_MaxLengthValidation tests that MaxLength generates warnings (not errors)
+func TestParseGlyph_MaxLengthValidation(t *testing.T) { //nolint:gocognit // Test function with many test cases
 	tests := []struct {
-		expectError bool
-		name        string
-		input       string
-		errContains string
+		expectWarning bool
+		name          string
+		input         string
+		warnContains  string
 	}{
 		{
 			name: "within_maxlength",
@@ -19,7 +19,7 @@ func TestParseGlyph_MaxLengthValidation(t *testing.T) {
 hello@@
 world@@
 `,
-			expectError: false,
+			expectWarning: false,
 		},
 		{
 			name: "exactly_maxlength",
@@ -27,16 +27,16 @@ world@@
 hello@@
 world@@
 `,
-			expectError: false,
+			expectWarning: false,
 		},
 		{
-			name: "exceeds_maxlength",
-			input: `flf2a@ 2 2 5 0 0
+			name: "exceeds_maxlength_after_stripping",
+			input: `flf2a@ 2 2 3 0 0
 hello@@
 world@@
 `,
-			expectError: true,
-			errContains: "exceeds MaxLength",
+			expectWarning: true,
+			warnContains:  "exceeds MaxLength",
 		},
 		{
 			name: "maxlength_with_long_endmark_run",
@@ -44,7 +44,7 @@ world@@
 test@@@@@@@@@@
 data@@@@@@@@@@
 `,
-			expectError: false,
+			expectWarning: false,
 		},
 		{
 			name: "maxlength_exceeded_with_long_content",
@@ -52,25 +52,42 @@ data@@@@@@@@@@
 ` + strings.Repeat("x", 20) + `@@
 ` + strings.Repeat("y", 20) + `@@
 `,
-			expectError: true,
-			errContains: "exceeds MaxLength",
+			expectWarning: true,
+			warnContains:  "exceeds MaxLength",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := strings.NewReader(tt.input)
-			_, err := Parse(r)
+			font, err := Parse(r)
 
-			if tt.expectError {
-				if err == nil {
-					t.Fatalf("Parse() expected error containing %q, got nil", tt.errContains)
-				}
-				if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("Parse() error = %v, want error containing %q", err, tt.errContains)
-				}
-			} else if err != nil {
+			// MaxLength violations are now warnings, not errors
+			if err != nil {
 				t.Fatalf("Parse() unexpected error = %v", err)
+			}
+
+			if tt.expectWarning {
+				if font == nil || len(font.Warnings) == 0 {
+					t.Fatalf("Parse() expected warning containing %q, got no warnings", tt.warnContains)
+				}
+				found := false
+				for _, w := range font.Warnings {
+					if strings.Contains(w, tt.warnContains) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Parse() warnings = %v, want warning containing %q", font.Warnings, tt.warnContains)
+				}
+			} else if font != nil && len(font.Warnings) > 0 {
+				// Check for unexpected MaxLength warnings
+				for _, w := range font.Warnings {
+					if strings.Contains(w, "exceeds MaxLength") {
+						t.Errorf("Parse() unexpected MaxLength warning: %v", w)
+					}
+				}
 			}
 		})
 	}

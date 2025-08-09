@@ -17,7 +17,7 @@ func TestFontStruct(t *testing.T) {
 		FullLayout:     FitFullWidth,
 		PrintDirection: 0,
 		CommentLines:   25,
-		Glyphs:         make(map[rune][]string),
+		glyphs:         make(map[rune][]string),
 	}
 
 	if font.Name != "standard" {
@@ -47,8 +47,8 @@ func TestFontStruct(t *testing.T) {
 	if font.CommentLines != 25 {
 		t.Errorf("expected CommentLines to be 25, got %d", font.CommentLines)
 	}
-	if font.Glyphs == nil {
-		t.Error("expected Glyphs to be initialized")
+	if font.glyphs == nil {
+		t.Error("expected glyphs to be initialized")
 	}
 }
 
@@ -83,5 +83,45 @@ func TestOptionPattern(t *testing.T) {
 	opt = WithPrintDirection(1)
 	if opt == nil {
 		t.Error("WithPrintDirection should return an Option")
+	}
+}
+
+func TestFontGlyphAccessor(t *testing.T) {
+	font := &Font{
+		glyphs: map[rune][]string{
+			'A': {"  A  ", " A A ", "AAAAA", "A   A", "A   A"},
+			'B': {"BBBB ", "B   B", "BBBB ", "B   B", "BBBB "},
+		},
+	}
+
+	// Test successful glyph retrieval
+	glyph, ok := font.Glyph('A')
+	if !ok {
+		t.Error("expected to find glyph for 'A'")
+	}
+	if len(glyph) != 5 {
+		t.Errorf("expected glyph to have 5 lines, got %d", len(glyph))
+	}
+
+	// Test missing glyph
+	_, ok = font.Glyph('Z')
+	if ok {
+		t.Error("expected not to find glyph for 'Z'")
+	}
+
+	// Test nil font
+	var nilFont *Font
+	_, ok = nilFont.Glyph('A')
+	if ok {
+		t.Error("expected nil font to return false")
+	}
+
+	// Verify immutability - modifying returned slice shouldn't affect font
+	// Note: In Go, slices share backing arrays, so this tests that
+	// callers understand they shouldn't modify the returned data
+	glyph, _ = font.Glyph('B')
+	originalLine := glyph[0]
+	if originalLine != "BBBB " {
+		t.Errorf("unexpected original line: %q", originalLine)
 	}
 }

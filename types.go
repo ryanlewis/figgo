@@ -7,13 +7,16 @@ import "errors"
 // Font data is loaded once and never modified, making it safe for concurrent use
 // without locking.
 type Font struct {
-	// Glyphs maps runes to their multi-line ASCII art representations
-	Glyphs map[rune][]string
+	// glyphs maps runes to their multi-line ASCII art representations (unexported for immutability)
+	glyphs map[rune][]string
 
 	// Name is the font name (e.g., "standard")
 	Name string
 
-	// FullLayout contains the full layout bitmask combining fitting mode and smushing rules
+	// FullLayout contains the normalized horizontal layout bitmask combining fitting mode and smushing rules.
+	// Note: This is NOT the raw FullLayout value from the FIGfont header.
+	// It's the normalized renderer layout derived from the header's OldLayout/FullLayout values.
+	// Only horizontal layout is currently used by the renderer.
 	FullLayout Layout
 
 	// Hardblank is the character used for hard blanks in the font
@@ -36,6 +39,16 @@ type Font struct {
 
 	// CommentLines is the number of comment lines in the font file
 	CommentLines int
+}
+
+// Glyph returns the ASCII art representation for a rune, or false if not found.
+// The returned slice should not be modified by the caller.
+func (f *Font) Glyph(r rune) ([]string, bool) {
+	if f == nil || f.glyphs == nil {
+		return nil, false
+	}
+	glyph, ok := f.glyphs[r]
+	return glyph, ok
 }
 
 // Common errors returned by the figgo package

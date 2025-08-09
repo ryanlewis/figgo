@@ -69,6 +69,9 @@ type Font struct {
 
 	// CodetagCount specifies the number of code-tagged characters
 	CodetagCount int
+
+	// Warnings contains any non-fatal issues encountered during parsing
+	Warnings []string
 }
 
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
@@ -161,6 +164,11 @@ func readHeaderLine(scanner *bufio.Scanner) (string, error) {
 	}
 
 	headerLine := strings.TrimSpace(scanner.Text())
+
+	// Strip UTF-8 BOM from the first line if present
+	// Some .flf files in the wild carry a UTF-8 BOM (U+FEFF)
+	const utf8BOM = "\uFEFF"
+	headerLine = strings.TrimPrefix(headerLine, utf8BOM)
 	if headerLine == "" {
 		// Try to find non-empty line
 		for scanner.Scan() {
@@ -311,15 +319,16 @@ func readCommentLines(scanner *bufio.Scanner, font *Font) error {
 // parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223)
 func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	// Parse space character (ASCII 32)
-	spaceGlyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
+	spaceGlyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
 	if err != nil {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
+	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
 	for charCode := rune(firstNonSpaceASCII); charCode <= lastPrintableASCII; charCode++ {
-		glyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
+		glyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
 		if err != nil {
 			// Check if it's EOF - if so, we're done (partial font is OK)
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -328,13 +337,14 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
+		font.Warnings = append(font.Warnings, warnings...)
 	}
 
 	// Parse the 7 required German/Deutsch characters in order
 	// Per FIGfont spec: 196 (Ä), 214 (Ö), 220 (Ü), 228 (ä), 246 (ö), 252 (ü), 223 (ß)
 	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
 	for _, charCode := range deutschChars {
-		glyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
+		glyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
 		if err != nil {
 			// Check if it's EOF - German chars are optional for backward compatibility
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -343,6 +353,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
+		font.Warnings = append(font.Warnings, warnings...)
 	}
 
 	return nil
@@ -350,8 +361,16 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 
 // stripTrailingRun strips the trailing run of the last character from a line
 // Returns the body (without trailing run), the endmark character, and the run length
+//
+// This implementation is intentionally permissive to handle real-world fonts:
+// - Strips any trailing run length (not just single/double as per spec)
+// - Doesn't enforce "last line has double endmark" convention
+// - Handles multi-byte UTF-8 endmarks correctly
+// This approach prioritizes compatibility over strict spec compliance.
 func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	// Trim only CR; bufio.Scanner already strips LF
+	// We special-case \r because Windows line endings (\r\n) leave a trailing \r
+	// after Scanner removes the \n, and we need to strip it before processing endmarks
 	line = strings.TrimSuffix(line, "\r")
 
 	if line == "" {
@@ -398,64 +417,54 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 }
 
 // parseGlyph parses a single character glyph
-func parseGlyph(scanner *bufio.Scanner, height, maxLength int) ([]string, error) {
-	glyph := make([]string, 0, height)
-	var width int
-	var widthSet bool
-	var firstRowByteLen int
-	allASCII := true
+func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
+	glyph = make([]string, 0, height)
+	width := -1 // -1 indicates width not yet set
 
 	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
-				return nil, fmt.Errorf("error reading line %d: %w", row+1, err)
+				return nil, warnings, fmt.Errorf("error reading line %d: %w", row+1, err)
 			}
-			return nil, fmt.Errorf("unexpected EOF: expected %d lines, got %d: %w", height, row, io.ErrUnexpectedEOF)
+			return nil, warnings, fmt.Errorf(
+				"unexpected EOF: expected %d lines, got %d: %w",
+				height, row, io.ErrUnexpectedEOF)
 		}
 
-		// Get the raw line for MaxLength validation
+		// Get the raw line
 		rawLine := scanner.Text()
-
-		// Validate MaxLength (spec defines it as maximum line length in font file)
-		// We check the raw line length before stripping endmarks
-		if len(rawLine) > maxLength {
-			return nil, fmt.Errorf("line %d exceeds MaxLength: %d > %d", row+1, len(rawLine), maxLength)
-		}
 
 		// Strip the trailing run of the endmark character
 		body, _, _ := stripTrailingRun(rawLine)
 
-		// Check width consistency with optimizations
-		if !widthSet {
-			// First row: calculate and store both byte and rune lengths
-			firstRowByteLen = len(body)
-			width = utf8.RuneCountInString(body)
-			widthSet = true
-			// Check if first row is pure ASCII
-			allASCII = (firstRowByteLen == width)
-		} else {
-			// Subsequent rows: optimize based on whether content is ASCII
-			var w int
-			if allASCII && len(body) == firstRowByteLen {
-				// Fast path: if first row was ASCII and byte length matches,
-				// we know the rune count matches without counting
-				w = width
-			} else {
-				// Need to count runes for this row
-				w = utf8.RuneCountInString(body)
-				// Update ASCII flag if we haven't seen non-ASCII yet
-				if allASCII && len(body) != w {
-					allASCII = false
-				}
-			}
+		// Validate MaxLength after stripping endmarks (advisory check)
+		// The spec says MaxLength is "usually width + 2" for endmarks,
+		// but many real fonts don't follow this strictly
+		bodyWidth := utf8.RuneCountInString(body)
+		if bodyWidth > maxLength {
+			// Advisory warning only - many real fonts exceed their stated MaxLength
+			warnings = append(warnings,
+				fmt.Sprintf("line %d width (%d) exceeds MaxLength (%d)",
+					row+1, bodyWidth, maxLength))
+		}
 
-			if w != width {
-				return nil, fmt.Errorf("inconsistent row width in glyph: row %d has %d, expected %d", row+1, w, width)
-			}
+		// Check width consistency
+		w := utf8.RuneCountInString(body)
+		if width == -1 {
+			// First row: set the expected width
+			width = w
+		} else if w != width {
+			// Note: We compare rune counts for width consistency, not visual width.
+			// This means combining marks are counted as separate runes, which may
+			// differ from visual width. FIGfonts overwhelmingly use ASCII art, so
+			// this limitation rarely matters in practice.
+			return nil, warnings, fmt.Errorf(
+				"inconsistent row width in glyph: row %d has %d, expected %d",
+				row+1, w, width)
 		}
 
 		glyph = append(glyph, body)
 	}
 
-	return glyph, nil
+	return glyph, warnings, nil
 }

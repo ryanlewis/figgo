@@ -49,6 +49,9 @@ More comments here
 				if f.FullLayout != 24463 {
 					t.Errorf("FullLayout = %d, want %d", f.FullLayout, 24463)
 				}
+				if !f.FullLayoutSet {
+					t.Errorf("FullLayoutSet = false, want true (FullLayout field is present)")
+				}
 				if f.CodetagCount != 229 {
 					t.Errorf("CodetagCount = %d, want %d", f.CodetagCount, 229)
 				}
@@ -86,6 +89,9 @@ Comment 2
 				if f.FullLayout != 0 {
 					t.Errorf("FullLayout = %d, want %d", f.FullLayout, 0)
 				}
+				if f.FullLayoutSet {
+					t.Errorf("FullLayoutSet = true, want false (no FullLayout field)")
+				}
 			},
 		},
 		{
@@ -94,6 +100,21 @@ Comment 2
 			validate: func(t *testing.T, f *Font) {
 				if f.Signature != testSignature {
 					t.Errorf("Signature = %q, want %q", f.Signature, testSignature)
+				}
+				if f.Height != 8 {
+					t.Errorf("Height = %d, want %d", f.Height, 8)
+				}
+			},
+		},
+		{
+			name:  "header_with_utf8_bom",
+			input: "\uFEFFflf2a$ 8 6 14 15 1 0 0\nComment line\n",
+			validate: func(t *testing.T, f *Font) {
+				if f.Signature != testSignature {
+					t.Errorf("Signature = %q, want %q", f.Signature, testSignature)
+				}
+				if f.Hardblank != '$' {
+					t.Errorf("Hardblank = %q, want %q", f.Hardblank, '$')
 				}
 				if f.Height != 8 {
 					t.Errorf("Height = %d, want %d", f.Height, 8)
@@ -251,6 +272,23 @@ Comment
 			validate: func(t *testing.T, f *Font) {
 				if f.PrintDirection != 1 {
 					t.Errorf("PrintDirection = %d, want %d", f.PrintDirection, 1)
+				}
+				if f.FullLayoutSet {
+					t.Errorf("FullLayoutSet = true, want false (only 6 fields, no FullLayout)")
+				}
+			},
+		},
+		{
+			name: "header_with_fulllayout_zero",
+			input: `flf2a$ 8 6 14 15 1 0 0
+Comment
+`,
+			validate: func(t *testing.T, f *Font) {
+				if f.FullLayout != 0 {
+					t.Errorf("FullLayout = %d, want %d", f.FullLayout, 0)
+				}
+				if !f.FullLayoutSet {
+					t.Errorf("FullLayoutSet = false, want true (FullLayout field present even if 0)")
 				}
 			},
 		},

@@ -6,6 +6,7 @@
 package figgo
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/ryanlewis/figgo/internal/parser"
@@ -19,31 +20,28 @@ func ParseFont(r io.Reader) (*Font, error) {
 		return nil, err
 	}
 	// Convert internal parser.Font to public Font type
-	return convertParserFont(pf), nil
+	return convertParserFont(pf)
 }
 
 // convertParserFont converts internal parser.Font to public Font type
-func convertParserFont(pf *parser.Font) *Font {
+func convertParserFont(pf *parser.Font) (*Font, error) {
 	if pf == nil {
-		return nil
+		return nil, nil
 	}
 
 	// Normalize layout from header values
 	normalized, err := NormalizeLayoutFromHeader(pf.OldLayout, pf.FullLayout, pf.FullLayoutSet)
 	if err != nil {
-		// If normalization fails, fall back to old behavior
-		// This should rarely happen as the parser validates the values
-		normalized = NormalizedLayout{
-			HorzMode: ModeFull,
-			VertMode: ModeFull,
-		}
+		// Return the normalization error - this indicates a malformed font file
+		// with invalid OldLayout/FullLayout values that the parser didn't catch
+		return nil, fmt.Errorf("failed to normalize layout from font header: %w", err)
 	}
 
 	// Convert normalized layout to Layout bitmask
 	layout := normalized.ToLayout()
 
 	return &Font{
-		Glyphs:         pf.Characters,
+		glyphs:         pf.Characters,
 		Name:           "", // Will be set based on filename or metadata
 		FullLayout:     layout,
 		Hardblank:      pf.Hardblank,
@@ -53,7 +51,7 @@ func convertParserFont(pf *parser.Font) *Font {
 		OldLayout:      pf.OldLayout,
 		PrintDirection: pf.PrintDirection,
 		CommentLines:   pf.CommentLines,
-	}
+	}, nil
 }
 
 // Render converts text to ASCII art using the specified font and options.
@@ -65,6 +63,17 @@ func Render(text string, f *Font, opts ...Option) (string, error) {
 	for _, opt := range opts {
 		opt(options)
 	}
+
+	// Default to font's layout and direction if not specified
+	if options.layout == nil {
+		l := f.FullLayout
+		options.layout = &l
+	}
+	if options.printDirection == nil {
+		d := f.PrintDirection
+		options.printDirection = &d
+	}
+
 	// Validate layout options
 	if err := validateLayout(options); err != nil {
 		return "", err
@@ -80,16 +89,18 @@ func convertToParserFont(f *Font) *parser.Font {
 		return nil
 	}
 	return &parser.Font{
-		Hardblank:      f.Hardblank,
-		Height:         f.Height,
-		Baseline:       f.Baseline,
-		MaxLength:      f.MaxLen,
-		OldLayout:      f.OldLayout,
+		Hardblank: f.Hardblank,
+		Height:    f.Height,
+		Baseline:  f.Baseline,
+		MaxLength: f.MaxLen,
+		OldLayout: f.OldLayout,
 		// Note: We don't set FullLayout here as f.FullLayout is the normalized
-		// layout bitmask, not the original FIGfont header value
+		// horizontal layout bitmask, not the original FIGfont header value.
+		// The renderer currently only consumes horizontal layout settings.
+		// TODO: Thread vertical mode/rules into renderer API for vertical text support.
 		PrintDirection: f.PrintDirection,
 		CommentLines:   f.CommentLines,
-		Characters:     f.Glyphs,
+		Characters:     f.glyphs,
 	}
 }
 

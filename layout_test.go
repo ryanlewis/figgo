@@ -1,7 +1,7 @@
 package figgo
 
 import (
-	"errors"
+	"strings"
 	"testing"
 )
 
@@ -34,72 +34,81 @@ func TestLayoutConstants(t *testing.T) {
 
 func TestLayoutValidation(t *testing.T) {
 	tests := []struct {
-		wantErr     error
-		name        string
-		layout      Layout
-		wantFitting Layout
+		wantErrContains string
+		name            string
+		layout          Layout
+		wantFitting     Layout
 	}{
 		{
-			name:        "valid FitFullWidth only",
-			layout:      FitFullWidth,
-			wantErr:     nil,
-			wantFitting: FitFullWidth,
+			name:            "valid FitFullWidth only",
+			layout:          FitFullWidth,
+			wantErrContains: "",
+			wantFitting:     FitFullWidth,
 		},
 		{
-			name:        "valid FitKerning only",
-			layout:      FitKerning,
-			wantErr:     nil,
-			wantFitting: FitKerning,
+			name:            "valid FitKerning only",
+			layout:          FitKerning,
+			wantErrContains: "",
+			wantFitting:     FitKerning,
 		},
 		{
-			name:        "valid FitSmushing only",
-			layout:      FitSmushing,
-			wantErr:     nil,
-			wantFitting: FitSmushing,
+			name:            "valid FitSmushing only",
+			layout:          FitSmushing,
+			wantErrContains: "",
+			wantFitting:     FitSmushing,
 		},
 		{
-			name:        "valid FitSmushing with rules",
-			layout:      FitSmushing | RuleEqualChar | RuleHierarchy,
-			wantErr:     nil,
-			wantFitting: FitSmushing,
+			name:            "valid FitSmushing with rules",
+			layout:          FitSmushing | RuleEqualChar | RuleHierarchy,
+			wantErrContains: "",
+			wantFitting:     FitSmushing,
 		},
 		{
-			name:        "invalid both FitKerning and FitSmushing",
-			layout:      FitKerning | FitSmushing,
-			wantErr:     ErrLayoutConflict,
-			wantFitting: 0,
+			name:            "invalid both FitKerning and FitSmushing",
+			layout:          FitKerning | FitSmushing,
+			wantErrContains: "layout conflict",
+			wantFitting:     0,
 		},
 		{
-			name:        "invalid both FitFullWidth and FitKerning",
-			layout:      FitFullWidth | FitKerning,
-			wantErr:     ErrLayoutConflict,
-			wantFitting: 0,
+			name:            "invalid both FitFullWidth and FitKerning",
+			layout:          FitFullWidth | FitKerning,
+			wantErrContains: "layout conflict",
+			wantFitting:     0,
 		},
 		{
-			name:        "invalid all three fitting modes",
-			layout:      FitFullWidth | FitKerning | FitSmushing,
-			wantErr:     ErrLayoutConflict,
-			wantFitting: 0,
+			name:            "invalid all three fitting modes",
+			layout:          FitFullWidth | FitKerning | FitSmushing,
+			wantErrContains: "layout conflict",
+			wantFitting:     0,
 		},
 		{
-			name:        "no fitting mode defaults to FitFullWidth",
-			layout:      RuleEqualChar | RuleHierarchy, // Rules without fitting mode
-			wantErr:     nil,
-			wantFitting: FitFullWidth,
+			name:            "no fitting mode defaults to FitFullWidth",
+			layout:          RuleEqualChar | RuleHierarchy, // Rules without fitting mode
+			wantErrContains: "",
+			wantFitting:     FitFullWidth,
 		},
 		{
-			name:        "zero layout defaults to FitFullWidth",
-			layout:      0,
-			wantErr:     nil,
-			wantFitting: FitFullWidth,
+			name:            "zero layout defaults to FitFullWidth",
+			layout:          0,
+			wantErrContains: "",
+			wantFitting:     FitFullWidth,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			normalized, err := NormalizeLayout(tt.layout)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("NormalizeLayout() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErrContains != "" {
+				if err == nil {
+					t.Errorf("NormalizeLayout() error = nil, want error containing %q", tt.wantErrContains)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Errorf("NormalizeLayout() error = %v, want error containing %q", err, tt.wantErrContains)
+					return
+				}
+			} else if err != nil {
+				t.Errorf("NormalizeLayout() unexpected error = %v", err)
 				return
 			}
 			if err == nil && normalized.FittingMode() != tt.wantFitting {
@@ -174,8 +183,12 @@ func TestLayoutString(t *testing.T) {
 		{"FitSmushing", FitSmushing},
 		{"FitSmushing|RuleEqualChar", FitSmushing | RuleEqualChar},
 		{"FitSmushing|RuleEqualChar|RuleBigX", FitSmushing | RuleEqualChar | RuleBigX},
+		{"INVALID:FitFullWidth|FitKerning", FitFullWidth | FitKerning}, // Multiple fitting modes
+		{"FitSmushing|RuleEqualChar|RuleUnderscore|RuleHierarchy|RuleOppositePair|RuleBigX|RuleHardblank",
+			FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank}, // All rules
 		{"0x00000000", 0},
 		{"0x12345678", Layout(0x12345678)}, // Unknown bits
+		{"0x80000000", Layout(0x80000000)}, // High bit set
 	}
 
 	for _, tt := range tests {
@@ -192,9 +205,24 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 	// Based on spec-compliance.md section 4
 	tests := []struct {
 		name      string
-		oldLayout int32
+		oldLayout int
 		want      Layout
 	}{
+		{
+			name:      "negative full width",
+			oldLayout: -1,
+			want:      FitFullWidth,
+		},
+		{
+			name:      "fitting alias (-2)",
+			oldLayout: -2,
+			want:      FitKerning,
+		},
+		{
+			name:      "universal smushing (-3)",
+			oldLayout: -3,
+			want:      FitSmushing,
+		},
 		{
 			name:      "fitting (kerning) mode",
 			oldLayout: 0,
@@ -240,16 +268,14 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 			oldLayout: 63, // All 6 rule bits
 			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank,
 		},
-		{
-			name:      "negative full width",
-			oldLayout: -1,
-			want:      FitFullWidth,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NormalizeOldLayout(tt.oldLayout)
+			got, err := NormalizeOldLayout(tt.oldLayout)
+			if err != nil {
+				t.Fatalf("NormalizeOldLayout(%d) unexpected error: %v", tt.oldLayout, err)
+			}
 			if got != tt.want {
 				t.Errorf("NormalizeOldLayout(%d) = 0x%08X, want 0x%08X", tt.oldLayout, uint32(got), uint32(tt.want))
 			}

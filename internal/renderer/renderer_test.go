@@ -274,7 +274,7 @@ func TestRenderFullWidth_InvalidFontHeight(t *testing.T) {
 func TestFallbackGlyphAvailable(t *testing.T) {
 	// Test that our fonts have either '?' or ' ' for fallback
 	font := createMinimalFont()
-	
+
 	// Should have '?' glyph
 	_, hasQuestionMark := font.Characters['?']
 	if !hasQuestionMark {

@@ -153,45 +153,45 @@ func NormalizeLayout(layout Layout) (Layout, error) {
 }
 
 // NormalizeOldLayout converts an OldLayout integer to a Layout bitmask.
-// This handles the legacy FIGfont format where:
+// This handles the legacy FIGfont format per the FIGfont v2 spec:
 //   - -1: Full width
-//   - 0: Full width
-//   - 1: Kerning
-//   - Even numbers >= 2: Smushing with rules encoded in bits
+//   - 0: Fitting (kerning)
+//   - >0: Smushing with rules encoded in bits 0-5
+//
+// Note: This function is deprecated in favor of NormalizeLayoutFromHeader
+// which handles both OldLayout and FullLayout with proper precedence.
 func NormalizeOldLayout(oldLayout int32) Layout {
-	if oldLayout <= 0 {
+	switch {
+	case oldLayout == -1:
 		return FitFullWidth
-	}
-
-	if oldLayout == 1 {
+	case oldLayout == 0:
 		return FitKerning
+	default:
+		// oldLayout > 0: smushing with rules from bits 0-5
+		layout := FitSmushing
+		
+		// Map rule bits (bits 0-5 correspond to rules 1-6)
+		if oldLayout&1 != 0 {
+			layout |= RuleEqualChar
+		}
+		if oldLayout&2 != 0 {
+			layout |= RuleUnderscore
+		}
+		if oldLayout&4 != 0 {
+			layout |= RuleHierarchy
+		}
+		if oldLayout&8 != 0 {
+			layout |= RuleOppositePair
+		}
+		if oldLayout&16 != 0 {
+			layout |= RuleBigX
+		}
+		if oldLayout&32 != 0 {
+			layout |= RuleHardblank
+		}
+		
+		return layout
 	}
-
-	// oldLayout >= 2 means smushing with rules
-	layout := FitSmushing
-
-	// Extract rule bits from the old layout
-	// In old format, bit 0 = equal char, bit 1 = underscore, etc.
-	if oldLayout&2 != 0 {
-		layout |= RuleEqualChar
-	}
-	if oldLayout&4 != 0 {
-		layout |= RuleUnderscore
-	}
-	if oldLayout&8 != 0 {
-		layout |= RuleHierarchy
-	}
-	if oldLayout&16 != 0 {
-		layout |= RuleOppositePair
-	}
-	if oldLayout&32 != 0 {
-		layout |= RuleBigX
-	}
-	if oldLayout&64 != 0 {
-		layout |= RuleHardblank
-	}
-
-	return layout
 }
 
 // HasRule checks if a specific smushing rule is enabled in the layout.

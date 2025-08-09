@@ -85,21 +85,24 @@ func convertToParserFont(f *Font) *parser.Font {
 		Baseline:       f.Baseline,
 		MaxLength:      f.MaxLen,
 		OldLayout:      f.OldLayout,
-		FullLayout:     int(f.FullLayout),
+		// Note: We don't set FullLayout here as f.FullLayout is the normalized
+		// layout bitmask, not the original FIGfont header value
 		PrintDirection: f.PrintDirection,
 		CommentLines:   f.CommentLines,
 		Characters:     f.Glyphs,
 	}
 }
 
-// validateLayout checks for layout conflicts
+// validateLayout checks for layout conflicts and normalizes the layout
 func validateLayout(opts *options) error {
 	if opts.layout != nil {
-		layout := *opts.layout
-		// Check if both FitKerning and FitSmushing are set
-		if (layout&FitKerning != 0) && (layout&FitSmushing != 0) {
-			return ErrLayoutConflict
+		// Use NormalizeLayout to check for all conflicts
+		normalized, err := NormalizeLayout(*opts.layout)
+		if err != nil {
+			return err
 		}
+		// Update with normalized layout
+		*opts.layout = normalized
 	}
 	return nil
 }

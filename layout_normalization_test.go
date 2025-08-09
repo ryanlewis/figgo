@@ -200,6 +200,46 @@ func TestNormalizeLayoutFromOldLayout(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		// Both-bits-set precedence tests
+		{
+			name:          "Horizontal: both fitting(64) and smushing(128) -> smushing wins",
+			oldLayout:     0,
+			fullLayout:    64 + 128, // Both horizontal fitting and smushing
+			fullLayoutSet: true,
+			want: NormalizedLayout{
+				HorzMode:  ModeSmushingUniversal, // Smushing wins, no rules = universal
+				HorzRules: 0,
+				VertMode:  ModeFull,
+				VertRules: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name:          "Vertical: both fitting(8192) and smushing(16384) -> smushing wins",
+			oldLayout:     0,
+			fullLayout:    8192 + 16384, // Both vertical fitting and smushing
+			fullLayoutSet: true,
+			want: NormalizedLayout{
+				HorzMode:  ModeFull,
+				HorzRules: 0,
+				VertMode:  ModeSmushingUniversal, // Smushing wins, no rules = universal
+				VertRules: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name:          "Both H and V: fitting+smushing -> smushing wins on both axes",
+			oldLayout:     0,
+			fullLayout:    64 + 128 + 8192 + 16384 + 3, // Both bits set + some H rules
+			fullLayoutSet: true,
+			want: NormalizedLayout{
+				HorzMode:  ModeSmushingControlled, // Smushing wins, with rules
+				HorzRules: 0x03,                   // Rules 1+2
+				VertMode:  ModeSmushingUniversal,  // Smushing wins, no V rules
+				VertRules: 0,
+			},
+			wantErr: false,
+		},
 		// Precedence tests
 		{
 			name:          "FullLayout overrides OldLayout when set",

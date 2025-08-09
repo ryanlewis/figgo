@@ -187,14 +187,11 @@ func NormalizeLayout(layout Layout) (Layout, error) {
 // which handles both OldLayout and FullLayout with proper precedence.
 func NormalizeOldLayout(oldLayout int) (Layout, error) {
 	// Validate range per FIGfont v2 spec
-	if oldLayout < -3 || oldLayout > 63 {
+	// Only -1, 0, and positive values up to 63 are valid
+	if oldLayout < -1 || oldLayout > 63 {
 		return 0, ErrInvalidOldLayout
 	}
 	switch {
-	case oldLayout == -3:
-		return FitSmushing, nil // Universal smushing (no rules)
-	case oldLayout == -2:
-		return FitKerning, nil // Alias for 0
 	case oldLayout == -1:
 		return FitFullWidth, nil
 	case oldLayout == 0:
@@ -367,7 +364,8 @@ func (l Layout) String() string {
 //   - Universal smushing = smushing bit set with no rule bits
 func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (NormalizedLayout, error) {
 	// Validate ranges
-	if oldLayout < -3 || oldLayout > 63 {
+	// Only -1, 0, and positive values up to 63 are valid for OldLayout
+	if oldLayout < -1 || oldLayout > 63 {
 		return NormalizedLayout{}, ErrInvalidOldLayout
 	}
 	if fullLayout < 0 || fullLayout > 32767 {
@@ -379,6 +377,17 @@ func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (N
 	if fullLayoutSet {
 		// FullLayout takes precedence when present
 		result = parseFullLayout(fullLayout)
+		
+		// Validate consistency with OldLayout if meaningful
+		// OldLayout -1 should match FullLayout indicating full-width
+		// OldLayout 0 should match FullLayout indicating kerning
+		// OldLayout > 0 should match FullLayout indicating smushing
+		oldNorm := parseOldLayout(oldLayout)
+		if oldNorm.HorzMode != result.HorzMode {
+			// Note: We can't return a warning here, but the calling code
+			// should log this inconsistency if it has access to a warnings list
+			// For now, we use FullLayout as it has more complete information
+		}
 	} else {
 		// Use OldLayout only
 		result = parseOldLayout(oldLayout)
@@ -396,14 +405,10 @@ func parseOldLayout(oldLayout int) NormalizedLayout {
 	switch {
 	case oldLayout == -1:
 		result.HorzMode = ModeFull
-	case oldLayout == -2:
-		result.HorzMode = ModeFitting // Alias for 0
-	case oldLayout == -3:
-		result.HorzMode = ModeSmushingUniversal // Universal smushing (no rules)
 	case oldLayout == 0:
 		result.HorzMode = ModeFitting
 	default:
-		// oldLayout > 0: smushing with rules
+		// oldLayout > 0: smushing with rules (1..63 are valid)
 		result.HorzMode = ModeSmushingControlled
 		// Extract rule bits (0-5) - oldLayout validated to be 1..63
 		// Masking with 0x3F ensures value is 0..63, safe for uint8

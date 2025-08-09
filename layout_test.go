@@ -202,16 +202,6 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 			want:      FitFullWidth,
 		},
 		{
-			name:      "fitting alias (-2)",
-			oldLayout: -2,
-			want:      FitKerning,
-		},
-		{
-			name:      "universal smushing (-3)",
-			oldLayout: -3,
-			want:      FitSmushing,
-		},
-		{
 			name:      "fitting (kerning) mode",
 			oldLayout: 0,
 			want:      FitKerning,

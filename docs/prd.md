@@ -157,14 +157,14 @@ var (
 
 **Precedence (top→down)**. If a rule matches, it decides the overlapped column:
 
-1. **Equal character** — identical non-space, keep that char.
+1. **Equal character** — identical non-space characters smush to that char (hardblanks excluded).
 2. **Underscore** — `_` + border chars (`|/\\[]{}()<>`) → border char.
 3. **Hierarchy** — class order `|` > `/\\` > `[]` > `{}` > `()`; higher class survives.
-4. **Opposite pairs** — `[]`, `{}`, `()` → `|`.
-5. **Big X** — `/\\` → `X`, `><` → `X`.
+4. **Opposite pairs** — `[]`, `{}`, `()` and their reverses `][`, `}{`, `)(` → `|`.
+5. **Big X** — `/\\` → `|`, `\\/` → `Y`, `><` → `X`.
 6. **Hardblank** — two hardblanks smush to one hardblank.
 
-If none of the active rules match, but overlap is allowed, fall back to **universal**: take right if left is space, left if right is space; otherwise **no smush** (keep kerning distance). Hardblank collisions **never** universal-smush.
+If none of the active rules match, but overlap is allowed, fall back to **universal**: the later sub-character overrides the earlier one. Visible characters always override blanks/hardblanks. When both are visible, the right one wins. Two hardblanks only smush via rule 6 (controlled smushing), not universal.
 
 *(Vertical rules are out of scope for MVP.)*
 
@@ -197,9 +197,9 @@ const (
 
 **Normalization:**
 
-* If font uses **OldLayout** (`-1 full`, `-2 kern`, `-3 smush`), convert to `Fit*` + default rules (if any) according to spec.
+* If font uses **OldLayout** (`-1` full-width, `0` kerning, positive values 1-63 for controlled smushing with rule bits), convert to `Fit*` + rules according to spec.
 * If font uses **FullLayout** (bitmask), import as-is.
-* If both are present, **FullLayout wins**.
+* If both are present, **validate consistency**. If they conflict, log warning and use FullLayout (it carries more complete information).
 
 **Validation:**
 

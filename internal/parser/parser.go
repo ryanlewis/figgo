@@ -29,10 +29,52 @@ const (
 	asciiThreshold = 0x80
 )
 
+// GlyphTrim contains precomputed trim information for a glyph row
+type GlyphTrim struct {
+	LeftmostVisible  int // Index of leftmost non-space character (-1 if all spaces)
+	RightmostVisible int // Index of rightmost non-space character (-1 if all spaces)
+}
+
+// computeGlyphTrims precomputes the trim information for a glyph
+// Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
+func computeGlyphTrims(glyph []string, _ byte) []GlyphTrim {
+	trims := make([]GlyphTrim, len(glyph))
+	for i, row := range glyph {
+		leftmost := -1
+		rightmost := -1
+
+		// Find leftmost visible
+		for j := 0; j < len(row); j++ {
+			if row[j] != ' ' {
+				leftmost = j
+				break
+			}
+		}
+
+		// Find rightmost visible
+		for j := len(row) - 1; j >= 0; j-- {
+			if row[j] != ' ' {
+				rightmost = j
+				break
+			}
+		}
+
+		trims[i] = GlyphTrim{
+			LeftmostVisible:  leftmost,
+			RightmostVisible: rightmost,
+		}
+	}
+	return trims
+}
+
 // Font represents a parsed FIGfont with all its metadata and character glyphs.
 type Font struct {
 	// Characters maps ASCII codes to their glyph representations
 	Characters map[rune][]string
+
+	// CharacterTrims maps ASCII characters to their precomputed trim data per row
+	// This is computed during parsing for performance
+	CharacterTrims map[rune][]GlyphTrim
 
 	// Comments contains the font comments
 	Comments []string
@@ -150,6 +192,7 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 
 	// Initialize Characters map with capacity for ASCII (95) + German (7) + some extras
 	font.Characters = make(map[rune][]string, 128)
+	font.CharacterTrims = make(map[rune][]GlyphTrim, 128)
 
 	return font, nil
 }
@@ -324,6 +367,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
+	font.CharacterTrims[' '] = computeGlyphTrims(spaceGlyph, byte(font.Hardblank))
 	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
@@ -337,6 +381,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
+		font.CharacterTrims[charCode] = computeGlyphTrims(glyph, byte(font.Hardblank))
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -353,6 +398,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
+		font.CharacterTrims[charCode] = computeGlyphTrims(glyph, byte(font.Hardblank))
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 

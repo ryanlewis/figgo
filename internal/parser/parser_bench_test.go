@@ -34,8 +34,8 @@ func BenchmarkStripTrailingRun(b *testing.B) {
 // BenchmarkParseGlyph benchmarks parsing a single glyph
 func BenchmarkParseGlyph(b *testing.B) {
 	tests := []struct {
-		name   string
 		height int
+		name   string
 		lines  []string
 	}{
 		{
@@ -84,7 +84,7 @@ func BenchmarkParseGlyph(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			content := strings.Join(tt.lines, "\n")
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				scanner := strings.NewReader(content)
@@ -144,8 +144,8 @@ of new full-width/kern/smush alternatives, but default output is NOT changed.
 		content string
 	}{
 		{"Standard_partial", standardFont},
-		{"Empty_glyphs", strings.Replace(standardFont, "###", "", -1)},
-		{"Unicode_hardblank", strings.Replace(standardFont, "flf2a$", "flf2a世", -1)},
+		{"Empty_glyphs", strings.ReplaceAll(standardFont, "###", "")},
+		{"Unicode_hardblank", strings.ReplaceAll(standardFont, "flf2a$", "flf2a世")},
 	}
 
 	for _, tt := range tests {

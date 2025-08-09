@@ -5,6 +5,41 @@ import (
 	"testing"
 )
 
+// Helper function to reduce test complexity
+func validateCharGlyph(t *testing.T, f *Font, char rune, expected []string, charName string) {
+	t.Helper()
+	glyph, exists := f.Characters[char]
+	if !exists {
+		t.Fatalf("%s character not found", charName)
+	}
+	for i, expectedLine := range expected {
+		if glyph[i] != expectedLine {
+			t.Errorf("%s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
+		}
+	}
+}
+
+// Helper function for tests that expect simple space validation with testContent/dataContent
+func validateTestDataSpace(t *testing.T, f *Font) {
+	t.Helper()
+	validateSpaceGlyph(t, f, []string{testContent, dataContent})
+}
+
+// Helper function for endmark stripping validation
+func validateEndmarkStripping(t *testing.T, f *Font, expectedLine0, expectedLine1 string) {
+	t.Helper()
+	space, exists := f.Characters[' ']
+	if !exists {
+		t.Fatal("Space character not found")
+	}
+	if space[0] != expectedLine0 {
+		t.Errorf("Line 0 = %q, want %q", space[0], expectedLine0)
+	}
+	if space[1] != expectedLine1 {
+		t.Errorf("Line 1 = %q, want %q", space[1], expectedLine1)
+	}
+}
+
 // TestParseGlyphs_EnhancedEndmarkDetection tests advanced endmark handling
 // as per FIGfont spec (lines 943-948): "The FIGdriver will eliminate the
 // last block of consecutive equal characters from each line"
@@ -24,21 +59,7 @@ data@@@
 end!@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// ALL trailing @ should be stripped
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-				if space[2] != "end!" {
-					t.Errorf("Line 2 = %q, want %q", space[2], "end!")
-				}
+				validateSpaceGlyph(t, f, []string{"test", "data", "end!"})
 			},
 		},
 		{
@@ -50,30 +71,8 @@ more##
 stuf##
 `,
 			validate: func(t *testing.T, f *Font) {
-				// Should detect # as endmark
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-
-				// Second character
-				excl, exists := f.Characters['!']
-				if !exists {
-					t.Fatal("! character not found")
-				}
-				if excl[0] != "more" {
-					t.Errorf("! line 0 = %q, want %q", excl[0], "more")
-				}
-				if excl[1] != "stuf" {
-					t.Errorf("! line 1 = %q, want %q", excl[1], "stuf")
-				}
+				validateSpaceGlyph(t, f, []string{"test", "data"})
+				validateCharGlyph(t, f, '!', []string{"more", "stuf"}, "!")
 			},
 		},
 		{
@@ -82,20 +81,7 @@ stuf##
 test1
 data11
 `,
-			validate: func(t *testing.T, f *Font) {
-				// Should detect '1' as endmark
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-			},
+			validate: validateTestDataSpace,
 		},
 		{
 			name: "unusual_endmark_letter",
@@ -103,38 +89,12 @@ data11
 testZ
 dataZZ
 `,
-			validate: func(t *testing.T, f *Font) {
-				// Should detect 'Z' as endmark
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-			},
+			validate: validateTestDataSpace,
 		},
 		{
-			name:  "unicode_endmark_emoji",
-			input: "flf2a@ 2 2 12 0 0\ntest😀\ndata😀😀\n",
-			validate: func(t *testing.T, f *Font) {
-				// Should detect emoji as endmark
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-			},
+			name:     "unicode_endmark_emoji",
+			input:    "flf2a@ 2 2 12 0 0\ntest😀\ndata😀😀\n",
+			validate: validateTestDataSpace,
 		},
 		{
 			name: "five_consecutive_endmarks",
@@ -142,20 +102,7 @@ dataZZ
 test@@@@@
 data@@@@@@
 `,
-			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// ALL trailing @ should be stripped
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-			},
+			validate: validateTestDataSpace,
 		},
 		{
 			name: "endmark_in_middle_of_line",
@@ -164,18 +111,7 @@ te@st@
 da@ta@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// @ in middle should be preserved, only trailing @ removed
-				if space[0] != "te@st" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "te@st")
-				}
-				if space[1] != "da@ta" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "da@ta")
-				}
+				validateEndmarkStripping(t, f, "te@st", "da@ta")
 			},
 		},
 		{
@@ -198,17 +134,7 @@ data
 			// resulting in "tes" and "dat". This is wrong but the font is malformed.
 			// The parser can't know there's no endmark without prior knowledge.
 			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-				// These are wrong but that's what happens with malformed input
-				if space[0] != "tes" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "tes")
-				}
-				if space[1] != "dat" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "dat")
-				}
+				validateEndmarkStripping(t, f, "tes", "dat")
 			},
 			wantErr: false,
 		},
@@ -289,17 +215,15 @@ line@@
 			r := strings.NewReader(tt.input)
 			font, err := Parse(r)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Parse() error = nil, want error containing %q", tt.errContains)
-					return
-				}
-				if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("Parse() error = %v, want error containing %q", err, tt.errContains)
-				}
-			} else if err != nil {
+			switch {
+			case tt.wantErr && err == nil:
+				t.Errorf("Parse() error = nil, want error containing %q", tt.errContains)
+				return
+			case tt.wantErr && !strings.Contains(err.Error(), tt.errContains):
+				t.Errorf("Parse() error = %v, want error containing %q", err, tt.errContains)
+			case !tt.wantErr && err != nil:
 				t.Errorf("Parse() unexpected error = %v", err)
-			} else if tt.validate != nil {
+			case !tt.wantErr && tt.validate != nil:
 				tt.validate(t, font)
 			}
 		})

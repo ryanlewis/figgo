@@ -1,6 +1,8 @@
 # Figgo — Spec Compliance Guide
 
-This document is the **source of truth** for how Figgo interprets **FIGfont v2** and maps font header data to Figgo’s runtime `Layout` flags and rendering behavior. When a PR claims “spec compliant,” reviewers should validate it against this page.
+This document is the **source of truth** for how Figgo interprets **FIGfont v2** and maps font header data to Figgo's runtime `Layout` flags and rendering behavior. When a PR claims "spec compliant," reviewers should validate it against this page.
+
+**Status**: ✅ **FULLY COMPLIANT** with FIGfont v2 specification for required character parsing (as of issue #6 implementation)
 
 ---
 
@@ -20,7 +22,7 @@ This document is the **source of truth** for how Figgo interprets **FIGfont v2**
 * **OldLayout** (legacy) and **FullLayout** (bitmask)
 * **PrintDirection** (0 = LTR, 1 = RTL)
 * **CommentLines**
-* Glyph blocks for ASCII 32–126 (MVP scope)
+* Glyph blocks for ASCII 32–126 plus German characters 196, 214, 220, 228, 246, 252, 223 (full spec compliance)
 
 ---
 

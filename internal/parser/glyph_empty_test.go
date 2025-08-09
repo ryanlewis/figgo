@@ -5,6 +5,71 @@ import (
 	"testing"
 )
 
+// Helper functions to reduce test complexity
+
+// Helper to validate ASCII characters have expected content
+func validateASCIICharactersHaveContent(t *testing.T, f *Font, expectedContent string) {
+	t.Helper()
+	for i := rune(33); i <= 126; i++ {
+		if glyph, exists := f.Characters[i]; exists {
+			if glyph[0] != expectedContent || glyph[1] != expectedContent {
+				t.Errorf("ASCII char %d should have content %q, got %v", i, expectedContent, glyph)
+			}
+		}
+	}
+}
+
+// Helper to validate German characters are empty
+func validateGermanCharactersAreEmpty(t *testing.T, f *Font) {
+	t.Helper()
+	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
+	for _, r := range deutschChars {
+		if glyph, exists := f.Characters[r]; exists {
+			for i, line := range glyph {
+				if line != "" {
+					t.Errorf("German char %d line %d should be empty, got %q", r, i, line)
+				}
+			}
+		} else {
+			t.Logf("German character %d not found (expected until implementation)", r)
+		}
+	}
+}
+
+// validateEmptyGlyph checks that all lines in a glyph are empty
+func validateEmptyGlyph(t *testing.T, glyph []string, charName string) {
+	t.Helper()
+	for i, line := range glyph {
+		if line != "" {
+			t.Errorf("%s line %d should be empty, got %q", charName, i, line)
+		}
+	}
+}
+
+// validateGlyphContent checks that a glyph has expected content
+func validateGlyphContent(t *testing.T, glyph, expected []string, charName string) {
+	t.Helper()
+	if len(glyph) != len(expected) {
+		t.Errorf("%s should have %d lines, got %d", charName, len(expected), len(glyph))
+		return
+	}
+	for i, expectedLine := range expected {
+		if glyph[i] != expectedLine {
+			t.Errorf("%s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
+		}
+	}
+}
+
+// validateCharacterExists checks if a character exists in the font
+func validateCharacterExists(t *testing.T, f *Font, char rune, charName string) []string {
+	t.Helper()
+	glyph, exists := f.Characters[char]
+	if !exists {
+		t.Fatalf("%s character not found", charName)
+	}
+	return glyph
+}
+
 // TestParseGlyphs_EmptyFIGcharacters tests support for empty FIGcharacters
 // as specified in the FIGfont spec (lines 1062-1064): "You MAY create 'empty'
 // FIGcharacters by placing endmarks flush with the left margin."
@@ -22,21 +87,11 @@ func TestParseGlyphs_EmptyFIGcharacters(t *testing.T) {
 @@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
+				space := validateCharacterExists(t, f, ' ', "Space")
 				if len(space) != 3 {
 					t.Errorf("Space should have 3 lines, got %d", len(space))
 				}
-
-				// All lines should be empty after endmark removal
-				for i, line := range space {
-					if line != "" {
-						t.Errorf("Space line %d should be empty, got %q", i, line)
-					}
-				}
+				validateEmptyGlyph(t, space, "Space")
 			},
 		},
 		{
@@ -53,47 +108,20 @@ X@@
 `,
 			validate: func(t *testing.T, f *Font) {
 				// Space (32) should be empty
-				if space, exists := f.Characters[' ']; exists {
-					for i, line := range space {
-						if line != "" {
-							t.Errorf("Space line %d should be empty, got %q", i, line)
-						}
-					}
-				} else {
-					t.Error("Space character not found")
-				}
+				space := validateCharacterExists(t, f, ' ', "Space")
+				validateEmptyGlyph(t, space, "Space")
 
 				// ! (33) should have content
-				if excl, exists := f.Characters['!']; exists {
-					if excl[0] != " _ " {
-						t.Errorf("! line 0 = %q, want %q", excl[0], " _ ")
-					}
-					if excl[1] != "|_|" {
-						t.Errorf("! line 1 = %q, want %q", excl[1], "|_|")
-					}
-				} else {
-					t.Error("! character not found")
-				}
+				excl := validateCharacterExists(t, f, '!', "!")
+				validateGlyphContent(t, excl, []string{" _ ", "|_|"}, "!")
 
 				// " (34) should be empty
-				if quote, exists := f.Characters['"']; exists {
-					for i, line := range quote {
-						if line != "" {
-							t.Errorf("Quote line %d should be empty, got %q", i, line)
-						}
-					}
-				} else {
-					t.Error("Quote character not found")
-				}
+				quote := validateCharacterExists(t, f, '"', "Quote")
+				validateEmptyGlyph(t, quote, "Quote")
 
 				// # (35) should have content
-				if hash, exists := f.Characters['#']; exists {
-					if hash[0] != "X" || hash[1] != "X" {
-						t.Errorf("# should be 'X' on both lines, got %v", hash)
-					}
-				} else {
-					t.Error("# character not found")
-				}
+				hash := validateCharacterExists(t, f, '#', "#")
+				validateGlyphContent(t, hash, []string{"X", "X"}, "#")
 			},
 		},
 		{
@@ -105,17 +133,8 @@ X@@
 @@
 `,
 			validate: func(t *testing.T, f *Font) {
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// All lines should be empty (single @ at start = empty)
-				for i, line := range space {
-					if line != "" {
-						t.Errorf("Space line %d should be empty, got %q", i, line)
-					}
-				}
+				space := validateCharacterExists(t, f, ' ', "Space")
+				validateEmptyGlyph(t, space, "Space")
 			},
 		},
 		{
@@ -128,24 +147,12 @@ X##
 `,
 			validate: func(t *testing.T, f *Font) {
 				// Space should be empty
-				if space, exists := f.Characters[' ']; exists {
-					for i, line := range space {
-						if line != "" {
-							t.Errorf("Space line %d should be empty, got %q", i, line)
-						}
-					}
-				} else {
-					t.Error("Space character not found")
-				}
+				space := validateCharacterExists(t, f, ' ', "Space")
+				validateEmptyGlyph(t, space, "Space")
 
 				// ! should have content
-				if excl, exists := f.Characters['!']; exists {
-					if excl[0] != "X" || excl[1] != "X" {
-						t.Errorf("! should be 'X' on both lines, got %v", excl)
-					}
-				} else {
-					t.Error("! character not found")
-				}
+				excl := validateCharacterExists(t, f, '!', "!")
+				validateGlyphContent(t, excl, []string{"X", "X"}, "!")
 			},
 		},
 		{
@@ -160,19 +167,10 @@ GHI@@
 `,
 			validate: func(t *testing.T, f *Font) {
 				// Space has spaces before endmarks - these should be preserved
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
+				space := validateCharacterExists(t, f, ' ', "Space")
 				// After endmark removal, the spaces before endmarks are preserved
 				// ALL trailing @ are stripped, leaving just the spaces
-				for i, line := range space {
-					expected := "   "
-					if line != expected {
-						t.Errorf("Space line %d = %q, want %q", i, line, expected)
-					}
-				}
+				validateGlyphContent(t, space, []string{"   ", "   ", "   "}, "Space")
 			},
 		},
 	}
@@ -220,26 +218,8 @@ func TestParseGlyphs_EmptyGermanCharacters(t *testing.T) {
 	}
 
 	// Check ASCII chars have content
-	for i := rune(33); i <= 126; i++ {
-		if glyph, exists := font.Characters[i]; exists {
-			if glyph[0] != "X" || glyph[1] != "X" {
-				t.Errorf("ASCII char %d should have content 'X', got %v", i, glyph)
-			}
-		}
-	}
+	validateASCIICharactersHaveContent(t, font, "X")
 
 	// Check German chars are empty
-	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
-	for _, r := range deutschChars {
-		if glyph, exists := font.Characters[r]; exists {
-			for i, line := range glyph {
-				if line != "" {
-					t.Errorf("German char %d line %d should be empty, got %q", r, i, line)
-				}
-			}
-		} else {
-			// This is expected to fail until we implement German char support
-			t.Logf("German character %d not found (expected until implementation)", r)
-		}
-	}
+	validateGermanCharactersAreEmpty(t, font)
 }

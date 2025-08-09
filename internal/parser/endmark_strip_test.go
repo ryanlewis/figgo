@@ -6,6 +6,44 @@ import (
 	"testing"
 )
 
+// Helper function to validate a specific character's glyph
+func validateCharacterGlyph(t *testing.T, f *Font, char rune, expected []string, charName string) {
+	t.Helper()
+	glyph, exists := f.Characters[char]
+	if !exists {
+		t.Fatalf("%s character not found", charName)
+	}
+	if len(glyph) != len(expected) {
+		t.Errorf("%s glyph length = %d, want %d", charName, len(glyph), len(expected))
+		return
+	}
+	for i, expectedLine := range expected {
+		if glyph[i] != expectedLine {
+			t.Errorf("%s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
+		}
+	}
+}
+
+// Helper for validating multiple character glyphs in sequence
+func validateMultipleGlyphs(t *testing.T, f *Font, validations []glyphValidation) {
+	t.Helper()
+	for _, v := range validations {
+		validateCharacterGlyph(t, f, v.char, v.expected, v.name)
+	}
+}
+
+type glyphValidation struct {
+	char     rune
+	name     string
+	expected []string
+}
+
+// Helper specifically for validating space character (commonly used)
+func validateSpaceGlyphWithLines(t *testing.T, f *Font, expected []string) {
+	t.Helper()
+	validateCharacterGlyph(t, f, ' ', expected, "space")
+}
+
 // TestParseGlyphs_StripEntireTrailingRun tests that the parser strips the ENTIRE
 // trailing run of the endmark character, not just 1 or 2 occurrences.
 // Per spec: "eliminate the last block of consecutive equal characters"
@@ -23,22 +61,7 @@ data######
 end!$$$$$$$
 `,
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// ALL trailing @ should be stripped, not just 1 or 2
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-				if space[2] != "end!" {
-					t.Errorf("Line 2 = %q, want %q", space[2], "end!")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent, "end!"})
 			},
 		},
 		{
@@ -48,19 +71,7 @@ hello@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 world@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// Should strip ALL 30+ trailing @, not just 1 or 2
-				if space[0] != "hello" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "hello")
-				}
-				if space[1] != "world" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "world")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{"hello", "world"})
 			},
 		},
 		{
@@ -70,19 +81,7 @@ te@st@@@
 da@ta@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// @ inside content should be preserved, only trailing @ stripped
-				if space[0] != "te@st" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "te@st")
-				}
-				if space[1] != "da@ta" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "da@ta")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{"te@st", "da@ta"})
 			},
 		},
 	}
@@ -121,33 +120,11 @@ foo$$
 bar$$
 `,
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				// First glyph uses @
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-				if space[0] != "test" || space[1] != "data" {
-					t.Errorf("Space = %v, want [test, data]", space)
-				}
-
-				// Second glyph uses #
-				excl, exists := f.Characters['!']
-				if !exists {
-					t.Fatal("! character not found")
-				}
-				if excl[0] != "next" || excl[1] != "line" {
-					t.Errorf("! = %v, want [next, line]", excl)
-				}
-
-				// Third glyph uses $
-				quote, exists := f.Characters['"']
-				if !exists {
-					t.Fatal("\" character not found")
-				}
-				if quote[0] != "foo" || quote[1] != "bar" {
-					t.Errorf("\" = %v, want [foo, bar]", quote)
-				}
+				validateMultipleGlyphs(t, f, []glyphValidation{
+					{' ', "space", []string{testContent, dataContent}},
+					{'!', "exclamation", []string{"next", "line"}},
+					{'"', "quote", []string{"foo", "bar"}},
+				})
 			},
 		},
 		{
@@ -159,24 +136,10 @@ data@@
 @pic##
 `,
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				// First glyph uses @ as endmark
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-				if space[0] != "test" || space[1] != "data" {
-					t.Errorf("Space = %v, want [test, data]", space)
-				}
-
-				// Second glyph switches to # because @ is in the art
-				excl, exists := f.Characters['!']
-				if !exists {
-					t.Fatal("! character not found")
-				}
-				if excl[0] != "@art" || excl[1] != "@pic" {
-					t.Errorf("! = %v, want [@art, @pic]", excl)
-				}
+				validateMultipleGlyphs(t, f, []glyphValidation{
+					{' ', "space", []string{testContent, dataContent}},
+					{'!', "exclamation", []string{"@art", "@pic"}},
+				})
 			},
 		},
 	}
@@ -208,60 +171,21 @@ func TestParseGlyphs_MultiByteEndmark(t *testing.T) {
 			name:  "emoji_endmark",
 			input: "flf2a@ 2 2 12 0 0\ntest😀😀\ndata😀😀\n",
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// Should strip both emoji endmarks
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent})
 			},
 		},
 		{
 			name:  "chinese_character_endmark",
 			input: "flf2a@ 2 2 14 0 0\nhello中中中\nworld中中中\n",
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// Should strip all trailing 中 characters
-				if space[0] != "hello" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "hello")
-				}
-				if space[1] != "world" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "world")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{"hello", "world"})
 			},
 		},
 		{
 			name:  "mixed_endmarks_with_multibyte",
 			input: "flf2a@ 3 3 13 0 0\ntest@@\ndata££\nend!世世世\n",
 			validate: func(t *testing.T, f *Font) {
-				t.Helper()
-				space, exists := f.Characters[' ']
-				if !exists {
-					t.Fatal("Space character not found")
-				}
-
-				// Each line uses different endmark, including multi-byte
-				if space[0] != "test" {
-					t.Errorf("Line 0 = %q, want %q", space[0], "test")
-				}
-				if space[1] != "data" {
-					t.Errorf("Line 1 = %q, want %q", space[1], "data")
-				}
-				if space[2] != "end!" {
-					t.Errorf("Line 2 = %q, want %q", space[2], "end!")
-				}
+				validateSpaceGlyphWithLines(t, f, []string{testContent, dataContent, "end!"})
 			},
 		},
 	}
@@ -395,7 +319,6 @@ func TestParseHeader_BaselineValidation(t *testing.T) {
 		})
 	}
 }
-
 
 // TestParseGlyphs_PartialFontEOF tests that the parser accepts a truncated font
 // mid-stream (breaks on io.ErrUnexpectedEOF and returns what it has)

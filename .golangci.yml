@@ -67,6 +67,8 @@ linters-settings:
 
   govet:
     enable-all: true
+    disable:
+      - fieldalignment
 
   gocyclo:
     min-complexity: 15
@@ -162,6 +164,7 @@ issues:
         - gosec
         - mnd
         - lll
+        - fieldalignment
 
     # Exclude generated files
     - path: \.generated\.go

@@ -6,11 +6,14 @@
 package figgo
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/ryanlewis/figgo/internal/parser"
@@ -43,6 +46,49 @@ func ParseFont(r io.Reader) (*Font, error) {
 	}
 	// Convert internal parser.Font to public Font type
 	return convertParserFont(pf)
+}
+
+// LoadFont loads a FIGfont from a file path on the local filesystem.
+// This is a convenience wrapper around os.Open and ParseFont.
+// The returned Font is immutable and safe for concurrent use across goroutines.
+//
+// Example:
+//
+//	font, err := figgo.LoadFont("/usr/share/figlet/standard.flf")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func LoadFont(path string) (*Font, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open font file: %w", err)
+	}
+	defer file.Close()
+	
+	font, err := ParseFont(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font %s: %w", path, err)
+	}
+	
+	// Set font name based on filename (without extension)
+	font.Name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	
+	return font, nil
+}
+
+// ParseFontBytes parses a FIGfont from a byte slice.
+// This is a convenience wrapper around bytes.NewReader and ParseFont.
+// The returned Font is immutable and safe for concurrent use across goroutines.
+//
+// Example:
+//
+//	fontData := []byte("flf2a$ 4 3 10 -1 5\n...")
+//	font, err := figgo.ParseFontBytes(fontData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func ParseFontBytes(data []byte) (*Font, error) {
+	return ParseFont(bytes.NewReader(data))
 }
 
 // cleanFSPath validates and cleans a path for use with fs.FS.
@@ -126,13 +172,25 @@ func LoadFontFS(fsys fs.FS, fontPath string) (*Font, error) {
 	return font, nil
 }
 
+// cloneGlyphs creates a deep copy of the glyph map to ensure immutability.
+func cloneGlyphs(src map[rune][]string) map[rune][]string {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[rune][]string, len(src))
+	for r, lines := range src {
+		cp := make([]string, len(lines))
+		copy(cp, lines)
+		dst[r] = cp
+	}
+	return dst
+}
+
 // convertParserFont converts internal parser.Font to public Font type.
-// Note: The returned Font shares the glyph map with the parser font for efficiency.
-// The parser and renderer must not mutate glyphs after parsing to maintain immutability.
-// TODO: Consider deep-copying glyphs if mutation becomes a concern.
+// The returned Font has its own copy of glyphs to ensure true immutability.
 func convertParserFont(pf *parser.Font) (*Font, error) {
 	if pf == nil {
-		return nil, nil
+		return nil, fmt.Errorf("nil parser font")
 	}
 
 	// Normalize layout from header values
@@ -147,7 +205,7 @@ func convertParserFont(pf *parser.Font) (*Font, error) {
 	layout := normalized.ToLayout()
 
 	return &Font{
-		glyphs:         pf.Characters,
+		glyphs:         cloneGlyphs(pf.Characters),
 		Name:           "", // Will be set based on filename or metadata
 		FullLayout:     layout,
 		Hardblank:      pf.Hardblank,

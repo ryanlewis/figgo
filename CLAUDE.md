@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL RULES - ALWAYS FOLLOW
+
+### Commit Messages
+- **Subject line**: Maximum 50 characters, lowercase, no period
+- **Format**: `type: brief description` (types: feat, fix, test, docs, refactor, perf, chore)
+- **Body**: 2-4 lines MAX explaining what and why, not how
+- **NEVER include**: AI watermarks, "Generated with Claude", emoji, signatures, "Co-Authored-By"
+- **Examples**:
+  ```
+  ✅ GOOD: feat: implement full-width rendering - closes #9
+  ❌ BAD:  feat: implement Full-Width rendering mode with comprehensive tests - closes #9 🤖 Generated with Claude
+  ```
+
+### Other Critical Rules
+- NEVER create files unless absolutely necessary - always prefer editing existing files
+- NEVER proactively create documentation files (*.md) unless explicitly requested
+- When running potentially destructive commands, explain what they do first
+
 ## Project Overview
 
 Figgo is a high-performance Go library and CLI for rendering FIGlet-compatible ASCII art with correct layout handling (kerning/smushing) and a clean, race-safe API. The project targets FIGfont v2 compliance with ASCII (32-126) support.
@@ -99,6 +117,21 @@ The project uses GitHub Actions for CI with the following jobs:
 - **Test**: Matrix testing across Go 1.22/1.23 and Linux/macOS/Windows
 - **Build**: Cross-compilation for multiple GOOS/GOARCH combinations
 - **Benchmark**: PR-triggered performance testing
+
+### Before Committing - STOP AND CHECK:
+1. Is subject line ≤ 50 characters?
+2. Did you remove ALL watermarks and signatures?
+3. Is the message concise (what, not how)?
+4. Run: `git log -1 --oneline` to verify
+
+### Commit Message Template:
+```
+<type>: <description under 50 chars>
+
+<2-4 line body if needed>
+<Closes #N if applicable>
+```
+NO WATERMARKS. NO "Generated with". NO "Co-Authored-By: Claude".
 
 ## Current Status
 

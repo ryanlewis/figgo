@@ -196,48 +196,48 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 		want      Layout
 	}{
 		{
-			name:      "full width mode",
+			name:      "fitting (kerning) mode",
 			oldLayout: 0,
-			want:      FitFullWidth,
-		},
-		{
-			name:      "kerning mode",
-			oldLayout: 1,
 			want:      FitKerning,
 		},
 		{
 			name:      "smushing with equal char",
-			oldLayout: 2, // Smushing + equal char rule (bit 0 in old format)
+			oldLayout: 1, // Smushing + equal char rule (bit 0)
 			want:      FitSmushing | RuleEqualChar,
 		},
 		{
 			name:      "smushing with underscore",
-			oldLayout: 4, // Smushing + underscore rule (bit 1 in old format)
+			oldLayout: 2, // Smushing + underscore rule (bit 1)
 			want:      FitSmushing | RuleUnderscore,
 		},
 		{
 			name:      "smushing with hierarchy",
-			oldLayout: 8, // Smushing + hierarchy rule (bit 2 in old format)
+			oldLayout: 4, // Smushing + hierarchy rule (bit 2)
 			want:      FitSmushing | RuleHierarchy,
 		},
 		{
 			name:      "smushing with opposite pair",
-			oldLayout: 16, // Smushing + opposite pair rule (bit 3 in old format)
+			oldLayout: 8, // Smushing + opposite pair rule (bit 3)
 			want:      FitSmushing | RuleOppositePair,
 		},
 		{
 			name:      "smushing with big x",
-			oldLayout: 32, // Smushing + big x rule (bit 4 in old format)
+			oldLayout: 16, // Smushing + big x rule (bit 4)
 			want:      FitSmushing | RuleBigX,
 		},
 		{
 			name:      "smushing with hardblank",
-			oldLayout: 64, // Smushing + hardblank rule (bit 5 in old format)
+			oldLayout: 32, // Smushing + hardblank rule (bit 5)
 			want:      FitSmushing | RuleHardblank,
 		},
 		{
+			name:      "smushing with multiple rules",
+			oldLayout: 3, // bits 0+1 = equal char + underscore
+			want:      FitSmushing | RuleEqualChar | RuleUnderscore,
+		},
+		{
 			name:      "smushing with all rules",
-			oldLayout: 126,
+			oldLayout: 63, // All 6 rule bits
 			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank,
 		},
 		{

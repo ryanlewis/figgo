@@ -5,23 +5,6 @@ import (
 	"testing"
 )
 
-const (
-	// Test content constants
-	testContent = "test"
-	dataContent = "data"
-	endContent  = "end!"
-)
-
-// Helper function to get a glyph for a character, with better error reporting
-func mustGlyph(t *testing.T, f *Font, char rune) []string {
-	t.Helper()
-	glyph, exists := f.Characters[char]
-	if !exists {
-		t.Fatalf("Character %c (%d) not found in font", char, char)
-	}
-	return glyph
-}
-
 // TestParseGlyphs_CRLF tests that CRLF line endings are handled correctly
 func TestParseGlyphs_CRLF(t *testing.T) {
 	input := "flf2a@ 2 2 10 0 0\r\ntest@@\r\ndata@@\r\n"
@@ -31,7 +14,7 @@ func TestParseGlyphs_CRLF(t *testing.T) {
 		t.Fatalf("Parse() unexpected error = %v", err)
 	}
 
-	space := mustGlyph(t, font, ' ')
+	space := MustGetChar(t, font, ' ')
 	if space[0] != testContent {
 		t.Errorf("Line 0 = %q, want %q", space[0], testContent)
 	}
@@ -84,7 +67,7 @@ data##
 				t.Fatalf("Parse() unexpected error = %v", err)
 			}
 
-			space := mustGlyph(t, font, ' ')
+			space := MustGetChar(t, font, ' ')
 			for i, expected := range tt.expected {
 				if i >= len(space) {
 					t.Errorf("Missing line %d", i)
@@ -110,7 +93,7 @@ func TestParseGlyphs_VeryLongLine(t *testing.T) {
 		t.Fatalf("Parse() unexpected error = %v", err)
 	}
 
-	space := mustGlyph(t, font, ' ')
+	space := MustGetChar(t, font, ' ')
 	if !strings.HasPrefix(space[0], strings.Repeat("X", 1000)) {
 		t.Error("Long line not parsed correctly")
 	}

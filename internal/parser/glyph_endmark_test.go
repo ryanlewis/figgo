@@ -5,41 +5,6 @@ import (
 	"testing"
 )
 
-// Helper function to reduce test complexity
-func validateCharGlyph(t *testing.T, f *Font, char rune, expected []string, charName string) {
-	t.Helper()
-	glyph, exists := f.Characters[char]
-	if !exists {
-		t.Fatalf("%s character not found", charName)
-	}
-	for i, expectedLine := range expected {
-		if glyph[i] != expectedLine {
-			t.Errorf("%s line %d = %q, want %q", charName, i, glyph[i], expectedLine)
-		}
-	}
-}
-
-// Helper function for tests that expect simple space validation with testContent/dataContent
-func validateTestDataSpace(t *testing.T, f *Font) {
-	t.Helper()
-	validateSpaceGlyph(t, f, []string{testContent, dataContent})
-}
-
-// Helper function for endmark stripping validation
-func validateEndmarkStripping(t *testing.T, f *Font, expectedLine0, expectedLine1 string) {
-	t.Helper()
-	space, exists := f.Characters[' ']
-	if !exists {
-		t.Fatal("Space character not found")
-	}
-	if space[0] != expectedLine0 {
-		t.Errorf("Line 0 = %q, want %q", space[0], expectedLine0)
-	}
-	if space[1] != expectedLine1 {
-		t.Errorf("Line 1 = %q, want %q", space[1], expectedLine1)
-	}
-}
-
 // TestParseGlyphs_EnhancedEndmarkDetection tests advanced endmark handling
 // as per FIGfont spec (lines 943-948): "The FIGdriver will eliminate the
 // last block of consecutive equal characters from each line"
@@ -59,7 +24,7 @@ data@@@
 end!@@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyph(t, f, []string{"test", "data", "end!"})
+				ValidateSpace(t, f, []string{"test", "data", "end!"})
 			},
 		},
 		{
@@ -71,8 +36,8 @@ more##
 stuf##
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateSpaceGlyph(t, f, []string{"test", "data"})
-				validateCharGlyph(t, f, '!', []string{"more", "stuf"}, "!")
+				ValidateSpace(t, f, []string{"test", "data"})
+				ValidateChar(t, f, '!', []string{"more", "stuf"}, "!")
 			},
 		},
 		{
@@ -81,7 +46,7 @@ stuf##
 test1
 data11
 `,
-			validate: validateTestDataSpace,
+			validate: ValidateTestDataSpace,
 		},
 		{
 			name: "unusual_endmark_letter",
@@ -89,12 +54,12 @@ data11
 testZ
 dataZZ
 `,
-			validate: validateTestDataSpace,
+			validate: ValidateTestDataSpace,
 		},
 		{
 			name:     "unicode_endmark_emoji",
 			input:    "flf2a@ 2 2 12 0 0\ntest😀\ndata😀😀\n",
-			validate: validateTestDataSpace,
+			validate: ValidateTestDataSpace,
 		},
 		{
 			name: "five_consecutive_endmarks",
@@ -102,7 +67,7 @@ dataZZ
 test@@@@@
 data@@@@@@
 `,
-			validate: validateTestDataSpace,
+			validate: ValidateTestDataSpace,
 		},
 		{
 			name: "endmark_in_middle_of_line",
@@ -111,7 +76,7 @@ te@st@
 da@ta@@
 `,
 			validate: func(t *testing.T, f *Font) {
-				validateEndmarkStripping(t, f, "te@st", "da@ta")
+				ValidateEndmarkStripping(t, f, "te@st", "da@ta")
 			},
 		},
 		{
@@ -134,7 +99,7 @@ data
 			// resulting in "tes" and "dat". This is wrong but the font is malformed.
 			// The parser can't know there's no endmark without prior knowledge.
 			validate: func(t *testing.T, f *Font) {
-				validateEndmarkStripping(t, f, "tes", "dat")
+				ValidateEndmarkStripping(t, f, "tes", "dat")
 			},
 			wantErr: false,
 		},

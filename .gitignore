@@ -21,7 +21,6 @@ go.work
 go.work.sum
 
 # Build output
-figgo
 /figgo
 dist/
 build/

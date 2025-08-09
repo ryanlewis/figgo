@@ -14,13 +14,48 @@ import (
 // testFonts will be used when actual font files exist
 // For now, tests use fstest.MapFS
 
+// checkMinimalFont validates basic font properties
+func checkMinimalFont(t *testing.T, f *Font) {
+	if f == nil {
+		t.Fatal("expected non-nil font")
+	}
+	if f.Height != 4 {
+		t.Errorf("Height = %d, want 4", f.Height)
+	}
+	if f.Baseline != 3 {
+		t.Errorf("Baseline = %d, want 3", f.Baseline)
+	}
+	if f.MaxLen != 10 {
+		t.Errorf("MaxLen = %d, want 10", f.MaxLen)
+	}
+	if f.OldLayout != -1 {
+		t.Errorf("OldLayout = %d, want -1", f.OldLayout)
+	}
+	if f.Hardblank != '$' {
+		t.Errorf("Hardblank = %c, want $", f.Hardblank)
+	}
+}
+
+// checkLayoutFont validates layout normalization
+func checkLayoutFont(t *testing.T, f *Font) {
+	if f == nil {
+		t.Fatal("expected non-nil font")
+	}
+	// With OldLayout=15 and FullLayout=24463, layout should be normalized
+	// OldLayout 15 = kerning + all horizontal smushing rules
+	// FullLayout 24463 should be validated and normalized
+	if f.Layout == 0 {
+		t.Error("Layout should be non-zero after normalization")
+	}
+}
+
 // Test ParseFont with valid font data
 func TestParseFont(t *testing.T) {
 	tests := []struct {
 		name      string
 		fontData  string
 		wantErr   bool
-		checkFont func(t *testing.T, f *Font)
+		checkFunc func(t *testing.T, f *Font)
 	}{
 		{
 			name: "valid minimal font",
@@ -35,27 +70,8 @@ $@@
  @
  @@
 `,
-			wantErr: false,
-			checkFont: func(t *testing.T, f *Font) {
-				if f == nil {
-					t.Fatal("expected non-nil font")
-				}
-				if f.Height != 4 {
-					t.Errorf("Height = %d, want 4", f.Height)
-				}
-				if f.Baseline != 3 {
-					t.Errorf("Baseline = %d, want 3", f.Baseline)
-				}
-				if f.MaxLen != 10 {
-					t.Errorf("MaxLen = %d, want 10", f.MaxLen)
-				}
-				if f.OldLayout != -1 {
-					t.Errorf("OldLayout = %d, want -1", f.OldLayout)
-				}
-				if f.Hardblank != '$' {
-					t.Errorf("Hardblank = %c, want $", f.Hardblank)
-				}
-			},
+			wantErr:   false,
+			checkFunc: checkMinimalFont,
 		},
 		{
 			name: "font with full layout",
@@ -70,18 +86,8 @@ $@@
  @
  @@
 `,
-			wantErr: false,
-			checkFont: func(t *testing.T, f *Font) {
-				if f == nil {
-					t.Fatal("expected non-nil font")
-				}
-				// With OldLayout=15 and FullLayout=24463, layout should be normalized
-				// OldLayout 15 = kerning + all horizontal smushing rules
-				// FullLayout 24463 should be validated and normalized
-				if f.Layout == 0 {
-					t.Error("Layout should be non-zero after normalization")
-				}
-			},
+			wantErr:   false,
+			checkFunc: checkLayoutFont,
 		},
 		{
 			name:     "empty reader",
@@ -112,8 +118,8 @@ Test font
 				return
 			}
 
-			if !tt.wantErr && tt.checkFont != nil {
-				tt.checkFont(t, font)
+			if !tt.wantErr && tt.checkFunc != nil {
+				tt.checkFunc(t, font)
 			}
 		})
 	}
@@ -189,10 +195,9 @@ $@@
 	})
 }
 
-// Test LoadFontFS with valid filesystem
-func TestLoadFontFS(t *testing.T) {
-	// Create a test filesystem
-	testFS := fstest.MapFS{
+// createTestFS creates a test filesystem with various font files
+func createTestFS() fstest.MapFS {
+	return fstest.MapFS{
 		"fonts/standard.flf": &fstest.MapFile{
 			Data: []byte(`flf2a$ 4 3 10 -1 1
 Standard font
@@ -237,61 +242,75 @@ Mini font
 			Data: []byte(""),
 		},
 	}
+}
+
+// checkStandardFont validates standard font properties
+func checkStandardFont(t *testing.T, f *Font) {
+	if f == nil {
+		t.Fatal("expected non-nil font")
+	}
+	if f.Height != 4 {
+		t.Errorf("Height = %d, want 4", f.Height)
+	}
+	if f.Hardblank != '$' {
+		t.Errorf("Hardblank = %c, want $", f.Hardblank)
+	}
+}
+
+// checkSlantFont validates slant font properties
+func checkSlantFont(t *testing.T, f *Font) {
+	if f == nil {
+		t.Fatal("expected non-nil font")
+	}
+	if f.Height != 4 {
+		t.Errorf("Height = %d, want 4", f.Height)
+	}
+	if f.Hardblank != '#' {
+		t.Errorf("Hardblank = %c, want #", f.Hardblank)
+	}
+}
+
+// checkMiniFont validates mini font properties
+func checkMiniFont(t *testing.T, f *Font) {
+	if f == nil {
+		t.Fatal("expected non-nil font")
+	}
+	if f.Height != 3 {
+		t.Errorf("Height = %d, want 3", f.Height)
+	}
+}
+
+// Test LoadFontFS with valid filesystem
+func TestLoadFontFS(t *testing.T) {
+	testFS := createTestFS()
 
 	tests := []struct {
 		name      string
 		fs        fs.FS
 		path      string
 		wantErr   bool
-		checkFont func(t *testing.T, f *Font)
+		checkFunc func(t *testing.T, f *Font)
 	}{
 		{
-			name:    "load standard font",
-			fs:      testFS,
-			path:    "fonts/standard.flf",
-			wantErr: false,
-			checkFont: func(t *testing.T, f *Font) {
-				if f == nil {
-					t.Fatal("expected non-nil font")
-				}
-				if f.Height != 4 {
-					t.Errorf("Height = %d, want 4", f.Height)
-				}
-				if f.Hardblank != '$' {
-					t.Errorf("Hardblank = %c, want $", f.Hardblank)
-				}
-			},
+			name:      "load standard font",
+			fs:        testFS,
+			path:      "fonts/standard.flf",
+			wantErr:   false,
+			checkFunc: checkStandardFont,
 		},
 		{
-			name:    "load slant font",
-			fs:      testFS,
-			path:    "fonts/slant.flf",
-			wantErr: false,
-			checkFont: func(t *testing.T, f *Font) {
-				if f == nil {
-					t.Fatal("expected non-nil font")
-				}
-				if f.Height != 4 {
-					t.Errorf("Height = %d, want 4", f.Height)
-				}
-				if f.Hardblank != '#' {
-					t.Errorf("Hardblank = %c, want #", f.Hardblank)
-				}
-			},
+			name:      "load slant font",
+			fs:        testFS,
+			path:      "fonts/slant.flf",
+			wantErr:   false,
+			checkFunc: checkSlantFont,
 		},
 		{
-			name:    "load font from subdirectory",
-			fs:      testFS,
-			path:    "fonts/subdir/mini.flf",
-			wantErr: false,
-			checkFont: func(t *testing.T, f *Font) {
-				if f == nil {
-					t.Fatal("expected non-nil font")
-				}
-				if f.Height != 3 {
-					t.Errorf("Height = %d, want 3", f.Height)
-				}
-			},
+			name:      "load font from subdirectory",
+			fs:        testFS,
+			path:      "fonts/subdir/mini.flf",
+			wantErr:   false,
+			checkFunc: checkMiniFont,
 		},
 		{
 			name:    "non-existent file",
@@ -376,8 +395,8 @@ Mini font
 				return
 			}
 
-			if !tt.wantErr && tt.checkFont != nil {
-				tt.checkFont(t, font)
+			if !tt.wantErr && tt.checkFunc != nil {
+				tt.checkFunc(t, font)
 			}
 		})
 	}
@@ -657,12 +676,12 @@ $@@
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := LoadFontFS(testFS, tt.path)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadFontFS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && tt.errString != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.errString) {
 					t.Errorf("LoadFontFS() error = %v, should contain %q", err, tt.errString)
@@ -677,7 +696,7 @@ func TestLoadFont_NameDerivation(t *testing.T) {
 	// Create a temporary font file
 	tmpDir := t.TempDir()
 	fontPath := tmpDir + "/SLANT.FLF"
-	
+
 	fontData := `flf2a$ 4 3 10 -1 1
 Test font
 $@
@@ -689,8 +708,8 @@ $@@
  @
  @@
 `
-	
-	err := os.WriteFile(fontPath, []byte(fontData), 0644)
+
+	err := os.WriteFile(fontPath, []byte(fontData), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create temp font file: %v", err)
 	}
@@ -757,7 +776,7 @@ $@@
 	}
 }
 
-// Test layout precedence with FullLayout overriding OldLayout  
+// Test layout precedence with FullLayout overriding OldLayout
 func TestLayoutPrecedence(t *testing.T) {
 	// Font where both OldLayout and FullLayout are present
 	fontData := `flf2a$ 4 3 10 31 1 0 64
@@ -781,7 +800,7 @@ $@@
 	// FullLayout=64 should win and give us FitKerning (fitting mode)
 	expectedLayout := FitKerning
 	if font.Layout != expectedLayout {
-		t.Errorf("Layout precedence: got %v, want %v (FullLayout should override OldLayout)", 
+		t.Errorf("Layout precedence: got %v, want %v (FullLayout should override OldLayout)",
 			font.Layout, expectedLayout)
 	}
 }
@@ -801,10 +820,10 @@ $@@
 `)
 
 	testFS := fstest.MapFS{
-		"fonts/standard.flf":           &fstest.MapFile{Data: validFont},
-		"fonts/my..font.flf":           &fstest.MapFile{Data: validFont},
-		"fonts/SLANT.FLF":              &fstest.MapFile{Data: validFont},
-		"fonts/control.flc":            &fstest.MapFile{Data: validFont}, // Future control file support
+		"fonts/standard.flf":          &fstest.MapFile{Data: validFont},
+		"fonts/my..font.flf":          &fstest.MapFile{Data: validFont},
+		"fonts/SLANT.FLF":             &fstest.MapFile{Data: validFont},
+		"fonts/control.flc":           &fstest.MapFile{Data: validFont}, // Future control file support
 		"fonts/subdir/my.font.v1.flf": &fstest.MapFile{Data: validFont}, // Complex name
 	}
 
@@ -938,12 +957,12 @@ $@@
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := LoadFontFS(testFS, tt.path)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadFontFS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && tt.errContains != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.errContains) {
 					t.Errorf("LoadFontFS() error = %v, should contain %q", err, tt.errContains)
@@ -956,35 +975,35 @@ $@@
 // Test FullLayoutSet precedence scenarios
 func TestFullLayoutSetPrecedence(t *testing.T) {
 	tests := []struct {
-		name           string
-		oldLayout      int
-		fullLayout     int
-		fullLayoutSet  bool
-		expectNonZero  bool // Layout field should be non-zero after normalization
+		name            string
+		oldLayout       int
+		fullLayout      int
+		fullLayoutSet   bool
+		expectNonZero   bool   // Layout field should be non-zero after normalization
 		expectedFitMode string // Expected fitting mode description
 	}{
 		{
-			name:           "FullLayout set overrides OldLayout",
-			oldLayout:      31,   // Would be controlled smushing with rules 1-5
-			fullLayout:     64,   // Horizontal fitting
-			fullLayoutSet:  true,
-			expectNonZero:  true,
+			name:            "FullLayout set overrides OldLayout",
+			oldLayout:       31, // Would be controlled smushing with rules 1-5
+			fullLayout:      64, // Horizontal fitting
+			fullLayoutSet:   true,
+			expectNonZero:   true,
 			expectedFitMode: "Kerning", // FitKerning
 		},
 		{
-			name:           "FullLayout set to universal smushing",
-			oldLayout:      0,    // Would be fitting
-			fullLayout:     128,  // Universal smushing
-			fullLayoutSet:  true,
-			expectNonZero:  true,
+			name:            "FullLayout set to universal smushing",
+			oldLayout:       0,   // Would be fitting
+			fullLayout:      128, // Universal smushing
+			fullLayoutSet:   true,
+			expectNonZero:   true,
 			expectedFitMode: "Smushing", // FitSmushing
 		},
 		{
-			name:           "No FullLayout falls back to OldLayout",
-			oldLayout:      15,   // Controlled smushing with rules 1-4
-			fullLayout:     0,    // Not relevant when fullLayoutSet=false
-			fullLayoutSet:  false,
-			expectNonZero:  true,
+			name:            "No FullLayout falls back to OldLayout",
+			oldLayout:       15, // Controlled smushing with rules 1-4
+			fullLayout:      0,  // Not relevant when fullLayoutSet=false
+			fullLayoutSet:   false,
+			expectNonZero:   true,
 			expectedFitMode: "Smushing", // FitSmushing with rules
 		},
 	}
@@ -996,7 +1015,7 @@ func TestFullLayoutSetPrecedence(t *testing.T) {
 			if tt.fullLayoutSet {
 				fontHeader = fmt.Sprintf("flf2a$ 4 3 10 %d 1 0 %d", tt.oldLayout, tt.fullLayout)
 			}
-			
+
 			fontData := fontHeader + `
 Test font with layout precedence
 $@
@@ -1017,7 +1036,7 @@ $@@
 			if tt.expectNonZero && font.Layout == 0 {
 				t.Errorf("Layout should be non-zero after normalization, got %v", font.Layout)
 			}
-			
+
 			// Verify the layout is reasonable (has the expected fitting mode)
 			layoutStr := font.Layout.String()
 			if !strings.Contains(layoutStr, tt.expectedFitMode) {

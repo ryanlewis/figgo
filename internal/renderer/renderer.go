@@ -104,15 +104,20 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 		printDir = 0 // default to LTR
 	}
 
-	// For now, only implement Full-Width mode
 	// Extract the fitting mode (ignore rule bits)
 	fittingMode := layout & (common.FitKerning | common.FitSmushing)
-	if fittingMode == 0 { // No fitting bits set = full-width
-		return renderFullWidth(text, font, printDir)
-	}
 
-	// Kerning and Smushing modes not yet implemented
-	return "", fmt.Errorf("layout mode %x not yet implemented", layout)
+	switch fittingMode {
+	case 0: // No fitting bits set = full-width
+		return renderFullWidth(text, font, printDir)
+	case common.FitKerning:
+		return renderKerning(text, font, printDir)
+	case common.FitSmushing:
+		// Smushing mode not yet implemented
+		return "", fmt.Errorf("smushing mode not yet implemented")
+	default:
+		return "", common.ErrLayoutConflict
+	}
 }
 
 // filterNonASCII replaces non-ASCII characters with '?' (PRD MVP policy)
@@ -220,4 +225,177 @@ func reverseBytes(b []byte) {
 	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
 		b[i], b[j] = b[j], b[i]
 	}
+}
+
+// lookupGlyph finds a glyph for a rune, with fallback to '?' or space
+func lookupGlyph(font *parser.Font, r rune, h int) ([]string, error) {
+	glyph, ok := font.Characters[r]
+	if !ok {
+		// Try '?' as fallback
+		if r == '?' {
+			if spaceGlyph, hasSpace := font.Characters[' ']; hasSpace {
+				glyph = spaceGlyph
+				ok = true
+			}
+		}
+		if !ok {
+			return nil, common.ErrUnsupportedRune
+		}
+	}
+
+	if len(glyph) != h {
+		return nil, common.ErrBadFontFormat
+	}
+
+	return glyph, nil
+}
+
+// appendGlyph adds a glyph to the output lines
+func appendGlyph(lines [][]byte, glyph []string) {
+	for i := range lines {
+		lines[i] = append(lines[i], []byte(glyph[i])...)
+	}
+}
+
+// findRightmostVisible finds the rightmost non-space character in a line
+func findRightmostVisible(line []byte) int {
+	for j := len(line) - 1; j >= 0; j-- {
+		if line[j] != ' ' {
+			return j
+		}
+	}
+	return -1
+}
+
+// findLeftmostVisible finds the leftmost non-space character in a string
+func findLeftmostVisible(s string) int {
+	for j := 0; j < len(s); j++ {
+		if s[j] != ' ' {
+			return j
+		}
+	}
+	return len(s)
+}
+
+// calculateKerningDistance calculates minimal safe distance between glyphs
+func calculateKerningDistance(lines [][]byte, glyph []string, h int) int {
+	minDistance := -1
+
+	for row := 0; row < h; row++ {
+		rightmost := findRightmostVisible(lines[row])
+		leftmost := findLeftmostVisible(glyph[row])
+
+		var rowDistance int
+		switch {
+		case rightmost == -1:
+			// Current line is all blanks
+			rowDistance = leftmost
+		case leftmost == len(glyph[row]):
+			// New glyph line is all blanks
+			rowDistance = 0
+		default:
+			// Both have visible characters
+			existingTrailingSpaces := len(lines[row]) - rightmost - 1
+			rowDistance = leftmost - existingTrailingSpaces
+			if rowDistance < 1 {
+				rowDistance = 1 // Always maintain at least 1 space
+			}
+		}
+
+		if minDistance == -1 || rowDistance > minDistance {
+			minDistance = rowDistance
+		}
+	}
+
+	if minDistance < 0 {
+		minDistance = 0
+	}
+	return minDistance
+}
+
+// applyKerning adds a glyph with calculated kerning distance
+func applyKerning(lines [][]byte, glyph []string, distance int) {
+	for i := range lines {
+		// Trim trailing spaces from current line (but not hardblanks)
+		for len(lines[i]) > 0 && lines[i][len(lines[i])-1] == ' ' {
+			lines[i] = lines[i][:len(lines[i])-1]
+		}
+
+		// Add spacing
+		for j := 0; j < distance; j++ {
+			lines[i] = append(lines[i], ' ')
+		}
+
+		// Append new glyph
+		lines[i] = append(lines[i], []byte(glyph[i])...)
+	}
+}
+
+// renderKerning renders text using kerning layout (minimal spacing without overlap)
+func renderKerning(text string, font *parser.Font, printDir int) (string, error) {
+	if font == nil {
+		return "", common.ErrUnknownFont
+	}
+
+	h := font.Height
+	if h <= 0 {
+		return "", common.ErrBadFontFormat
+	}
+
+	// Handle empty text
+	if text == "" {
+		lines := make([]string, h)
+		return strings.Join(lines, "\n"), nil
+	}
+
+	// Convert text to runes and filter non-ASCII
+	runes := []rune(text)
+	filterNonASCII(runes)
+
+	// Build output line by line, character by character
+	const avgGlyphWidth = 5 // Average glyph width estimate
+	lines := make([][]byte, h)
+	for i := range lines {
+		lines[i] = make([]byte, 0, len(runes)*avgGlyphWidth)
+	}
+
+	// Process each character
+	for idx, r := range runes {
+		glyph, err := lookupGlyph(font, r, h)
+		if err != nil {
+			return "", err
+		}
+
+		switch {
+		case idx == 0:
+			// First character - just append as-is
+			appendGlyph(lines, glyph)
+		case r == ' ' || runes[idx-1] == ' ':
+			// Space character should be preserved as-is (no kerning)
+			// Also no kerning after a space
+			appendGlyph(lines, glyph)
+		default:
+			// Calculate and apply kerning
+			distance := calculateKerningDistance(lines, glyph, h)
+			applyKerning(lines, glyph, distance)
+		}
+	}
+
+	// Replace hardblanks with spaces
+	replaceHardblanks(lines, byte(font.Hardblank))
+
+	// Apply print direction (1 = RTL)
+	if printDir == 1 {
+		for i := range lines {
+			reverseBytes(lines[i])
+		}
+	}
+
+	// Convert to strings and join
+	result := make([]string, h)
+	for i := 0; i < h; i++ {
+		result[i] = string(lines[i])
+	}
+
+	return strings.Join(result, "\n"), nil
 }

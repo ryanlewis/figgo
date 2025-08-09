@@ -527,3 +527,217 @@ func TestPickLayoutPrecedence(t *testing.T) {
 		})
 	}
 }
+
+// createKerningTestFont creates a font designed to test kerning behavior
+func createKerningTestFont() *parser.Font {
+	return &parser.Font{
+		Hardblank:      '$',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      6,
+		OldLayout:      0, // kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'A': {
+				"  A   ",
+				" A A  ",
+				"A   A ",
+			},
+			'V': {
+				"V   V ",
+				" V V  ",
+				"  V   ",
+			},
+			'W': {
+				"W   W ",
+				"W W W ",
+				" W W  ",
+			},
+			'|': {
+				"  |   ",
+				"  |   ",
+				"  |   ",
+			},
+			' ': {
+				"      ",
+				"      ",
+				"      ",
+			},
+		},
+	}
+}
+
+func TestRenderKerning(t *testing.T) {
+	font := createKerningTestFont()
+
+	tests := []struct {
+		name string
+		text string
+		opts *Options
+		want string
+	}{
+		{
+			name: "kerning between A and V - should tighten",
+			text: "AV",
+			opts: &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			},
+			// A has trailing spaces, V has no leading spaces - kerning should tighten
+			// Row 0: "  A   " + "V   V " -> A at pos 2, need 1 space, V starts at 0
+			// Row 1: " A A  " + " V V  " -> last A at pos 3, V starts at 1
+			// Row 2: "A   A " + "  V   " -> last A at pos 4, V starts at 2
+			// Min gap is determined by row needing most space
+			want: "  A V   V \n A A  V V  \nA   A   V   ",
+		},
+		{
+			name: "kerning with vertical bar - no tightening",
+			text: "A|",
+			opts: &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			},
+			// | starts at column 2, A ends at column 2, need at least 1 space
+			want: "  A   |   \n A A   |   \nA   A   |   ",
+		},
+		{
+			name: "kerning between W and A",
+			text: "WA",
+			opts: &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			},
+			// W ends with visible at col 4, A starts with visible at col 2
+			// Row 2: W ends at 3, A starts at 1 - tightest constraint
+			want: "W   W   A   \nW W W  A A  \n W W A   A ",
+		},
+		{
+			name: "kerning with spaces preserved",
+			text: "A A",
+			opts: &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			},
+			// Space character is 6 spaces wide, should be preserved as-is
+			// A (6 wide) + space (6 wide) + A (6 wide, no kerning after space)
+			want: "  A           A   \n A A         A A  \nA   A       A   A ",
+		},
+		{
+			name: "kerning with RTL direction",
+			text: "AV",
+			opts: &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 1, // RTL
+			},
+			// Should kern first, then reverse
+			want: " V   V A  \n  V V  A A \n   V   A   A",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Render(tt.text, font, tt.opts)
+			if err != nil {
+				t.Errorf("Render() error = %v", err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Render() kerning mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
+				t.Logf("Visual comparison:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderKerningWithHardblanks(t *testing.T) {
+	// Font with hardblanks that should prevent over-tightening
+	font := &parser.Font{
+		Hardblank:      '#',
+		Height:         3,
+		Baseline:       2,
+		MaxLength:      5,
+		OldLayout:      0, // kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'X': {
+				"X###X",
+				"#X#X#",
+				"X###X",
+			},
+			'Y': {
+				"Y###Y",
+				"#Y#Y#",
+				"##Y##",
+			},
+		},
+	}
+
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "hardblanks prevent over-tightening",
+			text: "XY",
+			// Hardblanks should be treated as visible for collision detection
+			// But replaced with spaces in final output
+			// Row 0: X ends at 4, Y starts at 0, need 1 space
+			// Row 1: X ends at 4, Y starts at 0, need 1 space
+			// Row 2: X ends at 4, Y starts at 2, need 3 spaces
+			want: "X   X Y   Y\n X X   Y Y \nX   X   Y  ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Render(tt.text, font, &Options{
+				Layout:         common.FitKerning,
+				PrintDirection: 0,
+			})
+			if err != nil {
+				t.Errorf("Render() error = %v", err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Render() with hardblanks:\ngot:\n%q\nwant:\n%q", got, tt.want)
+				t.Logf("Visual:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderKerningDefaultFromFont(t *testing.T) {
+	// Test that kerning is used when font defaults to it
+	font := &parser.Font{
+		Hardblank:      '$',
+		Height:         2,
+		Baseline:       1,
+		MaxLength:      4,
+		OldLayout:      0, // Default to kerning
+		PrintDirection: 0,
+		Characters: map[rune][]string{
+			'I': {
+				" I ",
+				" I ",
+			},
+			'T': {
+				"TTT",
+				" T ",
+			},
+		},
+	}
+
+	// With nil options, should use font's default (kerning)
+	got, err := Render("IT", font, nil)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// Kerning should tighten I and T
+	// I ends at col 1, T starts at col 0, need 1 space minimum
+	want := " I TTT\n I  T "
+	if got != want {
+		t.Errorf("Render() with default kerning:\ngot:\n%q\nwant:\n%q", got, want)
+	}
+}

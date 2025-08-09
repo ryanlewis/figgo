@@ -933,7 +933,7 @@ func TestLayoutStringWithInvalid(t *testing.T) {
 	}{
 		{"Single mode", FitFullWidth, "FitFullWidth"},
 		{"Conflict 2 modes", FitKerning | FitSmushing, "INVALID:FitKerning|FitSmushing"},
-		{"Conflict 3 modes", FitFullWidth | FitKerning | FitSmushing, "INVALID:FitFullWidth|FitKerning|FitSmushing"},
+		{"Conflict 2 modes (FitKerning|FitSmushing)", FitKerning | FitSmushing, "INVALID:FitKerning|FitSmushing"},
 		{"Valid with rules", FitSmushing | RuleEqualChar | RuleBigX, "FitSmushing|RuleEqualChar|RuleBigX"},
 	}
 

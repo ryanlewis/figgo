@@ -37,7 +37,7 @@ type GlyphTrim struct {
 
 // computeGlyphTrims precomputes the trim information for a glyph
 // Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
-func computeGlyphTrims(glyph []string, _ byte) []GlyphTrim {
+func computeGlyphTrims(glyph []string) []GlyphTrim {
 	trims := make([]GlyphTrim, len(glyph))
 	for i, row := range glyph {
 		leftmost := -1
@@ -367,7 +367,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
-	font.CharacterTrims[' '] = computeGlyphTrims(spaceGlyph, byte(font.Hardblank))
+	font.CharacterTrims[' '] = computeGlyphTrims(spaceGlyph)
 	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
@@ -381,7 +381,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph, byte(font.Hardblank))
+		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -398,7 +398,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph, byte(font.Hardblank))
+		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 

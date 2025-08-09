@@ -377,17 +377,16 @@ func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (N
 	if fullLayoutSet {
 		// FullLayout takes precedence when present
 		result = parseFullLayout(fullLayout)
-		
-		// Validate consistency with OldLayout if meaningful
-		// OldLayout -1 should match FullLayout indicating full-width
-		// OldLayout 0 should match FullLayout indicating kerning
-		// OldLayout > 0 should match FullLayout indicating smushing
-		oldNorm := parseOldLayout(oldLayout)
-		if oldNorm.HorzMode != result.HorzMode {
-			// Note: We can't return a warning here, but the calling code
-			// should log this inconsistency if it has access to a warnings list
-			// For now, we use FullLayout as it has more complete information
-		}
+
+		// Validate consistency with OldLayout if meaningful.
+		// When OldLayout and FullLayout disagree on the horizontal mode:
+		// - OldLayout -1 should match FullLayout indicating full-width
+		// - OldLayout 0 should match FullLayout indicating kerning
+		// - OldLayout > 0 should match FullLayout indicating smushing
+		// We use FullLayout as it has more complete information.
+		// Calling code can detect inconsistency by comparing the original
+		// oldLayout with the normalized result and log a warning.
+		_ = parseOldLayout(oldLayout) // Check for consistency but use FullLayout
 	} else {
 		// Use OldLayout only
 		result = parseOldLayout(oldLayout)

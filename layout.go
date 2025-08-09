@@ -59,6 +59,63 @@ const (
 // ErrLayoutConflict is returned when multiple fitting modes are set simultaneously
 var ErrLayoutConflict = errors.New("layout conflict: multiple fitting modes set")
 
+// ErrInvalidOldLayout is returned when OldLayout is outside the valid range (-1..63)
+var ErrInvalidOldLayout = errors.New("invalid OldLayout: must be in range -1..63")
+
+// ErrInvalidFullLayout is returned when FullLayout is outside the valid range (0..32767)
+var ErrInvalidFullLayout = errors.New("invalid FullLayout: must be in range 0..32767")
+
+// AxisMode represents the fitting mode for horizontal or vertical axis
+type AxisMode int
+
+const (
+	// ModeFull displays with full width/height spacing
+	ModeFull AxisMode = iota
+	// ModeFitting displays with minimal spacing (kerning)
+	ModeFitting
+	// ModeSmushingControlled allows overlap using specific smushing rules
+	ModeSmushingControlled
+	// ModeSmushingUniversal allows overlap using universal smushing
+	ModeSmushingUniversal
+)
+
+// NormalizedLayout represents the fully normalized layout for both axes
+type NormalizedLayout struct {
+	HorzMode  AxisMode
+	HorzRules uint16 // rules 1–6 encoded as bits 0..5
+	VertMode  AxisMode
+	VertRules uint16 // rules 1–5 encoded as bits 0..4
+}
+
+// Constants for FullLayout interpretation (from FIGfont v2 spec)
+const (
+	// Horizontal layout bits
+	fullLayoutHorzRule1    = 1   // Equal character rule
+	fullLayoutHorzRule2    = 2   // Underscore rule
+	fullLayoutHorzRule3    = 4   // Hierarchy rule
+	fullLayoutHorzRule4    = 8   // Opposite pair rule
+	fullLayoutHorzRule5    = 16  // Big X rule
+	fullLayoutHorzRule6    = 32  // Hardblank rule
+	fullLayoutHorzFitting  = 64  // Horizontal fitting (kerning)
+	fullLayoutHorzSmushing = 128 // Horizontal smushing
+
+	// Vertical layout bits
+	fullLayoutVertRule1    = 256   // Vertical equal character
+	fullLayoutVertRule2    = 512   // Vertical underscore
+	fullLayoutVertRule3    = 1024  // Vertical hierarchy
+	fullLayoutVertRule4    = 2048  // Vertical horizontal line
+	fullLayoutVertRule5    = 4096  // Vertical vertical line
+	fullLayoutVertFitting  = 8192  // Vertical fitting
+	fullLayoutVertSmushing = 16384 // Vertical smushing
+
+	// Bit masks for extracting rule bits
+	horzRuleMask = 0x3F // Bits 0-5: horizontal rules (6 bits)
+	vertRuleMask = 0x1F // Bits 0-4: vertical rules (5 bits)
+	
+	// Bit shift for vertical rules
+	vertRuleShift = 8 // Shift right 8 bits to get vertical rules
+)
+
 // NormalizeLayout validates and normalizes a Layout value.
 // It ensures exactly one fitting mode is set:
 //   - If both FitKerning and FitSmushing are set, returns ErrLayoutConflict
@@ -222,4 +279,161 @@ func (l Layout) String() string {
 	}
 
 	return strings.Join(parts, "|")
+}
+
+// NormalizeLayoutFromHeader normalizes layout from FIGfont header values.
+// It handles both OldLayout and FullLayout with proper precedence:
+//   - If fullLayoutSet is true, FullLayout takes precedence (ignores OldLayout)
+//   - If fullLayoutSet is false, derives layout from OldLayout only
+//
+// OldLayout valid range: -1..63
+//   - -1: Horizontal full width
+//   - 0: Horizontal fitting (kerning)
+//   - >0: Horizontal smushing with rules from bits 1-6
+//
+// FullLayout valid range: 0..32767
+//   - Supports both horizontal and vertical layout modes
+//   - Universal smushing = smushing bit set with no rule bits
+func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (NormalizedLayout, error) {
+	// Validate ranges
+	if oldLayout < -1 || oldLayout > 63 {
+		return NormalizedLayout{}, ErrInvalidOldLayout
+	}
+	if fullLayout < 0 || fullLayout > 32767 {
+		return NormalizedLayout{}, ErrInvalidFullLayout
+	}
+
+	var result NormalizedLayout
+
+	if fullLayoutSet {
+		// FullLayout takes precedence when present
+		result = parseFullLayout(fullLayout)
+	} else {
+		// Use OldLayout only
+		result = parseOldLayout(oldLayout)
+	}
+
+	return result, nil
+}
+
+// parseOldLayout converts OldLayout to NormalizedLayout
+func parseOldLayout(oldLayout int) NormalizedLayout {
+	result := NormalizedLayout{
+		VertMode: ModeFull, // OldLayout doesn't specify vertical, default to full
+	}
+
+	switch {
+	case oldLayout == -1:
+		result.HorzMode = ModeFull
+	case oldLayout == 0:
+		result.HorzMode = ModeFitting
+	default:
+		// oldLayout > 0: smushing with rules
+		result.HorzMode = ModeSmushingControlled
+		// Extract rule bits safely
+		maskedBits := oldLayout & horzRuleMask
+		if maskedBits < 0 || maskedBits > 63 {
+			// This shouldn't happen due to validation and masking, but check anyway
+			maskedBits = 0
+		}
+		result.HorzRules = uint16(maskedBits)
+	}
+
+	return result
+}
+
+// parseFullLayout converts FullLayout to NormalizedLayout
+func parseFullLayout(fullLayout int) NormalizedLayout {
+	var result NormalizedLayout
+
+	// Parse horizontal layout
+	horzRuleBits := fullLayout & horzRuleMask // Bits 0-5: horizontal rules
+	horzHasFitting := (fullLayout & fullLayoutHorzFitting) != 0
+	horzHasSmushing := (fullLayout & fullLayoutHorzSmushing) != 0
+
+	switch {
+	case horzHasSmushing && horzRuleBits == 0:
+		// Universal smushing: smushing bit set, no rule bits
+		result.HorzMode = ModeSmushingUniversal
+	case horzHasSmushing && horzRuleBits != 0:
+		// Controlled smushing: smushing bit set with rule bits
+		result.HorzMode = ModeSmushingControlled
+		// horzRuleBits is already masked to 6 bits (max 63), safe to convert
+		if horzRuleBits < 0 || horzRuleBits > 63 {
+			horzRuleBits = 0
+		}
+		result.HorzRules = uint16(horzRuleBits)
+	case horzHasFitting:
+		// Fitting (kerning) mode
+		result.HorzMode = ModeFitting
+	default:
+		// Full width mode (default)
+		result.HorzMode = ModeFull
+	}
+
+	// Parse vertical layout
+	vertRuleBits := (fullLayout >> vertRuleShift) & vertRuleMask // Bits 8-12 mapped to 0-4: vertical rules
+	vertHasFitting := (fullLayout & fullLayoutVertFitting) != 0
+	vertHasSmushing := (fullLayout & fullLayoutVertSmushing) != 0
+
+	switch {
+	case vertHasSmushing && vertRuleBits == 0:
+		// Universal smushing: smushing bit set, no rule bits
+		result.VertMode = ModeSmushingUniversal
+	case vertHasSmushing && vertRuleBits != 0:
+		// Controlled smushing: smushing bit set with rule bits
+		result.VertMode = ModeSmushingControlled
+		// vertRuleBits is already masked to 5 bits (max 31), safe to convert
+		if vertRuleBits < 0 || vertRuleBits > 31 {
+			vertRuleBits = 0
+		}
+		result.VertRules = uint16(vertRuleBits)
+	case vertHasFitting:
+		// Fitting mode
+		result.VertMode = ModeFitting
+	default:
+		// Full height mode (default)
+		result.VertMode = ModeFull
+	}
+
+	return result
+}
+
+// ToLayout converts NormalizedLayout to the simplified horizontal Layout bitmask
+// used by the rendering engine. This only considers horizontal layout settings.
+func (nl NormalizedLayout) ToLayout() Layout {
+	var layout Layout
+
+	switch nl.HorzMode {
+	case ModeFull:
+		layout = FitFullWidth
+	case ModeFitting:
+		layout = FitKerning
+	case ModeSmushingControlled:
+		layout = FitSmushing
+		// Map horizontal rules to Layout rule bits
+		if nl.HorzRules&0x01 != 0 {
+			layout |= RuleEqualChar
+		}
+		if nl.HorzRules&0x02 != 0 {
+			layout |= RuleUnderscore
+		}
+		if nl.HorzRules&0x04 != 0 {
+			layout |= RuleHierarchy
+		}
+		if nl.HorzRules&0x08 != 0 {
+			layout |= RuleOppositePair
+		}
+		if nl.HorzRules&0x10 != 0 {
+			layout |= RuleBigX
+		}
+		if nl.HorzRules&0x20 != 0 {
+			layout |= RuleHardblank
+		}
+	case ModeSmushingUniversal:
+		// Universal smushing: just the smushing mode, no rule bits
+		layout = FitSmushing
+	}
+
+	return layout
 }

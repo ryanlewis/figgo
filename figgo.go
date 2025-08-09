@@ -27,10 +27,25 @@ func convertParserFont(pf *parser.Font) *Font {
 	if pf == nil {
 		return nil
 	}
+
+	// Normalize layout from header values
+	normalized, err := NormalizeLayoutFromHeader(pf.OldLayout, pf.FullLayout, pf.FullLayoutSet)
+	if err != nil {
+		// If normalization fails, fall back to old behavior
+		// This should rarely happen as the parser validates the values
+		normalized = NormalizedLayout{
+			HorzMode: ModeFull,
+			VertMode: ModeFull,
+		}
+	}
+
+	// Convert normalized layout to Layout bitmask
+	layout := normalized.ToLayout()
+
 	return &Font{
 		Glyphs:         pf.Characters,
-		Name:           "",                                // Will be set based on filename or metadata
-		FullLayout:     Layout(pf.FullLayout % (1 << 32)), //nolint:gosec // Overflow handled by modulo
+		Name:           "", // Will be set based on filename or metadata
+		FullLayout:     layout,
 		Hardblank:      pf.Hardblank,
 		Height:         pf.Height,
 		Baseline:       pf.Baseline,

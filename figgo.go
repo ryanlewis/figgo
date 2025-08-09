@@ -3,6 +3,9 @@
 // Figgo aims to be the reference Go implementation for FIGlet fonts (FLF 2.0),
 // offering compatibility with the original C figlet while providing modern Go APIs
 // and performance optimizations.
+//
+// All Font instances are immutable after creation and safe for concurrent use
+// across goroutines without additional synchronization.
 package figgo
 
 import (
@@ -61,7 +64,7 @@ func ParseFont(r io.Reader) (*Font, error) {
 func LoadFont(path string) (*Font, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open font file: %w", err)
+		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
 	defer file.Close()
 	
@@ -71,7 +74,7 @@ func LoadFont(path string) (*Font, error) {
 	}
 	
 	// Set font name based on filename (without extension)
-	font.Name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	font.Name = deriveNameFromPath(path, true)
 	
 	return font, nil
 }
@@ -79,6 +82,8 @@ func LoadFont(path string) (*Font, error) {
 // ParseFontBytes parses a FIGfont from a byte slice.
 // This is a convenience wrapper around bytes.NewReader and ParseFont.
 // The returned Font is immutable and safe for concurrent use across goroutines.
+//
+// Note: This function does not set the Font.Name field (unlike LoadFont* functions).
 //
 // Example:
 //
@@ -105,6 +110,9 @@ func cleanFSPath(p string) (string, error) {
 	if strings.ContainsRune(p, '\\') {
 		return "", errors.New("backslashes not allowed in fs paths")
 	}
+	// SECURITY: ValidPath check MUST come before Clean to prevent traversal attacks.
+	// ValidPath rejects ".", ".." segments which Clean would normalize away.
+	// This ordering ensures we reject dangerous paths before any normalization.
 	if !fs.ValidPath(p) {
 		// rejects ".", ".." segments, empty elements, etc.
 		return "", fmt.Errorf("invalid fs path: %s", p)
@@ -114,6 +122,48 @@ func cleanFSPath(p string) (string, error) {
 		return "", errors.New("path traversal not allowed")
 	}
 	return clean, nil
+}
+
+// deriveNameFromPath extracts the font name from a file path by removing the extension.
+// Set useOSPath=true for OS filesystem paths (uses filepath), false for fs.FS paths (uses path).
+// This also trims .flc extensions if support for FIGlet control files is added later.
+func deriveNameFromPath(filePath string, useOSPath bool) string {
+	var base, ext string
+	if useOSPath {
+		base = filepath.Base(filePath)
+		ext = filepath.Ext(filePath)
+	} else {
+		base = path.Base(filePath)
+		ext = path.Ext(filePath)
+	}
+	
+	// Early return if no extension
+	if ext == "" {
+		return base
+	}
+	
+	// Handle both .flf and .flc extensions (for potential future control file support)
+	if ext == ".flf" || ext == ".flc" {
+		return strings.TrimSuffix(base, ext)
+	}
+	
+	// Fallback: remove any extension
+	return strings.TrimSuffix(base, ext)
+}
+
+// LoadFontDir loads a FIGfont from a directory on the local filesystem.
+// This is a convenience wrapper around os.DirFS and LoadFontFS.
+// The returned Font is immutable and safe for concurrent use across goroutines.
+//
+// Example:
+//
+//	font, err := figgo.LoadFontDir("/usr/share/figlet", "standard.flf")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func LoadFontDir(dir string, fontName string) (*Font, error) {
+	fsys := os.DirFS(dir)
+	return LoadFontFS(fsys, fontName)
 }
 
 // LoadFontFS loads a FIGfont from a filesystem at the specified path.
@@ -152,10 +202,19 @@ func LoadFontFS(fsys fs.FS, fontPath string) (*Font, error) {
 		return nil, err
 	}
 
+	// Check if path is a directory (some fs.FS implementations allow opening directories)
+	info, err := fs.Stat(fsys, clean)
+	if err != nil {
+		return nil, fmt.Errorf("stat %q: %w", clean, err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("%q is a directory, not a font file", clean)
+	}
+
 	// Open the font file
 	file, err := fsys.Open(clean)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open font file: %w", err)
+		return nil, fmt.Errorf("open %q: %w", clean, err)
 	}
 	defer file.Close()
 
@@ -167,7 +226,7 @@ func LoadFontFS(fsys fs.FS, fontPath string) (*Font, error) {
 
 	// Set font name based on filename (without extension)
 	// Use path package for fs.FS paths (not filepath)
-	font.Name = strings.TrimSuffix(path.Base(clean), path.Ext(clean))
+	font.Name = deriveNameFromPath(clean, false)
 
 	return font, nil
 }
@@ -190,7 +249,7 @@ func cloneGlyphs(src map[rune][]string) map[rune][]string {
 // The returned Font has its own copy of glyphs to ensure true immutability.
 func convertParserFont(pf *parser.Font) (*Font, error) {
 	if pf == nil {
-		return nil, fmt.Errorf("nil parser font")
+		return nil, fmt.Errorf("nil parser font from Parse()")
 	}
 
 	// Normalize layout from header values
@@ -207,7 +266,7 @@ func convertParserFont(pf *parser.Font) (*Font, error) {
 	return &Font{
 		glyphs:         cloneGlyphs(pf.Characters),
 		Name:           "", // Will be set based on filename or metadata
-		FullLayout:     layout,
+		Layout:         layout,
 		Hardblank:      pf.Hardblank,
 		Height:         pf.Height,
 		Baseline:       pf.Baseline,
@@ -230,7 +289,7 @@ func Render(text string, f *Font, opts ...Option) (string, error) {
 
 	// Default to font's layout and direction if not specified
 	if options.layout == nil {
-		l := f.FullLayout
+		l := f.Layout
 		options.layout = &l
 	}
 	if options.printDirection == nil {
@@ -258,12 +317,15 @@ func convertToParserFont(f *Font) *parser.Font {
 		Baseline:  f.Baseline,
 		MaxLength: f.MaxLen,
 		OldLayout: f.OldLayout,
-		// Note: We don't set FullLayout here as f.FullLayout is the normalized
+		// Note: We don't set FullLayout here as f.Layout is the normalized
 		// horizontal layout bitmask, not the original FIGfont header value.
 		// The renderer currently only consumes horizontal layout settings.
-		// TODO: Thread vertical mode/rules into renderer API for vertical text support.
+		// TODO: Thread vertical bits into renderer API when vertical rendering is implemented.
 		PrintDirection: f.PrintDirection,
 		CommentLines:   f.CommentLines,
+		// IMPORTANT: We pass glyphs directly without cloning. The renderer MUST NOT
+		// mutate this map or its contents to maintain Font immutability guarantees.
+		// If mutation becomes necessary, add defensive cloning here (with performance note).
 		Characters:     f.glyphs,
 	}
 }

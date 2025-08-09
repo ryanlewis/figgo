@@ -13,11 +13,11 @@ type Font struct {
 	// Name is the font name (e.g., "standard")
 	Name string
 
-	// FullLayout contains the normalized horizontal layout bitmask combining fitting mode and smushing rules.
-	// Note: This is NOT the raw FullLayout value from the FIGfont header.
-	// It's the normalized renderer layout derived from the header's OldLayout/FullLayout values.
+	// Layout contains the normalized horizontal layout bitmask combining fitting mode and smushing rules.
+	// This is the processed layout derived from the font header's OldLayout/FullLayout values.
+	// See NormalizeLayoutFromHeader for the normalization process.
 	// Only horizontal layout is currently used by the renderer.
-	FullLayout Layout
+	Layout Layout
 
 	// Hardblank is the character used for hard blanks in the font
 	Hardblank rune

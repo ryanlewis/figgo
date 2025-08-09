@@ -14,7 +14,7 @@ func TestFontStruct(t *testing.T) {
 		Baseline:       6,
 		MaxLen:         16,
 		OldLayout:      -1,
-		FullLayout:     FitFullWidth,
+		Layout:         FitFullWidth,
 		PrintDirection: 0,
 		CommentLines:   25,
 		glyphs:         make(map[rune][]string),
@@ -38,8 +38,8 @@ func TestFontStruct(t *testing.T) {
 	if font.OldLayout != -1 {
 		t.Errorf("expected OldLayout to be -1, got %d", font.OldLayout)
 	}
-	if font.FullLayout != FitFullWidth {
-		t.Errorf("expected FullLayout to be FitFullWidth, got %d", font.FullLayout)
+	if font.Layout != FitFullWidth {
+		t.Errorf("expected Layout to be FitFullWidth, got %d", font.Layout)
 	}
 	if font.PrintDirection != 0 {
 		t.Errorf("expected PrintDirection to be 0, got %d", font.PrintDirection)

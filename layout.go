@@ -23,40 +23,41 @@ import (
 //   - Bit 14: RuleHardblank - Hardblanks merge into one
 type Layout uint32
 
-// Fitting mode constants (bits 6-8)
+// Fitting mode constants
 const (
-	// FitFullWidth displays characters at full width with no overlap (bit 6)
-	FitFullWidth Layout = 0x00000040
+	// FitFullWidth displays characters at full width with no overlap (no bits set)
+	FitFullWidth Layout = 0
 
-	// FitKerning displays characters with minimal spacing, no overlap (bit 7)
-	FitKerning Layout = 0x00000080
+	// FitKerning displays characters with minimal spacing, no overlap (bit 6)
+	FitKerning Layout = 1 << 6
 
-	// FitSmushing allows characters to overlap using smushing rules (bit 8)
-	FitSmushing Layout = 0x00000100
+	// FitSmushing allows characters to overlap using smushing rules (bit 7)
+	FitSmushing Layout = 1 << 7
 )
 
-// Smushing rule constants (bits 9-14)
+// Smushing rule constants (bits 0-5)
 const (
-	// RuleEqualChar merges equal characters into one (bit 9)
-	RuleEqualChar Layout = 0x00000200
+	// RuleEqualChar merges equal characters into one (bit 0)
+	RuleEqualChar Layout = 1 << 0
 
-	// RuleUnderscore allows underscores to merge with certain characters (bit 10)
-	RuleUnderscore Layout = 0x00000400
+	// RuleUnderscore allows underscores to merge with certain characters (bit 1)
+	RuleUnderscore Layout = 1 << 1
 
-	// RuleHierarchy uses character hierarchy to determine which survives (bit 11)
-	RuleHierarchy Layout = 0x00000800
+	// RuleHierarchy uses character hierarchy to determine which survives (bit 2)
+	RuleHierarchy Layout = 1 << 2
 
-	// RuleOppositePair merges opposite bracket pairs into | (bit 12)
-	RuleOppositePair Layout = 0x00001000
+	// RuleOppositePair merges opposite bracket pairs into | (bit 3)
+	RuleOppositePair Layout = 1 << 3
 
-	// RuleBigX merges diagonal pairs to form X patterns (bit 13)
-	RuleBigX Layout = 0x00002000
+	// RuleBigX merges diagonal pairs to form X patterns (bit 4)
+	RuleBigX Layout = 1 << 4
 
-	// RuleHardblank merges two hardblanks into one (bit 14)
-	RuleHardblank Layout = 0x00004000
+	// RuleHardblank merges two hardblanks into one (bit 5)
+	RuleHardblank Layout = 1 << 5
 
 	// AllKnownMask contains all known layout bits for validation
-	AllKnownMask Layout = FitFullWidth | FitKerning | FitSmushing |
+	// Note: FitFullWidth = 0, so it doesn't contribute to the mask
+	AllKnownMask Layout = FitKerning | FitSmushing |
 		RuleEqualChar | RuleUnderscore | RuleHierarchy |
 		RuleOppositePair | RuleBigX | RuleHardblank
 )
@@ -139,32 +140,35 @@ func NormalizeLayout(layout Layout) (Layout, error) {
 	// Mask unknown bits to avoid propagating garbage
 	layout &= AllKnownMask
 
-	fittingModes := layout & (FitFullWidth | FitKerning | FitSmushing)
+	// Since FitFullWidth = 0, we check for kerning and smushing bits
+	fittingBits := layout & (FitKerning | FitSmushing)
 
-	// Fast path: check for valid single mode or no mode
-	if fittingModes == 0 {
-		// No fitting mode set, default to FitFullWidth
-		return layout | FitFullWidth, nil
+	// Count how many fitting mode bits are set
+	bitCount := 0
+	if fittingBits&FitKerning != 0 {
+		bitCount++
 	}
-	if fittingModes == FitFullWidth || fittingModes == FitKerning || fittingModes == FitSmushing {
-		// Exactly one fitting mode set, valid
-		return layout, nil
-	}
-
-	// Multiple fitting modes set, build error message
-	var conflictingModes []string
-	if fittingModes&FitFullWidth != 0 {
-		conflictingModes = append(conflictingModes, "FitFullWidth")
-	}
-	if fittingModes&FitKerning != 0 {
-		conflictingModes = append(conflictingModes, "FitKerning")
-	}
-	if fittingModes&FitSmushing != 0 {
-		conflictingModes = append(conflictingModes, "FitSmushing")
+	if fittingBits&FitSmushing != 0 {
+		bitCount++
 	}
 
-	return 0, fmt.Errorf("%w: multiple fitting modes set (%s)",
-		ErrLayoutConflict, strings.Join(conflictingModes, " + "))
+	// Validate that at most one fitting mode is set
+	if bitCount > 1 {
+		// Multiple fitting modes set, build error message
+		var conflictingModes []string
+		if fittingBits&FitKerning != 0 {
+			conflictingModes = append(conflictingModes, "FitKerning")
+		}
+		if fittingBits&FitSmushing != 0 {
+			conflictingModes = append(conflictingModes, "FitSmushing")
+		}
+		return 0, fmt.Errorf("%w: multiple fitting modes set (%s)",
+			ErrLayoutConflict, strings.Join(conflictingModes, " + "))
+	}
+
+	// If no bits are set, we have FitFullWidth (since FitFullWidth = 0)
+	// Layout is already valid as-is
+	return layout, nil
 }
 
 // NormalizeOldLayout converts an OldLayout integer to a Layout bitmask.
@@ -239,10 +243,15 @@ func (l Layout) HasRule(rule Layout) bool {
 }
 
 // FittingMode returns only the fitting mode bits from the layout.
-// This will return one or more of: FitFullWidth, FitKerning, FitSmushing.
+// This will return one of: FitFullWidth (0), FitKerning, FitSmushing.
 // Note that a valid normalized layout should have exactly one fitting mode.
+// If neither FitKerning nor FitSmushing bits are set, it returns FitFullWidth (0).
 func (l Layout) FittingMode() Layout {
-	return l & (FitFullWidth | FitKerning | FitSmushing)
+	fittingBits := l & (FitKerning | FitSmushing)
+	if fittingBits == 0 {
+		return FitFullWidth // Return 0 explicitly for clarity
+	}
+	return fittingBits
 }
 
 // Rules returns only the smushing rule bits from the layout.
@@ -260,14 +269,17 @@ func (l Layout) Rules() Layout {
 func layoutStringParts(l Layout) []string {
 	var parts []string
 	// Add fitting modes
-	if l&FitFullWidth != 0 {
+	fittingBits := l & (FitKerning | FitSmushing)
+	if fittingBits == 0 {
+		// No fitting bits set means FitFullWidth
 		parts = append(parts, "FitFullWidth")
-	}
-	if l&FitKerning != 0 {
-		parts = append(parts, "FitKerning")
-	}
-	if l&FitSmushing != 0 {
-		parts = append(parts, "FitSmushing")
+	} else {
+		if l&FitKerning != 0 {
+			parts = append(parts, "FitKerning")
+		}
+		if l&FitSmushing != 0 {
+			parts = append(parts, "FitSmushing")
+		}
 	}
 	// Add smushing rules
 	if l&RuleEqualChar != 0 {
@@ -294,25 +306,22 @@ func layoutStringParts(l Layout) []string {
 
 // countFittingModes counts the number of fitting modes set
 func countFittingModes(l Layout) int {
-	fittingModes := l & (FitFullWidth | FitKerning | FitSmushing)
+	// Since FitFullWidth = 0, we only count the actual bit flags
 	count := 0
-	if fittingModes&FitFullWidth != 0 {
+	if l&FitKerning != 0 {
 		count++
 	}
-	if fittingModes&FitKerning != 0 {
+	if l&FitSmushing != 0 {
 		count++
 	}
-	if fittingModes&FitSmushing != 0 {
-		count++
+	// If neither bit is set, we have FitFullWidth (implicitly 1 mode)
+	if count == 0 && l&(FitKerning|FitSmushing) == 0 {
+		count = 1
 	}
 	return count
 }
 
 func (l Layout) String() string {
-	if l == 0 {
-		return "0x00000000"
-	}
-
 	// Check for unknown bits using AllKnownMask constant
 	if l&^AllKnownMask != 0 {
 		// Has unknown bits, return hex representation
@@ -321,6 +330,7 @@ func (l Layout) String() string {
 
 	parts := layoutStringParts(l)
 	if len(parts) == 0 {
+		// This should not happen with valid layouts, but handle it
 		return fmt.Sprintf("0x%08X", uint32(l))
 	}
 

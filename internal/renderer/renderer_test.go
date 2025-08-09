@@ -95,7 +95,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "HI",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: "H  H  III \nHHHH   I  \nH  H  III ",
@@ -105,7 +105,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "H",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: "H  H \nHHHH \nH  H ",
@@ -115,7 +115,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "Hello",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: "H  H  eee l    l     ooo \nHHHH e e el    l    o   o\nH  H  ee ellll llll  ooo ",
@@ -125,7 +125,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "AB",
 			font: createFontWithHardblank(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: " AA BBB \nA  AB  B\nA  ABBB ",
@@ -135,7 +135,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "~",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			wantErr: true,
@@ -146,8 +146,8 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "HI",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
-				PrintDirection: 1,          // RTL
+				Layout:         0, // FitFullWidth
+				PrintDirection: 1, // RTL
 			},
 			want: " III  H  H\n  I   HHHH\n III  H  H",
 		},
@@ -156,7 +156,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "test",
 			font: nil,
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			wantErr: true,
@@ -167,7 +167,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: "\n\n", // Font height minus 1 newlines
@@ -177,7 +177,7 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "H I",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			},
 			want: "H  H     III \nHHHH      I  \nH  H     III ",
@@ -223,7 +223,7 @@ func TestRenderFullWidth_GlyphHeightValidation(t *testing.T) {
 	}
 
 	_, err := Render("X", font, &Options{
-		Layout:         0x00000040, // FitFullWidth
+		Layout:         0, // FitFullWidth
 		PrintDirection: 0,
 	})
 
@@ -254,7 +254,7 @@ func TestRenderFullWidth_InvalidFontHeight(t *testing.T) {
 			}
 
 			_, err := Render("test", font, &Options{
-				Layout:         0x00000040, // FitFullWidth
+				Layout:         0, // FitFullWidth
 				PrintDirection: 0,
 			})
 

@@ -12,15 +12,15 @@ func TestLayoutConstants(t *testing.T) {
 		layout   Layout
 		expected uint32
 	}{
-		{"FitFullWidth", FitFullWidth, 0x00000040},         // Bit 6
-		{"FitKerning", FitKerning, 0x00000080},             // Bit 7
-		{"FitSmushing", FitSmushing, 0x00000100},           // Bit 8
-		{"RuleEqualChar", RuleEqualChar, 0x00000200},       // Bit 9
-		{"RuleUnderscore", RuleUnderscore, 0x00000400},     // Bit 10
-		{"RuleHierarchy", RuleHierarchy, 0x00000800},       // Bit 11
-		{"RuleOppositePair", RuleOppositePair, 0x00001000}, // Bit 12
-		{"RuleBigX", RuleBigX, 0x00002000},                 // Bit 13
-		{"RuleHardblank", RuleHardblank, 0x00004000},       // Bit 14
+		{"FitFullWidth", FitFullWidth, 0x00000000},         // No bits set
+		{"FitKerning", FitKerning, 0x00000040},             // Bit 6
+		{"FitSmushing", FitSmushing, 0x00000080},           // Bit 7
+		{"RuleEqualChar", RuleEqualChar, 0x00000001},       // Bit 0
+		{"RuleUnderscore", RuleUnderscore, 0x00000002},     // Bit 1
+		{"RuleHierarchy", RuleHierarchy, 0x00000004},       // Bit 2
+		{"RuleOppositePair", RuleOppositePair, 0x00000008}, // Bit 3
+		{"RuleBigX", RuleBigX, 0x00000010},                 // Bit 4
+		{"RuleHardblank", RuleHardblank, 0x00000020},       // Bit 5
 	}
 
 	for _, tt := range tests {
@@ -66,18 +66,6 @@ func TestLayoutValidation(t *testing.T) {
 		{
 			name:            "invalid both FitKerning and FitSmushing",
 			layout:          FitKerning | FitSmushing,
-			wantErrContains: "layout conflict",
-			wantFitting:     0,
-		},
-		{
-			name:            "invalid both FitFullWidth and FitKerning",
-			layout:          FitFullWidth | FitKerning,
-			wantErrContains: "layout conflict",
-			wantFitting:     0,
-		},
-		{
-			name:            "invalid all three fitting modes",
-			layout:          FitFullWidth | FitKerning | FitSmushing,
 			wantErrContains: "layout conflict",
 			wantFitting:     0,
 		},
@@ -183,10 +171,10 @@ func TestLayoutString(t *testing.T) {
 		{"FitSmushing", FitSmushing},
 		{"FitSmushing|RuleEqualChar", FitSmushing | RuleEqualChar},
 		{"FitSmushing|RuleEqualChar|RuleBigX", FitSmushing | RuleEqualChar | RuleBigX},
-		{"INVALID:FitFullWidth|FitKerning", FitFullWidth | FitKerning}, // Multiple fitting modes
+		{"INVALID:FitKerning|FitSmushing", FitKerning | FitSmushing}, // Multiple fitting modes
 		{"FitSmushing|RuleEqualChar|RuleUnderscore|RuleHierarchy|RuleOppositePair|RuleBigX|RuleHardblank",
 			FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank}, // All rules
-		{"0x00000000", 0},
+		{"FitFullWidth", 0}, // FitFullWidth = 0
 		{"0x12345678", Layout(0x12345678)}, // Unknown bits
 		{"0x80000000", Layout(0x80000000)}, // High bit set
 	}

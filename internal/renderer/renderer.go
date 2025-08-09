@@ -18,14 +18,14 @@ type Options struct {
 	PrintDirection int
 }
 
-// Layout bit constants (matching the public API layout.go)
+// Layout bit constants aligned with PRD §7 / public API
 const (
-	// FitFullWidth displays characters at full width with no overlap (bit 6)
-	FitFullWidth = 0x00000040
-	// FitKerning displays characters with minimal spacing, no overlap (bit 7)
-	FitKerning = 0x00000080
-	// FitSmushing allows characters to overlap using smushing rules (bit 8)
-	FitSmushing = 0x00000100
+	// FitFullWidth displays characters at full width with no overlap
+	FitFullWidth = 0
+	// FitKerning displays characters with minimal spacing, no overlap (bit 6)
+	FitKerning = 1 << 6
+	// FitSmushing allows characters to overlap using smushing rules (bit 7)
+	FitSmushing = 1 << 7
 )
 
 // Common errors
@@ -36,7 +36,44 @@ var (
 	ErrUnsupportedRune = errors.New("unsupported rune")
 	// ErrBadFontFormat is returned when font has invalid structure
 	ErrBadFontFormat = errors.New("bad font format")
+	// ErrLayoutConflict mirrors public API intent
+	ErrLayoutConflict = errors.New("layout conflict")
 )
+
+// pickLayout determines the effective layout from font defaults and options
+func pickLayout(font *parser.Font, opts *Options) (int, error) {
+	// 1) start from opts if provided; else fall back to font defaults
+	layout := FitFullWidth
+	if opts != nil {
+		layout = opts.Layout // 0 (full) is valid
+	} else {
+		// Fallback from font.OldLayout (per spec): -1 full, 0 kern, >0 smush
+		switch font.OldLayout {
+		case -1:
+			layout = FitFullWidth
+		case 0:
+			layout = FitKerning
+		default:
+			layout = FitSmushing
+		}
+	}
+
+	// 2) validation per PRD §7
+	fitBits := 0
+	if layout&FitKerning != 0 {
+		fitBits++
+	}
+	if layout&FitSmushing != 0 {
+		fitBits++
+	}
+	if fitBits > 1 {
+		return 0, ErrLayoutConflict
+	}
+	if fitBits == 0 {
+		layout = FitFullWidth // neither set -> full-width
+	}
+	return layout, nil
+}
 
 // Render converts text to ASCII art using the specified font and options.
 func Render(text string, font *parser.Font, opts *Options) (string, error) {
@@ -48,16 +85,15 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 		return "", ErrBadFontFormat
 	}
 
-	// Determine layout mode
-	layout := FitFullWidth // Default to full-width
-	if opts != nil && opts.Layout != 0 {
-		layout = opts.Layout
+	// Determine layout mode with validation
+	layout, err := pickLayout(font, opts)
+	if err != nil {
+		return "", err
 	}
 
-	// Determine print direction
+	// Determine print direction (0 LTR, 1 RTL)
 	printDir := font.PrintDirection
-	if opts != nil && opts.PrintDirection != 0 {
-		// Options override font default
+	if opts != nil {
 		printDir = opts.PrintDirection
 	}
 

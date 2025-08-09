@@ -251,6 +251,7 @@ func appendGlyph(lines [][]byte, glyph []string) {
 
 // findRightmostVisible finds the rightmost non-space character in a line
 // Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
+// TODO(perf): Consider caching trailing-space counts per composed line segment to reduce scans.
 func findRightmostVisible(line []byte) int {
 	for j := len(line) - 1; j >= 0; j-- {
 		if line[j] != ' ' {

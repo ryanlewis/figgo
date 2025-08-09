@@ -3,19 +3,17 @@ package parser
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
 	// minHeaderFields is the minimum number of required fields in a FIGfont header
 	minHeaderFields = 5
-	// signaturePrefix is the expected prefix for FIGfont files
-	signaturePrefix = "flf2"
-	// minSignatureLen is the minimum length of a valid signature (e.g., "flf2a$")
-	minSignatureLen = 6
 	// minSignatureRunes is the minimum number of runes in a valid signature (handles UTF-8)
 	minSignatureRunes = 6
 	// firstNonSpaceASCII is the first non-space printable ASCII character (!)
@@ -66,6 +64,8 @@ type Font struct { //nolint:govet // Field order optimized for clarity
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
 func Parse(r io.Reader) (*Font, error) {
 	scanner := bufio.NewScanner(r)
+	// Increase buffer size for large fonts (default is 64KB, set max to 4MB)
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 
 	// Parse header and comments first
 	font, err := parseHeaderWithScanner(scanner)
@@ -86,6 +86,8 @@ func Parse(r io.Reader) (*Font, error) {
 // the specified number of comment lines.
 func ParseHeader(r io.Reader) (*Font, error) {
 	scanner := bufio.NewScanner(r)
+	// Increase buffer size for large fonts
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	return parseHeaderWithScanner(scanner)
 }
 
@@ -124,15 +126,17 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 	}
 
 	// Parse optional fields
-	parseOptionalFields(fields, font)
+	if err := parseOptionalFields(fields, font); err != nil {
+		return nil, err
+	}
 
 	// Read comment lines
 	if err := readCommentLines(scanner, font); err != nil {
 		return nil, err
 	}
 
-	// Initialize Characters map
-	font.Characters = make(map[rune][]string)
+	// Initialize Characters map with capacity for ASCII (95) + German (7) + some extras
+	font.Characters = make(map[rune][]string, 128)
 
 	return font, nil
 }
@@ -165,22 +169,26 @@ func readHeaderLine(scanner *bufio.Scanner) (string, error) {
 
 // parseSignature validates and extracts the signature and hardblank
 func parseSignature(headerLine string, font *Font) error {
-	if len(headerLine) < minSignatureLen || !strings.HasPrefix(headerLine, signaturePrefix) {
-		return fmt.Errorf("invalid signature: expected 'flf2a' format")
-	}
-
 	// Get the hardblank as a rune (handles multi-byte UTF-8)
 	runes := []rune(headerLine)
 	if len(runes) < minSignatureRunes {
 		return fmt.Errorf("invalid signature: too short")
 	}
 
-	if runes[5] == ' ' {
-		return fmt.Errorf("invalid signature: missing hardblank character")
+	// Spec says the signature must be exactly "flf2a" (5th char is 'a' and cannot be omitted)
+	signature := string(runes[:5])
+	if signature != "flf2a" {
+		return fmt.Errorf("invalid signature: expected 'flf2a', got %q", signature)
 	}
 
-	font.Signature = string(runes[:5])
-	font.Hardblank = runes[5]
+	hardblank := runes[5]
+	// Spec forbids hardblank being space/CR/LF/NUL
+	if hardblank == ' ' || hardblank == '\r' || hardblank == '\n' || hardblank == '\x00' {
+		return fmt.Errorf("invalid hardblank character: cannot be space, CR, LF, or NUL")
+	}
+
+	font.Signature = signature
+	font.Hardblank = hardblank
 	return nil
 }
 
@@ -200,6 +208,9 @@ func parseRequiredFields(fields []string, font *Font) error {
 	baseline, err := strconv.Atoi(fields[1])
 	if err != nil {
 		return fmt.Errorf("invalid baseline: %w", err)
+	}
+	if baseline < 1 {
+		return fmt.Errorf("baseline must be at least 1, got %d", baseline)
 	}
 	if baseline > height {
 		return fmt.Errorf("baseline exceeds height: %d > %d", baseline, height)
@@ -237,7 +248,7 @@ func parseRequiredFields(fields []string, font *Font) error {
 }
 
 // parseOptionalFields parses the optional header fields if present
-func parseOptionalFields(fields []string, font *Font) {
+func parseOptionalFields(fields []string, font *Font) error {
 	const (
 		printDirectionField = 5
 		fullLayoutField     = 6
@@ -246,6 +257,10 @@ func parseOptionalFields(fields []string, font *Font) {
 
 	if len(fields) > printDirectionField {
 		if val, err := strconv.Atoi(fields[printDirectionField]); err == nil {
+			// Validate PrintDirection (0=LTR, 1=RTL)
+			if val != 0 && val != 1 {
+				return fmt.Errorf("invalid print direction: %d (must be 0 or 1)", val)
+			}
 			font.PrintDirection = val
 		}
 	}
@@ -261,6 +276,8 @@ func parseOptionalFields(fields []string, font *Font) {
 			font.CodetagCount = val
 		}
 	}
+	
+	return nil
 }
 
 // readCommentLines reads the specified number of comment lines
@@ -280,30 +297,21 @@ func readCommentLines(scanner *bufio.Scanner, font *Font) error {
 	return nil
 }
 
-// parseGlyphs parses the ASCII character glyphs (32-126)
+// parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223)
 func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
-	// Detect endmark from the first glyph (space character)
-	endmark, lines, err := detectEndmark(scanner, font.Height)
-	if err != nil {
-		// Pass through the original error
-		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
-	}
-
-	// Parse the first glyph (space) with the detected endmark
-	spaceGlyph, err := parseGlyphWithLines(lines, endmark, font.Height)
+	// Parse space character (ASCII 32)
+	spaceGlyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
 	if err != nil {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
 
 	// Parse remaining ASCII characters (33-126)
-	// But stop gracefully if we run out of data (for testing partial fonts)
 	for charCode := rune(firstNonSpaceASCII); charCode <= lastPrintableASCII; charCode++ {
-		glyph, err := parseGlyph(scanner, font.Height, endmark)
+		glyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
 		if err != nil {
-			// Check if it's EOF - if so, we're done
-			if strings.Contains(err.Error(), "unexpected EOF") {
-				// Partial font is OK for testing
+			// Check if it's EOF - if so, we're done (partial font is OK)
+			if errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
@@ -311,147 +319,132 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 		font.Characters[charCode] = glyph
 	}
 
+	// Parse the 7 required German/Deutsch characters in order
+	// Per FIGfont spec: 196 (Ä), 214 (Ö), 220 (Ü), 228 (ä), 246 (ö), 252 (ü), 223 (ß)
+	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
+	for _, charCode := range deutschChars {
+		glyph, err := parseGlyph(scanner, font.Height, font.MaxLength)
+		if err != nil {
+			// Check if it's EOF - German chars are optional for backward compatibility
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
+			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
+		}
+		font.Characters[charCode] = glyph
+	}
+
 	return nil
 }
 
-// detectEndmark reads the first glyph's lines to detect the endmark character
-func detectEndmark(scanner *bufio.Scanner, height int) (endmark string, glyphLines []string, err error) {
-	lines := make([]string, 0, height)
+// stripTrailingRun strips the trailing run of the last character from a line
+// Returns the body (without trailing run), the endmark character, and the run length
+func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
+	// Trim only CR; bufio.Scanner already strips LF
+	line = strings.TrimSuffix(line, "\r")
 
-	// Read all lines of the first glyph
-	for i := 0; i < height; i++ {
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				return "", nil, fmt.Errorf("error reading line %d: %w", i+1, err)
-			}
-			return "", nil, fmt.Errorf("unexpected EOF: expected %d lines, got %d", height, i)
+	if line == "" {
+		return "", 0, 0
+	}
+
+	// Fast-path for ASCII endmarks (common case)
+	lastByte := line[len(line)-1]
+	if lastByte < 0x80 {
+		// ASCII character - do byte-wise operations for speed
+		i := len(line) - 1
+		for i >= 0 && line[i] == lastByte {
+			i--
+			runLen++
 		}
-		lines = append(lines, scanner.Text())
+		return line[:i+1], rune(lastByte), runLen
 	}
 
-	// The last line should have double endmark
-	lastLine := lines[height-1]
-	lastLine = strings.TrimRight(lastLine, "\r\n")
-
-	// Find the endmark by looking for repeated character at the end
-	if len(lastLine) < 2 {
-		return "", nil, fmt.Errorf("last line too short to detect endmark")
+	// Multi-byte UTF-8 or invalid UTF-8 path
+	r, sz := utf8.DecodeLastRuneInString(line)
+	if r == utf8.RuneError && sz == 1 {
+		// Fallback: treat last byte as the endmark and strip the trailing run of that byte
+		// This handles invalid UTF-8 at line end gracefully
+		i := len(line) - 1
+		for i >= 0 && line[i] == lastByte {
+			i--
+			runLen++
+		}
+		return line[:i+1], rune(lastByte), runLen
 	}
 
-	// The endmark is the last character, and it should appear twice
-	endmark = string(lastLine[len(lastLine)-1])
-	if !strings.HasSuffix(lastLine, endmark+endmark) {
-		// If not double endmark at the end, it might be a single endmark
-		// This shouldn't happen according to spec but handle it gracefully
-		return endmark, lines, nil
-	}
-
-	// Verify other lines have single endmark
-	for i := 0; i < height-1; i++ {
-		line := strings.TrimRight(lines[i], "\r\n")
-		if !strings.HasSuffix(line, endmark) || strings.HasSuffix(line, endmark+endmark) {
-			// Allow for variations, just use what we detected
+	// Normal rune-aware path: count how many times this rune appears at the end
+	i := len(line)
+	for i > 0 {
+		rr, s := utf8.DecodeLastRuneInString(line[:i])
+		if rr != r {
 			break
 		}
+		i -= s
+		runLen++
 	}
 
-	return endmark, lines, nil
-}
-
-// parseGlyphWithLines parses a glyph from already-read lines
-func parseGlyphWithLines(lines []string, endmark string, height int) ([]string, error) {
-	if len(lines) != height {
-		return nil, fmt.Errorf("expected %d lines, got %d", height, len(lines))
-	}
-
-	glyph := make([]string, 0, height)
-	for i, line := range lines {
-		processedLine, err := processGlyphLine(line, endmark, i == height-1)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: %w", i+1, err)
-		}
-		glyph = append(glyph, processedLine)
-	}
-
-	return glyph, nil
+	return line[:i], r, runLen
 }
 
 // parseGlyph parses a single character glyph
-func parseGlyph(scanner *bufio.Scanner, height int, endmark string) ([]string, error) {
+func parseGlyph(scanner *bufio.Scanner, height int, maxLength int) ([]string, error) {
 	glyph := make([]string, 0, height)
+	var width int
+	var widthSet bool
+	var firstRowByteLen int
+	var allASCII bool = true
 
-	for lineNum := 0; lineNum < height; lineNum++ {
+	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
-				return nil, fmt.Errorf("error reading line %d: %w", lineNum+1, err)
+				return nil, fmt.Errorf("error reading line %d: %w", row+1, err)
 			}
-			return nil, fmt.Errorf("unexpected EOF: expected %d lines, got %d", height, lineNum)
+			return nil, fmt.Errorf("unexpected EOF: expected %d lines, got %d: %w", height, row, io.ErrUnexpectedEOF)
 		}
 
-		line := scanner.Text()
-
-		// Process the line and handle endmarks
-		processedLine, err := processGlyphLine(line, endmark, lineNum == height-1)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: %w", lineNum+1, err)
+		// Get the raw line for MaxLength validation
+		rawLine := scanner.Text()
+		
+		// Validate MaxLength (spec defines it as maximum line length in font file)
+		// We check the raw line length before stripping endmarks
+		if len(rawLine) > maxLength {
+			return nil, fmt.Errorf("line %d exceeds MaxLength: %d > %d", row+1, len(rawLine), maxLength)
 		}
 
-		glyph = append(glyph, processedLine)
+		// Strip the trailing run of the endmark character
+		body, _, _ := stripTrailingRun(rawLine)
+
+		// Check width consistency with optimizations
+		if !widthSet {
+			// First row: calculate and store both byte and rune lengths
+			firstRowByteLen = len(body)
+			width = utf8.RuneCountInString(body)
+			widthSet = true
+			// Check if first row is pure ASCII
+			allASCII = (firstRowByteLen == width)
+		} else {
+			// Subsequent rows: optimize based on whether content is ASCII
+			var w int
+			if allASCII && len(body) == firstRowByteLen {
+				// Fast path: if first row was ASCII and byte length matches,
+				// we know the rune count matches without counting
+				w = width
+			} else {
+				// Need to count runes for this row
+				w = utf8.RuneCountInString(body)
+				// Update ASCII flag if we haven't seen non-ASCII yet
+				if allASCII && len(body) != w {
+					allASCII = false
+				}
+			}
+			
+			if w != width {
+				return nil, fmt.Errorf("inconsistent row width in glyph: row %d has %d, expected %d", row+1, w, width)
+			}
+		}
+
+		glyph = append(glyph, body)
 	}
 
 	return glyph, nil
-}
-
-// processGlyphLine processes a single glyph line, handling endmarks
-func processGlyphLine(line, endmark string, isLastLine bool) (string, error) {
-	// Trim line endings but preserve other whitespace
-	line = strings.TrimRight(line, "\r\n")
-
-	// Check if line has at least one endmark
-	if !strings.Contains(line, endmark) {
-		return "", fmt.Errorf("missing endmark '%s' in line %q", endmark, line)
-	}
-
-	// For the last line of a glyph, we expect double endmark
-	if isLastLine {
-		doubleEndmark := endmark + endmark
-		switch {
-		case strings.HasSuffix(line, doubleEndmark):
-			// Remove the double endmark from the end
-			result := line[:len(line)-len(doubleEndmark)]
-			// But if the result still ends with endmark(s), it means we had triple or more
-			// In that case, we should convert doubles to singles
-			for strings.HasSuffix(result, doubleEndmark) {
-				// Replace trailing double with single
-				result = result[:len(result)-len(doubleEndmark)] + endmark
-			}
-			return result, nil
-		case strings.HasSuffix(line, endmark):
-			// Only single endmark on last line - this is technically wrong but handle gracefully
-			return line[:len(line)-len(endmark)], nil
-		default:
-			return "", fmt.Errorf("last line should end with double endmark")
-		}
-	}
-
-	// For non-last lines, expect single endmark
-	if !strings.HasSuffix(line, endmark) {
-		return "", fmt.Errorf("line should end with endmark '%s'", endmark)
-	}
-
-	// Check if there's a double endmark (which should become single)
-	doubleEndmark := endmark + endmark
-	if strings.HasSuffix(line, doubleEndmark) {
-		// Line ends with double endmark, keep one
-		result := line[:len(line)-len(doubleEndmark)]
-		// But check for triple or more endmarks
-		for strings.HasSuffix(result, doubleEndmark) {
-			result = result[:len(result)-len(doubleEndmark)] + endmark
-		}
-		// Add back single endmark since double becomes single
-		return result + endmark, nil
-	}
-
-	// Single endmark - just remove it
-	return line[:len(line)-len(endmark)], nil
 }

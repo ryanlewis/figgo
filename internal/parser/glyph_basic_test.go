@@ -56,10 +56,10 @@ Single line comment
 // TestParseGlyphs_MultipleGlyphs tests parsing multiple glyphs
 func TestParseGlyphs_MultipleGlyphs(t *testing.T) {
 	input := `flf2a# 2 2 8 0 0
- #
+ ##
 !##
-"#
-#"##
+"##
+?##
 `
 	font := parseAndValidate(t, input)
 
@@ -77,8 +77,8 @@ func TestParseGlyphs_MultipleGlyphs(t *testing.T) {
 	if len(excl) != 2 {
 		t.Errorf("Exclamation has %d lines, want 2", len(excl))
 	}
-	if excl[0] != "\"" || excl[1] != "#\"" {
-		t.Errorf("Exclamation = %v, want ['\"', '#\"']", excl)
+	if excl[0] != "\"" || excl[1] != "?" {
+		t.Errorf("Exclamation = %v, want [%q, %q]", excl, "\"", "?")
 	}
 }
 
@@ -123,33 +123,35 @@ line   @@
 
 // TestParseGlyphs_UnicodeEndmark tests unicode endmark handling
 func TestParseGlyphs_UnicodeEndmark(t *testing.T) {
-	input := "flf2a\u00A3 2 2 8 0 0\ntest\u00A3\ndata\u00A3\u00A3\u00A3\n"
+	input := "flf2a\u00A3 2 2 10 0 0\ntest\u00A3\ndata\u00A3\u00A3\u00A3\n"
 	font := parseAndValidate(t, input)
 
 	if font.Hardblank != '£' {
 		t.Errorf("Hardblank = %q, want %q", font.Hardblank, '£')
 	}
-	validateSpaceGlyph(t, font, []string{"test", "data£"})
+	validateSpaceGlyph(t, font, []string{"test", "data"})
 }
 
 // TestParseGlyphs_HardblankInGlyph tests hardblank preservation in glyphs
 func TestParseGlyphs_HardblankInGlyph(t *testing.T) {
 	input := `flf2a$ 2 2 8 0 0
-te$t@
-da$ta@@
+te$t@@
+da$t@@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"te$t", "da$ta"})
+	validateSpaceGlyph(t, font, []string{"te$t", "da$t"})
 }
 
-// TestParseGlyphs_DoubleEndmark tests double endmark becomes single
+// TestParseGlyphs_DoubleEndmark tests that ALL trailing endmarks are stripped
 func TestParseGlyphs_DoubleEndmark(t *testing.T) {
 	input := `flf2a@ 2 2 8 0 0
 test@@
 data@@@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"test@", "data@"})
+	// Per spec: "eliminate the last block of consecutive equal characters"
+	// So test@@ becomes test, data@@@ becomes data
+	validateSpaceGlyph(t, font, []string{"test", "data"})
 }
 
 // TestParseGlyphs_EndmarkOnlyLines tests endmark-only lines
@@ -160,7 +162,8 @@ func TestParseGlyphs_EndmarkOnlyLines(t *testing.T) {
 @@@
 `
 	font := parseAndValidate(t, input)
-	validateSpaceGlyph(t, font, []string{"", "@", "@"})
+	// Lines with ONLY endmarks should be empty (zero-width)
+	validateSpaceGlyph(t, font, []string{"", "", ""})
 }
 
 // TestParseGlyphs_ErrorCases tests error handling
@@ -178,14 +181,9 @@ line2@@
 `,
 			errContains: "expected 3 lines",
 		},
-		{
-			name: "missing_endmark",
-			input: `flf2a@ 2 2 8 0 0
-line1
-line2@@
-`,
-			errContains: "missing endmark",
-		},
+		// Removed "missing_endmark" test - the new parser is more lenient
+		// and handles lines without explicit endmarks by treating the last
+		// character as a single-character endmark run
 		{
 			name: "empty_glyph_data",
 			input: `flf2a@ 2 2 8 0 0

@@ -346,7 +346,7 @@ func TestDetectZipMagic(t *testing.T) {
 	}{
 		{
 			name:     "valid_zip_magic",
-			data:     []byte("PK\x03\x04rest of data"),
+			data:     append([]byte("PK\x03\x04"), []byte("rest of data")...),
 			expected: true,
 		},
 		{
@@ -389,7 +389,100 @@ func isZipFile(r io.Reader) bool {
 	if n < 4 || err != nil {
 		return false
 	}
-	return bytes.Equal(magic, []byte("PK\x03\x04"))
+	magicBytes := []byte("PK\x03\x04")
+	return bytes.Equal(magic, magicBytes)
+}
+
+// createOversizedZip creates a ZIP that exceeds the maximum allowed size
+func createOversizedZip() ([]byte, error) {
+	size := maxZipSize + 1000
+	data := make([]byte, size)
+	// Add ZIP magic bytes
+	copy(data, "PK\x03\x04")
+	return data, nil
+}
+
+// createZipWithOversizedUncompressedFile creates a ZIP with a large uncompressed file
+func createZipWithOversizedUncompressedFile() ([]byte, error) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	// Create with Store method (no compression) to test actual size
+	fw, err := w.CreateHeader(&zip.FileHeader{
+		Name:   "huge.flf",
+		Method: zip.Store,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Create data that's over the entry limit
+	largeData := make([]byte, maxEntrySize+1)
+	for i := range largeData {
+		largeData[i] = 'X'
+	}
+
+	if _, werr := fw.Write(largeData); werr != nil {
+		return nil, werr
+	}
+	if cerr := w.Close(); cerr != nil {
+		return nil, cerr
+	}
+	return buf.Bytes(), nil
+}
+
+// createZipWithLargeFile creates a ZIP with a file under the size limit
+func createZipWithLargeFile() ([]byte, error) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	fw, err := w.Create("large.flf")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create data under the limit
+	largeData := make([]byte, maxEntrySize/2)
+	for i := range largeData {
+		largeData[i] = 'A'
+	}
+	if _, werr := fw.Write(largeData); werr != nil {
+		return nil, werr
+	}
+	if cerr := w.Close(); cerr != nil {
+		return nil, cerr
+	}
+	return buf.Bytes(), nil
+}
+
+// createZipAtSizeLimit creates a ZIP exactly at the size limit
+func createZipAtSizeLimit() ([]byte, error) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	fw, err := w.Create("test.flf")
+	if err != nil {
+		return nil, err
+	}
+	if _, werr := fw.Write([]byte(minimalFont)); werr != nil {
+		return nil, werr
+	}
+	if cerr := w.Close(); cerr != nil {
+		return nil, cerr
+	}
+
+	zipData := buf.Bytes()
+	if len(zipData) < maxZipSize {
+		// Pad to exactly maxZipSize
+		padded := make([]byte, maxZipSize)
+		copy(padded, zipData)
+		// Keep the ZIP valid by preserving end of central directory
+		endLen := len(zipData)
+		if endLen > 22 {
+			copy(padded[maxZipSize-22:], zipData[endLen-22:])
+		}
+		return padded[:len(zipData)], nil // Return original size
+	}
+	return zipData, nil
 }
 
 // TestZipBombProtection tests protection against ZIP bomb attacks
@@ -400,113 +493,23 @@ func TestZipBombProtection(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "oversized_zip_archive",
-			createZip: func() ([]byte, error) {
-				// Create a ZIP that's just over the limit
-				size := maxZipSize + 1000
-				data := make([]byte, size)
-				// Add ZIP magic bytes
-				copy(data, []byte("PK\x03\x04"))
-				return data, nil
-			},
+			name:        "oversized_zip_archive",
+			createZip:   createOversizedZip,
 			errContains: "exceeds maximum size",
 		},
 		{
-			name: "oversized_inner_file_uncompressed",
-			createZip: func() ([]byte, error) {
-				var buf bytes.Buffer
-				w := zip.NewWriter(&buf)
-				
-				// Create with Store method (no compression) to test actual size
-				fw, err := w.CreateHeader(&zip.FileHeader{
-					Name:   "huge.flf",
-					Method: zip.Store,
-				})
-				if err != nil {
-					return nil, err
-				}
-				
-				// Create data that's over the entry limit but under ZIP limit
-				// This is tricky because ZIP limit is same as entry limit
-				// So we create something near the limit
-				largeData := make([]byte, maxEntrySize+1)
-				for i := range largeData {
-					largeData[i] = 'X'
-				}
-				
-				// This will make the ZIP > maxZipSize, so it will fail at ZIP level
-				if _, err := fw.Write(largeData); err != nil {
-					return nil, err
-				}
-				if err := w.Close(); err != nil {
-					return nil, err
-				}
-				return buf.Bytes(), nil
-			},
+			name:        "oversized_inner_file_uncompressed",
+			createZip:   createZipWithOversizedUncompressedFile,
 			errContains: "exceeds maximum size",
 		},
 		{
-			name: "oversized_inner_file_actual",
-			createZip: func() ([]byte, error) {
-				var buf bytes.Buffer
-				w := zip.NewWriter(&buf)
-				
-				// Create a normal header but with large actual data
-				fw, err := w.Create("large.flf")
-				if err != nil {
-					return nil, err
-				}
-				
-				// Try to write data larger than maxEntrySize
-				// Note: We can't actually write > maxEntrySize in test
-				// because the ZIP would be > maxZipSize and fail earlier.
-				// So we test the limit is enforced at read time.
-				largeData := make([]byte, maxEntrySize/2)
-				for i := range largeData {
-					largeData[i] = 'A'
-				}
-				if _, err := fw.Write(largeData); err != nil {
-					return nil, err
-				}
-				if err := w.Close(); err != nil {
-					return nil, err
-				}
-				return buf.Bytes(), nil
-			},
+			name:        "oversized_inner_file_actual",
+			createZip:   createZipWithLargeFile,
 			errContains: "", // This should succeed as it's under the limit
 		},
 		{
-			name: "exactly_at_zip_limit",
-			createZip: func() ([]byte, error) {
-				// Create a ZIP exactly at the size limit
-				// This should succeed
-				var buf bytes.Buffer
-				w := zip.NewWriter(&buf)
-				fw, err := w.Create("test.flf")
-				if err != nil {
-					return nil, err
-				}
-				if _, err := fw.Write([]byte(minimalFont)); err != nil {
-					return nil, err
-				}
-				if err := w.Close(); err != nil {
-					return nil, err
-				}
-				
-				zipData := buf.Bytes()
-				if len(zipData) < maxZipSize {
-					// Pad to exactly maxZipSize
-					padded := make([]byte, maxZipSize)
-					copy(padded, zipData)
-					// Keep the ZIP valid by preserving end of central directory
-					endLen := len(zipData)
-					if endLen > 22 {
-						copy(padded[maxZipSize-22:], zipData[endLen-22:])
-					}
-					return padded[:len(zipData)], nil // Return original size
-				}
-				return zipData, nil
-			},
+			name:        "exactly_at_zip_limit",
+			createZip:   createZipAtSizeLimit,
 			errContains: "", // Should succeed
 		},
 	}
@@ -519,7 +522,7 @@ func TestZipBombProtection(t *testing.T) {
 			}
 
 			_, err = ParseFont(bytes.NewReader(data))
-			
+
 			if tt.errContains != "" {
 				if err == nil {
 					t.Errorf("ParseFont() expected error containing %q, got nil", tt.errContains)
@@ -543,7 +546,7 @@ func TestZipBombProtectionWithRealBomb(t *testing.T) {
 	// Create a ZIP with high compression ratio (simulated bomb)
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
-	
+
 	// Create a file with Deflate compression
 	fw, err := w.CreateHeader(&zip.FileHeader{
 		Name:   "bomb.flf",
@@ -552,28 +555,28 @@ func TestZipBombProtectionWithRealBomb(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create ZIP header: %v", err)
 	}
-	
+
 	// Write highly compressible data (all zeros compress very well)
 	// This simulates a ZIP bomb with high compression ratio
 	zeros := make([]byte, maxEntrySize-1000) // Just under the limit
-	if _, err := fw.Write(zeros); err != nil {
-		t.Fatalf("Failed to write to ZIP: %v", err)
+	if _, werr := fw.Write(zeros); werr != nil {
+		t.Fatalf("Failed to write to ZIP: %v", werr)
 	}
-	
-	if err := w.Close(); err != nil {
-		t.Fatalf("Failed to close ZIP: %v", err)
+
+	if cerr := w.Close(); cerr != nil {
+		t.Fatalf("Failed to close ZIP: %v", cerr)
 	}
-	
+
 	zipData := buf.Bytes()
-	
+
 	// The ZIP should be small due to compression
 	if len(zipData) > 1000 {
 		t.Logf("ZIP size after compression: %d bytes", len(zipData))
 	}
-	
+
 	// Should succeed as uncompressed is under limit
 	_, err = ParseFont(bytes.NewReader(zipData))
-	
+
 	// We expect this to fail with parse error (zeros aren't valid font)
 	// but NOT with size error
 	if err != nil && bytes.Contains([]byte(err.Error()), []byte("exceeds maximum size")) {

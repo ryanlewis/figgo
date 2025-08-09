@@ -73,8 +73,10 @@ func ParseFont(r io.Reader) (*Font, error) {
 	combined := io.MultiReader(buf, r)
 
 	// Check for ZIP magic bytes (including empty archive signature)
-	if n == zipMagicLen && (bytes.Equal(magic, []byte("PK\x03\x04")) ||
-		bytes.Equal(magic, []byte("PK\x05\x06"))) {
+	zipMagic := []byte("PK\x03\x04")
+	emptyZipMagic := []byte("PK\x05\x06")
+	if n == zipMagicLen && (bytes.Equal(magic, zipMagic) ||
+		bytes.Equal(magic, emptyZipMagic)) {
 		// Handle as ZIP file - limit size to prevent ZIP bombs
 		limited := io.LimitReader(combined, maxZipSize+1)
 		data, readErr := io.ReadAll(limited)

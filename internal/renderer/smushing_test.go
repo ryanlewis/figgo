@@ -566,6 +566,26 @@ func TestSmushPair(t *testing.T) {
 			wantOK:    true, // Rule 1 matches, no need for fallback
 		},
 
+		// Fallback universal HB vs space tests (later wins special case)
+		{
+			name:      "fallback_universal_hardblank_vs_space_right_later_wins",
+			left:      ',',
+			right:     ' ',
+			layout:    layoutSmushing | layoutRule1, // rules exist but don't match
+			hardblank: ',',
+			want:      ' ',
+			wantOK:    true,
+		},
+		{
+			name:      "fallback_universal_space_vs_hardblank_right_later_wins",
+			left:      ' ',
+			right:     ',',
+			layout:    layoutSmushing | layoutRule1,
+			hardblank: ',',
+			want:      ',',
+			wantOK:    true,
+		},
+
 		// Pure universal mode tests (no controlled rules enabled)
 		{
 			name:      "pure_universal_space_space",
@@ -574,6 +594,15 @@ func TestSmushPair(t *testing.T) {
 			layout:    layoutSmushing, // no rules
 			hardblank: ',',
 			want:      ' ',
+			wantOK:    true,
+		},
+		{
+			name:      "pure_universal_visible_vs_visible_later_wins",
+			left:      'A',
+			right:     'B',
+			layout:    layoutSmushing, // no rules
+			hardblank: ',',
+			want:      'B', // later wins in pure universal
 			wantOK:    true,
 		},
 		{

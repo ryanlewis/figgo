@@ -2,26 +2,34 @@ package renderer
 
 import "github.com/ryanlewis/figgo/internal/parser"
 
-// calculateMaxCandidateOverlap determines the maximum possible overlap
-// Based on issue #14: max overlap is min(left.trailingSpaces, right.leadingSpaces)
-// But we also allow full overlap for smushing evaluation
-func calculateMaxCandidateOverlap(_ [][]byte, glyph []string, _ []parser.GlyphTrim, h int) int {
+// minGlyphWidth returns the minimum width across all rows of a glyph
+func minGlyphWidth(glyph []string, h int) int {
 	if h == 0 || len(glyph) == 0 {
 		return 0
 	}
 
-	// Find the minimum glyph width across all rows (absolute maximum)
-	minGlyphWidth := len(glyph[0])
-	for row := 1; row < h; row++ {
-		if row < len(glyph) && len(glyph[row]) < minGlyphWidth {
-			minGlyphWidth = len(glyph[row])
+	minWidth := len(glyph[0])
+	for row := 1; row < h && row < len(glyph); row++ {
+		if len(glyph[row]) < minWidth {
+			minWidth = len(glyph[row])
 		}
 	}
+	return minWidth
+}
 
-	// For smushing mode, we try overlapping up to the full glyph width
-	// The validation step will determine what's actually allowed
-	// This allows for rules like equal char to work even with no trailing/leading spaces
-	return minGlyphWidth
+// minLineLength returns the minimum length across all lines
+func minLineLength(lines [][]byte, h int) int {
+	if h == 0 || len(lines) == 0 {
+		return 0
+	}
+
+	minLen := len(lines[0])
+	for row := 1; row < h && row < len(lines); row++ {
+		if len(lines[row]) < minLen {
+			minLen = len(lines[row])
+		}
+	}
+	return minLen
 }
 
 // ValidateOverlap checks if all overlapped columns satisfy smushing rules
@@ -80,7 +88,7 @@ func ValidateOverlap(lines [][]byte, glyph []string, overlap, layout int, hardbl
 // calculateOptimalOverlap finds the maximum valid overlap for smushing
 // Implements the algorithm from issue #14: start at max, decrement to find valid overlap
 func calculateOptimalOverlap(
-	lines [][]byte, glyph []string, layout int, hardblank rune, trims []parser.GlyphTrim, h int,
+	lines [][]byte, glyph []string, layout int, hardblank rune, _ []parser.GlyphTrim, h int,
 ) int {
 	// Check if left side is empty - no overlap possible
 	allEmpty := true
@@ -94,19 +102,15 @@ func calculateOptimalOverlap(
 		return 0 // Can't overlap with empty left side
 	}
 
-	// Calculate maximum candidate overlap based on spacing
-	maxCandidate := calculateMaxCandidateOverlap(lines, glyph, trims, h)
+	// Calculate maximum candidate overlap
+	// Limited by both glyph width and line length to prevent data loss
+	maxCandidate := minGlyphWidth(glyph, h)
 
-	// Also limit by the minimum glyph width
-	minGlyphWidth := len(glyph[0])
-	for i := 1; i < h; i++ {
-		if i < len(glyph) && len(glyph[i]) < minGlyphWidth {
-			minGlyphWidth = len(glyph[i])
-		}
-	}
-
-	if minGlyphWidth < maxCandidate {
-		maxCandidate = minGlyphWidth
+	// CRITICAL: Limit by minimum line length to prevent out-of-bounds access
+	// This prevents data loss when overlap would exceed line length
+	minLineLen := minLineLength(lines, h)
+	if minLineLen < maxCandidate {
+		maxCandidate = minLineLen
 	}
 
 	// Start from maximum and work down to find the first valid overlap

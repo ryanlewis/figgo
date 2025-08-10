@@ -239,60 +239,66 @@ func TestOverlapWithRTL(t *testing.T) {
 	}
 }
 
-// TestMaxCandidateOverlap tests the calculation of maximum candidate overlap
-// After issue #14 changes, this now just returns the minimum glyph width
-func TestMaxCandidateOverlap(t *testing.T) {
+// TestLineLengthConstraint tests that overlap is limited by line length
+func TestLineLengthConstraint(t *testing.T) {
+	const hardblank = '$'
+
 	tests := []struct {
-		name    string
-		lines   [][]byte
-		glyph   []string
-		trims   []parser.GlyphTrim
-		wantMax int
+		name        string
+		lines       [][]byte
+		glyph       []string
+		layout      int
+		wantOverlap int
+		description string
 	}{
 		{
-			name: "single_row_glyph",
+			name: "wide_glyph_short_line",
 			lines: [][]byte{
-				{' ', 'A', ' ', ' '}, // doesn't matter for new algorithm
+				{'A'}, // Very short line (length 1)
 			},
 			glyph: []string{
-				"  B ", // width 4
+				"BCDEF", // Wide glyph (length 5)
 			},
-			trims: []parser.GlyphTrim{
-				{LeftmostVisible: 2, RightmostVisible: 2},
-			},
-			wantMax: 4, // just returns glyph width
+			layout:      common.FitSmushing,
+			wantOverlap: 0, // Can't overlap - would exceed line length
+			description: "Wide glyph cannot overlap with short line",
 		},
 		{
-			name: "multi_row_minimum_width",
+			name: "multi_line_shortest_constrains",
 			lines: [][]byte{
-				{'A', ' ', ' ', ' '}, // doesn't matter
+				{'A', 'B', 'C', 'D'}, // Length 4
+				{'E', 'F'},           // Length 2 - constrains overlap
+				{'G', 'H', 'I'},      // Length 3
 			},
 			glyph: []string{
-				" BB", // width 3
+				"    ", // All spaces, length 4
+				"    ",
+				"    ",
 			},
-			trims:   nil,
-			wantMax: 3, // glyph width
+			layout:      common.FitSmushing,
+			wantOverlap: 2, // Limited by shortest line (2)
+			description: "Shortest line constrains maximum overlap",
 		},
 		{
-			name: "multi_row_different_widths",
+			name: "line_length_prevents_data_loss",
 			lines: [][]byte{
-				{'A', ' ', ' '}, // doesn't matter
-				{'B', ' '},      // doesn't matter
+				{'#', '#'}, // Length 2
 			},
 			glyph: []string{
-				" C",   // width 2
-				"  DD", // width 4
+				"####", // Would overlap 4 with equal char rule
 			},
-			trims:   nil,
-			wantMax: 2, // minimum glyph width across rows
+			layout:      common.FitSmushing | common.RuleEqualChar,
+			wantOverlap: 2, // Limited by line length to prevent data loss
+			description: "Line length constraint prevents losing glyph data",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotMax := calculateMaxCandidateOverlap(tt.lines, tt.glyph, tt.trims, len(tt.lines))
-			if gotMax != tt.wantMax {
-				t.Errorf("%s: got max candidate %d, want %d", tt.name, gotMax, tt.wantMax)
+			gotOverlap := calculateOptimalOverlap(tt.lines, tt.glyph, tt.layout, hardblank, nil, len(tt.lines))
+			if gotOverlap != tt.wantOverlap {
+				t.Errorf("%s: got overlap %d, want %d\nDescription: %s",
+					tt.name, gotOverlap, tt.wantOverlap, tt.description)
 			}
 		})
 	}
@@ -314,20 +320,7 @@ func BenchmarkOverlapSelection(b *testing.B) {
 	layout := common.FitSmushing | common.RuleEqualChar
 	hardblank := '$'
 
-	b.Run("without_trims", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_ = calculateOptimalOverlap(lines, glyph, layout, hardblank, nil, len(lines))
-		}
-	})
-
-	b.Run("with_trims", func(b *testing.B) {
-		trims := []parser.GlyphTrim{
-			{LeftmostVisible: 2, RightmostVisible: 4},
-			{LeftmostVisible: 2, RightmostVisible: 4},
-			{LeftmostVisible: 2, RightmostVisible: 4},
-		}
-		for i := 0; i < b.N; i++ {
-			_ = calculateOptimalOverlap(lines, glyph, layout, hardblank, trims, len(lines))
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		_ = calculateOptimalOverlap(lines, glyph, layout, hardblank, nil, len(lines))
+	}
 }

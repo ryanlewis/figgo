@@ -1,48 +1,20 @@
 # Codecov configuration for Figgo
 # https://docs.codecov.com/docs/codecovyml-reference
 
-codecov:
-  require_ci_to_pass: yes
-  notify:
-    wait_for_ci: true
-
 coverage:
-  precision: 2
-  round: down
-  range: "70...100"
-  
   status:
     project:
       default:
         target: auto
-        threshold: 1%
-        if_not_found: success
+        threshold: 0.5%
+        base: auto
     patch:
       default:
         target: auto
-        threshold: 1%
-
-parsers:
-  go:
-    partials_as_hits: true
-
-comment:
-  layout: "reach, diff, flags, files"
-  behavior: default
-  require_changes: false
-  require_base: false
-  require_head: true
-
-flags:
-  unittests:
-    paths:
-      - "*.go"
-      - "cmd/**"
-      - "internal/**"
-    carryforward: true
+        threshold: 0.5%
+        base: auto
 
 ignore:
-  - "**/*_test.go"
   - "**/testdata/**"
   - "docs/**"
   - "tools/**"

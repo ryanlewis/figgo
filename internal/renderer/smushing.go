@@ -174,6 +174,14 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 	}
 
 	// Universal smushing fallback rules for other combinations:
+	// Special case: hardblank vs space - "later wins" (universal override principle)
+	if left == hardblank && right == ' ' {
+		return ' ', true // Later (right) wins
+	}
+	if left == ' ' && right == hardblank {
+		return hardblank, true // Later (right) wins
+	}
+
 	// - If left is space and right is visible → take right
 	// - If right is space and left is visible → take left
 	// - If both are spaces → take space (allow overlap)

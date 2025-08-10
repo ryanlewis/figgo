@@ -581,7 +581,7 @@ func TestSmushPair(t *testing.T) {
 			layout:    layoutSmushing, // Pure universal - no rules
 			hardblank: '$',
 			want:      '$',
-			wantOK:    true, // Hardblank overrides space in pure universal
+			wantOK:    true, // Later char (right) overrides in pure universal
 		},
 	}
 

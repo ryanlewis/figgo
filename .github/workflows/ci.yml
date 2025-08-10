@@ -12,8 +12,8 @@ env:
   GO_VERSION_PREVIOUS: '1.22.x'
 
 jobs:
-  lint:
-    name: Lint
+  ci:
+    name: CI (Lint & Test)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,26 +24,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION_STABLE }}
 
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION_STABLE }}
+      - name: Run lint
+        run: just lint
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: just test
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -53,7 +38,7 @@ jobs:
 
   build:
     name: Build
-    needs: [lint, test]
+    needs: [ci]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

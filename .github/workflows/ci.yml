@@ -43,15 +43,16 @@ jobs:
           check_name: Test Results
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.txt
-          flags: unittests
-          name: codecov-figgo
-          slug: ryanlewis/figgo
-          fail_ci_if_error: true
-          verbose: true
+        run: |
+          curl -Os https://cli.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov upload-process \
+            --fail-on-error \
+            --verbose \
+            -t ${{ secrets.CODECOV_TOKEN }} \
+            -n "codecov-figgo" \
+            -F unittests \
+            -f coverage.txt
 
       # - name: Upload test results to Codecov
       #   uses: codecov/test-results-action@v1

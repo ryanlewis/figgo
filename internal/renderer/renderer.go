@@ -2,7 +2,6 @@
 package renderer
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/ryanlewis/figgo/internal/common"
@@ -132,8 +131,7 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	case common.FitKerning:
 		return renderKerning(text, font, printDir, replacement)
 	case common.FitSmushing:
-		// Smushing mode not yet implemented
-		return "", fmt.Errorf("smushing mode not yet implemented")
+		return renderSmushing(text, font, layout, printDir, replacement)
 	default:
 		return "", common.ErrLayoutConflict
 	}

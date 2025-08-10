@@ -142,6 +142,13 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 	if !hasRules {
 		// Universal smushing (only when NO controlled rules are defined)
 		// Per spec: later character overrides earlier at overlapping position
+		// But hardblank vs hardblank is NOT allowed (only via Rule 6)
+
+		// Block hardblank vs hardblank collision
+		if left == hardblank && right == hardblank {
+			return 0, false
+		}
+
 		// Visible chars override spaces AND hardblanks
 		if right != ' ' && right != hardblank {
 			return right, true // Right (later) char overrides
@@ -149,7 +156,7 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		if left != ' ' && left != hardblank {
 			return left, true // Keep left if right is space/hardblank
 		}
-		// Both are space or hardblank - keep the override (right)
+		// Both are space or one is hardblank with space - keep the override (right)
 		return right, true
 	}
 

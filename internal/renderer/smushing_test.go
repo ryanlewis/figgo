@@ -363,8 +363,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule6,
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Rule 6 doesn't match, and with controlled rules defined, no universal smushing
+			want:      'A',
+			wantOK:    true, // Rule 6 doesn't match, falls back to universal (visible overrides hardblank)
 		},
 
 		// Precedence tests (multiple rules enabled)
@@ -506,8 +506,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal fallback: hardblank blocks universal smushing
+			want:      'A',
+			wantOK:    true, // Universal fallback: visible overrides hardblank
 		},
 		{
 			name:      "controlled_rules_fallback_hardblank_right",
@@ -515,8 +515,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal fallback: hardblank blocks universal smushing
+			want:      'A',
+			wantOK:    true, // Universal fallback: visible overrides hardblank
 		},
 		{
 			name:      "controlled_rules_fallback_both_hardblanks",
@@ -544,6 +544,44 @@ func TestSmushPair(t *testing.T) {
 			hardblank: '$',
 			want:      '#',
 			wantOK:    true, // Rule 1 matches, no need for fallback
+		},
+
+		// Pure universal mode tests (no controlled rules enabled)
+		{
+			name:      "pure_universal_visible_vs_hardblank_left",
+			left:      '$',
+			right:     'X',
+			layout:    layoutSmushing, // Pure universal - no rules
+			hardblank: '$',
+			want:      'X',
+			wantOK:    true, // Visible overrides hardblank in pure universal
+		},
+		{
+			name:      "pure_universal_visible_vs_hardblank_right",
+			left:      'Y',
+			right:     '$',
+			layout:    layoutSmushing, // Pure universal - no rules
+			hardblank: '$',
+			want:      'Y',
+			wantOK:    true, // Visible overrides hardblank in pure universal
+		},
+		{
+			name:      "pure_universal_hardblank_vs_space_left",
+			left:      '$',
+			right:     ' ',
+			layout:    layoutSmushing, // Pure universal - no rules
+			hardblank: '$',
+			want:      ' ',
+			wantOK:    true, // Later char (right) overrides in pure universal
+		},
+		{
+			name:      "pure_universal_hardblank_vs_space_right",
+			left:      ' ',
+			right:     '$',
+			layout:    layoutSmushing, // Pure universal - no rules
+			hardblank: '$',
+			want:      '$',
+			wantOK:    true, // Hardblank overrides space in pure universal
 		},
 	}
 
@@ -656,12 +694,12 @@ func TestUniversalSmushingMultiColumn(t *testing.T) {
 			wantResult: "A  B",
 		},
 		{
-			name:         "hardblank_blocks_universal",
+			name:         "hardblank_blocks_hardblank",
 			leftLine:     "A$",
 			rightLine:    "$B",
 			overlap:      1,
 			wantCanSmush: false,
-			// Column 1: '$' + '$' → blocked (hardblank collision, no Rule 6)
+			// Column 1: '$' + '$' → blocked (hardblank vs hardblank collision, no Rule 6)
 			wantResult: "",
 		},
 		{

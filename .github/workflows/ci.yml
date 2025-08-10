@@ -33,59 +33,7 @@ jobs:
 
   test:
     name: Test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.22.x', '1.23.x']
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-          cache: true
-
-      - name: Run tests
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            go test -v -race -coverprofile=coverage.txt ./...
-          else
-            go test -v -race -coverprofile=coverage.out ./...
-          fi
-        shell: bash
-
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == env.GO_VERSION_STABLE
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.out
-
-  build:
-    name: Build
-    needs: [lint, test]
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-          - os: ubuntu-latest
-            goos: darwin
-            goarch: amd64
-          - os: ubuntu-latest
-            goos: darwin
-            goarch: arm64
-          - os: ubuntu-latest
-            goos: windows
-            goarch: amd64
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -96,22 +44,57 @@ jobs:
           go-version: ${{ env.GO_VERSION_STABLE }}
           cache: true
 
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          output="figgo-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            output="${output}.exe"
-          fi
-          go build -v -o "$output" ./cmd/figgo
-          ls -la "$output"
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
 
-      - name: Upload artifact
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: figgo-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: coverage-report
+          path: coverage.out
+
+  build:
+    name: Build
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION_STABLE }}
+          cache: true
+
+      - name: Build all binaries
+        run: |
+          # Build all target platforms
+          platforms=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+            "windows/amd64"
+          )
+          
+          for platform in "${platforms[@]}"; do
+            IFS='/' read -r goos goarch <<< "$platform"
+            output="figgo-${goos}-${goarch}"
+            
+            if [ "$goos" = "windows" ]; then
+              output="${output}.exe"
+            fi
+            
+            echo "Building ${output}..."
+            GOOS=$goos GOARCH=$goarch go build -v -o "$output" ./cmd/figgo
+            ls -la "$output"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: figgo-binaries
           path: figgo-*
 
   verify-modules:

@@ -374,14 +374,18 @@ func createMinimalFont() string {
 	// ASCII 33-126
 	for i := 33; i <= 126; i++ {
 		c := string(rune(i))
+		endmark := "@"
+		
+		// When the character is '@', use '#' as endmark per FIGfont spec
 		if c == "@" {
-			c = "@@" // Escape @ character
+			endmark = "#"
 		}
+		
 		// Simple glyph - just the character repeated
-		sb.WriteString(c + "@\n")
-		sb.WriteString(c + "@\n")
-		sb.WriteString(c + "@\n")
-		sb.WriteString(c + "@@\n")
+		sb.WriteString(c + endmark + "\n")
+		sb.WriteString(c + endmark + "\n")
+		sb.WriteString(c + endmark + "\n")
+		sb.WriteString(c + endmark + endmark + "\n")
 	}
 
 	return sb.String()

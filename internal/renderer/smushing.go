@@ -110,10 +110,14 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		}
 	}
 
-	// Rule 5: Big X
+	// Rule 5: Big X (per FIGfont v2 spec)
+	// /\ → '|', \/ → 'Y', >< → 'X'
 	if (layout & common.RuleBigX) != 0 {
-		if (left == '/' && right == '\\') || (left == '\\' && right == '/') {
-			return 'X', true
+		if left == '/' && right == '\\' {
+			return '|', true
+		}
+		if left == '\\' && right == '/' {
+			return 'Y', true
 		}
 		if left == '>' && right == '<' {
 			return 'X', true
@@ -128,19 +132,19 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 	}
 
 	// Universal smushing (when no controlled rule matches)
-	// Do not universal-smush hardblank collisions
-	if left == hardblank || right == hardblank {
-		return 0, false
+	// Per spec: visible chars override spaces AND hardblanks
+	// Only hardblank+hardblank collision blocks universal smushing
+	if left == ' ' || left == hardblank {
+		if right != ' ' && right != hardblank {
+			return right, true
+		}
 	}
-
-	// Universal: take non-space character
-	if left == ' ' && right != ' ' {
-		return right, true
+	if right == ' ' || right == hardblank {
+		if left != ' ' && left != hardblank {
+			return left, true
+		}
 	}
-	if right == ' ' && left != ' ' {
-		return left, true
-	}
-	// Two spaces universal-smush to a space
+	// Two spaces may smush to space
 	if left == ' ' && right == ' ' {
 		return ' ', true
 	}

@@ -300,14 +300,14 @@ func TestSmushPair(t *testing.T) {
 			wantOK:    true,
 		},
 
-		// Rule 5: Big X
+		// Rule 5: Big X (per spec: /\ → '|', \/ → 'Y', >< → 'X')
 		{
 			name:      "rule5_slash_backslash",
 			left:      '/',
 			right:     '\\',
 			layout:    layoutSmushing | layoutRule5,
 			hardblank: '$',
-			want:      'X',
+			want:      '|',
 			wantOK:    true,
 		},
 		{
@@ -316,7 +316,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '/',
 			layout:    layoutSmushing | layoutRule5,
 			hardblank: '$',
-			want:      'X',
+			want:      'Y',
 			wantOK:    true,
 		},
 		{
@@ -363,8 +363,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule6,
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Rule 6 only applies to hardblank+hardblank
+			want:      'A',
+			wantOK:    true, // Rule 6 doesn't match, but universal smushing allows visible to override hardblank
 		},
 
 		// Precedence tests (multiple rules enabled)
@@ -434,22 +434,31 @@ func TestSmushPair(t *testing.T) {
 			wantOK:    false, // No universal smush when neither is space
 		},
 		{
-			name:      "universal_blocked_by_hardblank",
+			name:      "universal_hardblank_override",
 			left:      '$',
 			right:     'A',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Hardblank collision blocks universal smush
+			want:      'A',
+			wantOK:    true, // Visible chars override hardblanks in universal smushing
 		},
 		{
-			name:      "universal_blocked_by_hardblank_reverse",
+			name:      "universal_hardblank_override_reverse",
 			left:      'A',
 			right:     '$',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
+			want:      'A',
+			wantOK:    true, // Visible chars override hardblanks in universal smushing
+		},
+		{
+			name:      "universal_hardblank_collision",
+			left:      '$',
+			right:     '$',
+			layout:    layoutSmushing, // No Rule 6 enabled
+			hardblank: '$',
 			want:      0,
-			wantOK:    false, // Hardblank collision blocks universal smush
+			wantOK:    false, // Hardblank+hardblank blocks universal smush
 		},
 
 		// No smushing mode (kerning only)

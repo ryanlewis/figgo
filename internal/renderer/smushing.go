@@ -155,19 +155,29 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 
 	// Controlled rules are defined but none matched
 	// Fall back to universal smushing, but with restrictions:
-	// - Hardblank collisions are NOT allowed
-	// - Only space vs visible character combinations are allowed
+	// - Hardblank vs hardblank collisions are NOT allowed
+	// - Hardblanks are overridden by visible characters (per spec)
+	// - Space vs visible character combinations are allowed
 
-	// Block hardblank collisions
-	if left == hardblank || right == hardblank {
+	// Block only hardblank-vs-hardblank in universal fallback
+	if left == hardblank && right == hardblank {
 		return 0, false
 	}
 
-	// Universal smushing fallback rules:
+	// If exactly one side is a hardblank and the other is visible, universal smushing
+	// should choose the visible character (spec: hardblanks are overridden by visible)
+	if left == hardblank && right != ' ' && right != hardblank {
+		return right, true
+	}
+	if right == hardblank && left != ' ' && left != hardblank {
+		return left, true
+	}
+
+	// Universal smushing fallback rules for other combinations:
 	// - If left is space and right is visible → take right
 	// - If right is space and left is visible → take left
 	// - If both are spaces → take space (allow overlap)
-	// - If both are visible → no smush (fall back to kerning)
+	// - If both are visible (non-hardblank) → no smush (fall back to kerning)
 	if left == ' ' && right != ' ' {
 		return right, true
 	}
@@ -178,7 +188,7 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		return ' ', true // Both spaces - allow overlap with space
 	}
 
-	// Both visible - no smushing possible
+	// Both visible (non-hardblank) - no smushing possible
 	return 0, false
 }
 

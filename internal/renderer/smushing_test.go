@@ -367,6 +367,26 @@ func TestSmushPair(t *testing.T) {
 			wantOK:    true, // Rule 6 doesn't match, falls back to universal (visible overrides hardblank)
 		},
 
+		// Rule 6 precedence tests - ensure Rule 6 takes priority over universal HB-HB block
+		{
+			name:      "rule6_hardblank_smush_applies",
+			left:      ',',
+			right:     ',',
+			layout:    layoutSmushing | layoutRule6, // Rule 6 enabled
+			hardblank: ',',
+			want:      ',', // Rule 6 smushes to a single hardblank
+			wantOK:    true,
+		},
+		{
+			name:      "no_rule6_hardblank_pair_blocks",
+			left:      ',',
+			right:     ',',
+			layout:    layoutSmushing, // universal only
+			hardblank: ',',
+			want:      0,
+			wantOK:    false, // Blocked by universal path
+		},
+
 		// Precedence tests (multiple rules enabled)
 		{
 			name:      "precedence_rule1_over_rule3",
@@ -457,8 +477,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      '$',
-			wantOK:    true, // Universal smushing: later character (right) overrides, even for hardblanks
+			want:      0,
+			wantOK:    false, // HB-HB blocked in universal (only allowed via Rule 6)
 		},
 
 		// No smushing mode (kerning only)

@@ -362,20 +362,36 @@ func TestRenderDefaulting(t *testing.T) {
 	})
 }
 
+// createMinimalFont creates a minimal font with all ASCII characters
+func createMinimalFont() string {
+	var sb strings.Builder
+	sb.WriteString("flf2a$ 4 3 1 -1 1\n")
+	sb.WriteString("Test font\n")
+
+	// Space (ASCII 32)
+	sb.WriteString("$@\n$@\n$@\n$@@\n")
+
+	// ASCII 33-126
+	for i := 33; i <= 126; i++ {
+		c := string(rune(i))
+		if c == "@" {
+			c = "@@" // Escape @ character
+		}
+		// Simple glyph - just the character repeated
+		sb.WriteString(c + "@\n")
+		sb.WriteString(c + "@\n")
+		sb.WriteString(c + "@\n")
+		sb.WriteString(c + "@@\n")
+	}
+
+	return sb.String()
+}
+
 // TestRenderValidation verifies that Render properly validates layout options
 func TestRenderValidation(t *testing.T) {
 	// Create a minimal font for testing
-	fontData := `flf2a$ 4 3 10 -1 1
-Test font
-$@
-$@
-$@
-$@@
-x@
-x@
-x@
-x@@
-`
+	// Parser expects ASCII 32-126 in order, so we need to provide them all
+	fontData := createMinimalFont()
 	font, err := ParseFontBytes([]byte(fontData))
 	if err != nil {
 		t.Fatalf("ParseFontBytes() error = %v", err)

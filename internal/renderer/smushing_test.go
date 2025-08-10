@@ -65,8 +65,8 @@ func TestSmushPair(t *testing.T) {
 			right:     ' ',
 			layout:    layoutSmushing | layoutRule1,
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // When controlled rules are defined but no rule matches, fall back to kerning
+			want:      ' ',
+			wantOK:    true, // Rule 1 doesn't match spaces, but universal fallback allows space + space
 		},
 		{
 			name:      "rule1_hardblank_not_applied",
@@ -471,6 +471,80 @@ func TestSmushPair(t *testing.T) {
 			want:      0,
 			wantOK:    false,
 		},
+
+		// Universal smushing fallback when controlled rules fail
+		{
+			name:      "controlled_rules_fallback_space_left",
+			left:      ' ',
+			right:     'A',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
+			hardblank: '$',
+			want:      'A',
+			wantOK:    true, // Should fall back to universal smushing
+		},
+		{
+			name:      "controlled_rules_fallback_space_right",
+			left:      'A',
+			right:     ' ',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
+			hardblank: '$',
+			want:      'A',
+			wantOK:    true, // Should fall back to universal smushing
+		},
+		{
+			name:      "controlled_rules_fallback_visible_collision",
+			left:      'A',
+			right:     'B',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match (A != B)
+			hardblank: '$',
+			want:      0,
+			wantOK:    false, // Universal fallback: visible vs visible = no smush
+		},
+		{
+			name:      "controlled_rules_fallback_hardblank_left",
+			left:      '$',
+			right:     'A',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
+			hardblank: '$',
+			want:      0,
+			wantOK:    false, // Universal fallback: hardblank blocks universal smushing
+		},
+		{
+			name:      "controlled_rules_fallback_hardblank_right",
+			left:      'A',
+			right:     '$',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
+			hardblank: '$',
+			want:      0,
+			wantOK:    false, // Universal fallback: hardblank blocks universal smushing
+		},
+		{
+			name:      "controlled_rules_fallback_both_hardblanks",
+			left:      '$',
+			right:     '$',
+			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match (hardblanks excluded from Rule 1)
+			hardblank: '$',
+			want:      0,
+			wantOK:    false, // Universal fallback: hardblank collision blocks universal smushing
+		},
+		{
+			name:      "controlled_rules_fallback_with_multiple_rules",
+			left:      ' ',
+			right:     'X',
+			layout:    layoutSmushing | layoutRule2 | layoutRule3 | layoutRule4, // Multiple rules, none match space
+			hardblank: '$',
+			want:      'X',
+			wantOK:    true, // Should fall back to universal smushing
+		},
+		{
+			name:      "controlled_rules_one_matches_no_fallback",
+			left:      '#',
+			right:     '#',
+			layout:    layoutSmushing | layoutRule1 | layoutRule2, // Rule 1 will match
+			hardblank: '$',
+			want:      '#',
+			wantOK:    true, // Rule 1 matches, no need for fallback
+		},
 	}
 
 	for _, tt := range tests {
@@ -533,6 +607,116 @@ func TestHierarchyClass(t *testing.T) {
 		if got != tt.class {
 			t.Errorf("getHierarchyClass(%q) = %d, want %d", tt.char, got, tt.class)
 		}
+	}
+}
+
+// TestUniversalSmushingMultiColumn tests universal smushing fallback in multi-column overlaps
+//
+//nolint:gocognit // Test requires complex simulation of multi-column overlap scenarios
+func TestUniversalSmushingMultiColumn(t *testing.T) {
+	// This test simulates multi-column overlap scenarios where some columns
+	// match controlled rules and others fall back to universal smushing
+
+	const (
+		layoutSmushing = 0x80
+		layoutRule1    = 0x01
+		layoutRule5    = 0x10
+	)
+
+	hardblank := '$'
+	layout := layoutSmushing | layoutRule1 | layoutRule5
+
+	tests := []struct {
+		name         string
+		leftLine     string
+		rightLine    string
+		overlap      int
+		wantCanSmush bool
+		wantResult   string // Expected result after smushing (if canSmush is true)
+	}{
+		{
+			name:         "mixed_controlled_and_universal",
+			leftLine:     "##  ",
+			rightLine:    "## A",
+			overlap:      2,
+			wantCanSmush: true,
+			// Column 1: ' ' + '#' → '#' (universal fallback: space + visible = visible)
+			// Column 2: ' ' + '#' → '#' (universal fallback: space + visible = visible)
+			// Non-overlapped: " A"
+			wantResult: "#### A",
+		},
+		{
+			name:         "universal_with_spaces",
+			leftLine:     "A  ",
+			rightLine:    " B",
+			overlap:      1,
+			wantCanSmush: true,
+			// Column 1: ' ' + ' ' → ' ' (universal: space + space fallback)
+			// Non-overlapped: "B"
+			wantResult: "A  B",
+		},
+		{
+			name:         "hardblank_blocks_universal",
+			leftLine:     "A$",
+			rightLine:    "$B",
+			overlap:      1,
+			wantCanSmush: false,
+			// Column 1: '$' + '$' → blocked (hardblank collision, no Rule 6)
+			wantResult: "",
+		},
+		{
+			name:         "visible_collision_blocks",
+			leftLine:     "AB",
+			rightLine:    "CD",
+			overlap:      1,
+			wantCanSmush: false,
+			// Column 1: 'B' + 'C' → blocked (visible vs visible, no rule matches)
+			wantResult: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the overlap check logic
+			canSmush := true
+			var result []byte
+
+			// Start with the non-overlapped portion of the left line
+			result = []byte(tt.leftLine[:len(tt.leftLine)-tt.overlap])
+
+			for col := 0; col < tt.overlap; col++ {
+				leftPos := len(tt.leftLine) - tt.overlap + col
+				rightPos := col
+
+				leftChar := rune(tt.leftLine[leftPos])
+				rightChar := rune(tt.rightLine[rightPos])
+
+				smushed, ok := smushPair(leftChar, rightChar, layout, hardblank)
+				if !ok {
+					canSmush = false
+					break
+				}
+
+				if canSmush {
+					result = append(result, byte(smushed))
+				}
+			}
+
+			if canSmush {
+				// Append non-overlapped portion of the right line
+				result = append(result, []byte(tt.rightLine[tt.overlap:])...)
+			}
+
+			if canSmush != tt.wantCanSmush {
+				t.Errorf("canSmush = %v, want %v", canSmush, tt.wantCanSmush)
+			}
+
+			if tt.wantCanSmush && canSmush {
+				if string(result) != tt.wantResult {
+					t.Errorf("result = %q, want %q", string(result), tt.wantResult)
+				}
+			}
+		})
 	}
 }
 

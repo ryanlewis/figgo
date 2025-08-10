@@ -16,6 +16,9 @@ type Options struct {
 
 	// PrintDirection overrides the font's default print direction
 	PrintDirection int
+
+	// UnknownRune is the rune to use for unsupported characters
+	UnknownRune *rune
 }
 
 // normalizeFit validates and normalizes a layout value
@@ -96,7 +99,7 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 
 	// Determine print direction (0 LTR, 1 RTL)
 	printDir := font.PrintDirection
-	if opts != nil {
+	if opts != nil && opts.PrintDirection != 0 {
 		printDir = opts.PrintDirection
 	}
 	// Validate print direction
@@ -104,14 +107,30 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 		printDir = 0 // default to LTR
 	}
 
+	// Determine replacement rune for unknown characters
+	replacement := '?'
+	if opts != nil && opts.UnknownRune != nil {
+		replacement = *opts.UnknownRune
+		// Validate that replacement rune exists in font
+		if _, ok := font.Characters[replacement]; !ok {
+			// Fall back to '?' if available
+			if _, hasQuestion := font.Characters['?']; hasQuestion {
+				replacement = '?'
+			} else {
+				// Neither replacement nor '?' available
+				return "", common.ErrUnsupportedRune
+			}
+		}
+	}
+
 	// Extract the fitting mode (ignore rule bits)
 	fittingMode := layout & (common.FitKerning | common.FitSmushing)
 
 	switch fittingMode {
 	case 0: // No fitting bits set = full-width
-		return renderFullWidth(text, font, printDir)
+		return renderFullWidth(text, font, printDir, replacement)
 	case common.FitKerning:
-		return renderKerning(text, font, printDir)
+		return renderKerning(text, font, printDir, replacement)
 	case common.FitSmushing:
 		// Smushing mode not yet implemented
 		return "", fmt.Errorf("smushing mode not yet implemented")
@@ -120,11 +139,11 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	}
 }
 
-// filterNonASCII replaces non-ASCII characters with '?' (PRD MVP policy)
-func filterNonASCII(runes []rune) {
+// filterNonASCII replaces non-ASCII characters with the replacement rune
+func filterNonASCII(runes []rune, replacement rune) {
 	for i, r := range runes {
 		if r < 32 || r > 126 {
-			runes[i] = '?'
+			runes[i] = replacement
 		}
 	}
 }
@@ -141,16 +160,12 @@ func composeGlyphs(runes []rune, font *parser.Font, h int) ([][]byte, error) {
 	for _, r := range runes {
 		glyph, ok := font.Characters[r]
 		if !ok {
-			// If '?' is missing, try space as a last resort
-			if r == '?' {
-				if spaceGlyph, hasSpace := font.Characters[' ']; hasSpace {
-					glyph = spaceGlyph
-					ok = true
-				}
-			}
-			if !ok {
+			// For ASCII characters that should be supported (32-126), return error
+			if r >= 32 && r <= 126 {
 				return nil, common.ErrUnsupportedRune
 			}
+			// Non-ASCII characters should have been filtered already, but if not, this is an error
+			return nil, common.ErrUnsupportedRune
 		}
 		if len(glyph) != h {
 			return nil, common.ErrBadFontFormat
@@ -175,7 +190,7 @@ func replaceHardblanks(lines [][]byte, hb byte) {
 }
 
 // renderFullWidth renders text using Full-Width layout (no overlap)
-func renderFullWidth(text string, font *parser.Font, printDir int) (string, error) {
+func renderFullWidth(text string, font *parser.Font, printDir int, replacement rune) (string, error) {
 	if font == nil {
 		return "", common.ErrUnknownFont
 	}
@@ -193,7 +208,7 @@ func renderFullWidth(text string, font *parser.Font, printDir int) (string, erro
 
 	// Convert text to runes and filter non-ASCII
 	runes := []rune(text)
-	filterNonASCII(runes)
+	filterNonASCII(runes, replacement)
 
 	// Compose glyphs
 	lines, err := composeGlyphs(runes, font, h)
@@ -344,7 +359,7 @@ func applyKerning(lines [][]byte, glyph []string, distance int) {
 }
 
 // renderKerning renders text using kerning layout (minimal spacing without overlap)
-func renderKerning(text string, font *parser.Font, printDir int) (string, error) {
+func renderKerning(text string, font *parser.Font, printDir int, replacement rune) (string, error) {
 	if font == nil {
 		return "", common.ErrUnknownFont
 	}
@@ -362,7 +377,7 @@ func renderKerning(text string, font *parser.Font, printDir int) (string, error)
 
 	// Convert text to runes and filter non-ASCII
 	runes := []rune(text)
-	filterNonASCII(runes)
+	filterNonASCII(runes, replacement)
 
 	// For RTL, reverse the order of runes (not the glyphs themselves)
 	if printDir == 1 {

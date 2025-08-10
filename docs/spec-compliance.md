@@ -212,12 +212,37 @@ Result: Reduce to overlap=1 or kerning
 
 ## 8) Print Direction
 
-* Default to the font’s `PrintDirection` (0 = LTR, 1 = RTL). Allow user override via `WithPrintDirection`.
+* Default to the font's `PrintDirection` (0 = LTR, 1 = RTL). Allow user override via `WithPrintDirection`.
 * For RTL, compose glyphs right‑to‑left; rule precedence remains unchanged for per‑column decisions.
 
 ---
 
-## 9) Test Matrix (Minimum)
+## 9) Unknown Rune Handling
+
+When rendering text, runes are handled as follows:
+
+1. **If rune is in font's Glyphs map** → render normally
+2. **If rune is outside ASCII 32-126 or absent from font**:
+   * Replace with configured "unknown rune" replacement
+   * Default replacement is `'?'`
+   * Callers can override via `WithUnknownRune(r rune)` option
+   * CLI users can override via `-u, --unknown-rune <rune>` flag
+3. **If replacement rune is not in font**:
+   * Library: fall back to `'?'` if available, else return `ErrUnsupportedRune`
+   * CLI: warn and fall back to `'?'` if available, else exit with error
+
+### CLI Flag Formats
+
+The `-u, --unknown-rune` flag accepts:
+* Literal character: `*`, `?`
+* Escaped Unicode: `\uXXXX`, `\UXXXXXXXX`
+* Unicode notation: `U+XXXX`
+* Decimal: `63`
+* Hexadecimal: `0x3F`
+
+---
+
+## 10) Test Matrix (Minimum)
 
 * **Fonts:** `standard`, `slant`, `small`, `big`
 * **Layouts:** full‑width, kerning, smushing (rules on/off)
@@ -238,13 +263,13 @@ Result: Reduce to overlap=1 or kerning
 
 ---
 
-## 10) Known Deviations
+## 11) Known Deviations
 
 * *(None yet.)* Add entries here if the implementation intentionally diverges from FIGfont behavior; include rationale and tests.
 
 ---
 
-## 11) PR Review Checklist (Plain Bullets)
+## 12) PR Review Checklist (Plain Bullets)
 
 * Header parsing matches this page (unit tests included)
 * OldLayout → Layout normalization covered by tests (range validation, mode conversion)

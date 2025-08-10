@@ -76,3 +76,11 @@ func WithPrintDirection(direction int) Option {
 		opts.printDirection = &direction
 	}
 }
+
+// WithUnknownRune sets the rune used to replace unknown/unsupported runes during rendering.
+// Default is '?' when not set.
+func WithUnknownRune(r rune) Option {
+	return func(opts *options) {
+		opts.unknownRune = &r
+	}
+}

@@ -460,6 +460,7 @@ type Option func(*options)
 type options struct {
 	layout         *Layout
 	printDirection *int
+	unknownRune    *rune
 }
 
 func defaultOptions() *options {
@@ -473,6 +474,9 @@ func (o *options) toInternal() *renderer.Options {
 	}
 	if o.printDirection != nil {
 		rendererOpts.PrintDirection = *o.printDirection
+	}
+	if o.unknownRune != nil {
+		rendererOpts.UnknownRune = o.unknownRune
 	}
 	return rendererOpts
 }

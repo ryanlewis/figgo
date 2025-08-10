@@ -57,7 +57,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./test-results.xml
           flags: unittests
-          name: codecov-figgo
+          name: test-results-figgo
           verbose: true
 
       - name: Upload coverage artifact

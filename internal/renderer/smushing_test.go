@@ -568,6 +568,15 @@ func TestSmushPair(t *testing.T) {
 
 		// Pure universal mode tests (no controlled rules enabled)
 		{
+			name:      "pure_universal_space_space",
+			left:      ' ',
+			right:     ' ',
+			layout:    layoutSmushing, // no rules
+			hardblank: ',',
+			want:      ' ',
+			wantOK:    true,
+		},
+		{
 			name:      "pure_universal_visible_vs_hardblank_left",
 			left:      '$',
 			right:     'X',

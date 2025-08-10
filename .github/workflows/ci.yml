@@ -51,6 +51,15 @@ jobs:
           name: codecov-figgo
           verbose: true
 
+      - name: Upload test results to Codecov
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./test-results.xml
+          flags: unittests
+          name: codecov-figgo
+          verbose: true
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:

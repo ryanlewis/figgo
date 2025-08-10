@@ -1,47 +1,10 @@
-# Codecov configuration for Figgo
-# https://docs.codecov.com/docs/codecovyml-reference
-
 coverage:
   status:
     project:
       default:
         target: auto
         threshold: 0.5%
-        base: auto
     patch:
       default:
         target: auto
         threshold: 0.5%
-        base: auto
-
-component_management:
-  default_rules:
-    statuses:
-      - type: project
-        target: auto
-        threshold: 0.5%
-  individual_components:
-    - component_id: core
-      name: Core API
-      paths:
-        - figgo.go
-        - types.go
-        - layout.go
-    - component_id: parser
-      name: Font Parser
-      paths:
-        - internal/parser/**
-    - component_id: renderer
-      name: Renderer
-      paths:
-        - internal/renderer/**
-    - component_id: cli
-      name: CLI
-      paths:
-        - cmd/figgo/**
-
-ignore:
-  - "**/testdata/**"
-  - "docs/**"
-  - "tools/**"
-  - "*.md"

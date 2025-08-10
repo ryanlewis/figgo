@@ -43,9 +43,10 @@ jobs:
           check_name: Test Results
 
       - name: Upload coverage to Coveralls
-        uses: shogo82148/actions-goveralls@v1
+        uses: coverallsapp/github-action@v2
         with:
-          path-to-profile: coverage.txt
+          file: coverage.txt
+          format: golang
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

@@ -69,6 +69,60 @@ func isOppositePair(left, right rune) bool {
 	}
 }
 
+// universalSmush implements universal smushing logic
+// Universal smushing: later character overrides earlier at overlapping position
+// "visible" means r != ' ' && r != hardblank
+// Special cases:
+//   - Hardblank vs hardblank: NOT allowed (only via Rule 6)
+//   - Visible overrides both space and hardblank
+//   - Hardblank vs space: later wins (universal override principle)
+//
+// allowVisibleCollision: true for pure universal mode, false for fallback mode
+//
+//nolint:gocyclo // Multiple decision paths inherent to universal smushing spec
+func universalSmush(left, right, hardblank rune, allowVisibleCollision bool) (rune, bool) {
+	// Fast path: check if both are visible first
+	leftVisible := left != ' ' && left != hardblank
+	rightVisible := right != ' ' && right != hardblank
+
+	if leftVisible && rightVisible {
+		if allowVisibleCollision {
+			return right, true // Pure universal: later wins
+		}
+		return 0, false // Fallback mode: no smush for visible collision
+	}
+
+	// One or both are not visible
+	if rightVisible {
+		return right, true // Right visible overrides space/hardblank
+	}
+	if leftVisible {
+		return left, true // Left visible, right is space/hardblank
+	}
+
+	// Neither is visible - handle space/hardblank combinations
+	// Block hardblank vs hardblank collision
+	if left == hardblank && right == hardblank {
+		return 0, false
+	}
+
+	// Hardblank vs space: "later wins" special case
+	if left == hardblank && right == ' ' {
+		return ' ', true // Later (right) wins
+	}
+	if left == ' ' && right == hardblank {
+		return hardblank, true // Later (right) wins
+	}
+
+	// Both are spaces
+	if left == ' ' && right == ' ' {
+		return ' ', true
+	}
+
+	// Should not reach here, but be safe
+	return 0, false
+}
+
 // smushPair determines if two characters can be smushed and returns the result
 // Returns the smushed character and true if smushing is possible, or (0, false) if not
 // This implements controlled smushing rules 1-6 with strict precedence
@@ -140,71 +194,14 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		common.RuleOppositePair | common.RuleBigX | common.RuleHardblank)) != 0
 
 	if !hasRules {
-		// Universal smushing (only when NO controlled rules are defined)
-		// Per spec: later character overrides earlier at overlapping position
-		// But hardblank vs hardblank is NOT allowed (only via Rule 6)
-
-		// Block hardblank vs hardblank collision
-		if left == hardblank && right == hardblank {
-			return 0, false
-		}
-
-		// Visible chars override spaces AND hardblanks
-		if right != ' ' && right != hardblank {
-			return right, true // Right (later) char overrides
-		}
-		if left != ' ' && left != hardblank {
-			return left, true // Keep left if right is space/hardblank
-		}
-		// Both are space or one is hardblank with space - keep the override (right)
-		return right, true
+		// Pure universal smushing (only when NO controlled rules are defined)
+		// In pure universal mode, visible characters can smush (later wins)
+		return universalSmush(left, right, hardblank, true)
 	}
 
-	// Controlled rules are defined but none matched
-	// Fall back to universal smushing, but with restrictions:
-	// - Hardblank vs hardblank collisions are NOT allowed
-	// - Hardblanks are overridden by visible characters (per spec)
-	// - Space vs visible character combinations are allowed
-
-	// Block only hardblank-vs-hardblank in universal fallback
-	if left == hardblank && right == hardblank {
-		return 0, false
-	}
-
-	// If exactly one side is a hardblank and the other is visible, universal smushing
-	// should choose the visible character (spec: hardblanks are overridden by visible)
-	if left == hardblank && right != ' ' && right != hardblank {
-		return right, true
-	}
-	if right == hardblank && left != ' ' && left != hardblank {
-		return left, true
-	}
-
-	// Universal smushing fallback rules for other combinations:
-	// Special case: hardblank vs space - "later wins" (universal override principle)
-	if left == hardblank && right == ' ' {
-		return ' ', true // Later (right) wins
-	}
-	if left == ' ' && right == hardblank {
-		return hardblank, true // Later (right) wins
-	}
-
-	// - If left is space and right is visible → take right
-	// - If right is space and left is visible → take left
-	// - If both are spaces → take space (allow overlap)
-	// - If both are visible (non-hardblank) → no smush (fall back to kerning)
-	if left == ' ' && right != ' ' {
-		return right, true
-	}
-	if right == ' ' && left != ' ' {
-		return left, true
-	}
-	if left == ' ' && right == ' ' {
-		return ' ', true // Both spaces - allow overlap with space
-	}
-
-	// Both visible (non-hardblank) - no smushing possible
-	return 0, false
+	// Controlled rules are defined but none matched - fall back to universal smushing
+	// In fallback mode, visible-visible collisions are NOT allowed
+	return universalSmush(left, right, hardblank, false)
 }
 
 // calculateSmushingDistance finds the maximum overlap where all columns can smush

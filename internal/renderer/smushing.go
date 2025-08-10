@@ -18,14 +18,16 @@ func isBorderChar(r rune) bool {
 }
 
 // getHierarchyClass returns the hierarchy class for Rule 3
-// Higher numbers have higher precedence: | > /\ > [] > {} > ()
+// Class priority order: | > /\ > [] > {} > () > <>
+// Higher numeric constant = earlier in priority list (higher priority)
 func getHierarchyClass(r rune) int {
 	const (
-		classPipe    = 5 // | class
-		classSlash   = 4 // /\ class
-		classBracket = 3 // [] class
-		classBrace   = 2 // {} class
-		classParen   = 1 // () class
+		classPipe    = 6 // | class
+		classSlash   = 5 // /\ class
+		classBracket = 4 // [] class
+		classBrace   = 3 // {} class
+		classParen   = 2 // () class
+		classAngle   = 1 // <> class
 		classNone    = 0 // not a hierarchy char
 	)
 
@@ -40,6 +42,8 @@ func getHierarchyClass(r rune) int {
 		return classBrace
 	case '(', ')':
 		return classParen
+	case '<', '>':
+		return classAngle
 	default:
 		return classNone
 	}
@@ -131,25 +135,25 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		}
 	}
 
-	// Universal smushing (when no controlled rule matches)
-	// Per spec: visible chars override spaces AND hardblanks
-	// Only hardblank+hardblank collision blocks universal smushing
-	if left == ' ' || left == hardblank {
+	// Check if any controlled smushing rules are defined
+	hasRules := (layout & (common.RuleEqualChar | common.RuleUnderscore | common.RuleHierarchy |
+		common.RuleOppositePair | common.RuleBigX | common.RuleHardblank)) != 0
+
+	if !hasRules {
+		// Universal smushing (only when NO controlled rules are defined)
+		// Per spec: later character overrides earlier at overlapping position
+		// Visible chars override spaces AND hardblanks
 		if right != ' ' && right != hardblank {
-			return right, true
+			return right, true // Right (later) char overrides
 		}
-	}
-	if right == ' ' || right == hardblank {
 		if left != ' ' && left != hardblank {
-			return left, true
+			return left, true // Keep left if right is space/hardblank
 		}
-	}
-	// Two spaces may smush to space
-	if left == ' ' && right == ' ' {
-		return ' ', true
+		// Both are space or hardblank - keep the override (right)
+		return right, true
 	}
 
-	// No smushing possible
+	// Controlled rules are defined but none matched - no smushing possible
 	return 0, false
 }
 

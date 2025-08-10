@@ -375,12 +375,12 @@ func createMinimalFont() string {
 	for i := 33; i <= 126; i++ {
 		c := string(rune(i))
 		endmark := "@"
-		
+
 		// When the character is '@', use '#' as endmark per FIGfont spec
 		if c == "@" {
 			endmark = "#"
 		}
-		
+
 		// Simple glyph - just the character repeated
 		sb.WriteString(c + endmark + "\n")
 		sb.WriteString(c + endmark + "\n")

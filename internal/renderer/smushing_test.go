@@ -65,8 +65,8 @@ func TestSmushPair(t *testing.T) {
 			right:     ' ',
 			layout:    layoutSmushing | layoutRule1,
 			hardblank: '$',
-			want:      ' ',
-			wantOK:    true, // Universal smushing applies when no controlled rule matches
+			want:      0,
+			wantOK:    false, // When controlled rules are defined but no rule matches, fall back to kerning
 		},
 		{
 			name:      "rule1_hardblank_not_applied",
@@ -363,8 +363,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule6,
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Rule 6 doesn't match, but universal smushing allows visible to override hardblank
+			want:      0,
+			wantOK:    false, // Rule 6 doesn't match, and with controlled rules defined, no universal smushing
 		},
 
 		// Precedence tests (multiple rules enabled)
@@ -430,8 +430,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'B',
 			layout:    layoutSmushing, // No specific rules enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // No universal smush when neither is space
+			want:      'B',
+			wantOK:    true, // Universal smushing: later character (right) overrides
 		},
 		{
 			name:      "universal_hardblank_override",
@@ -457,8 +457,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Hardblank+hardblank blocks universal smush
+			want:      '$',
+			wantOK:    true, // Universal smushing: later character (right) overrides, even for hardblanks
 		},
 
 		// No smushing mode (kerning only)
@@ -510,15 +510,17 @@ func TestHierarchyClass(t *testing.T) {
 		char  rune
 		class int
 	}{
-		{'|', 5},
-		{'/', 4},
-		{'\\', 4},
-		{'[', 3},
-		{']', 3},
-		{'{', 2},
-		{'}', 2},
-		{'(', 1},
-		{')', 1},
+		{'|', 6},
+		{'/', 5},
+		{'\\', 5},
+		{'[', 4},
+		{']', 4},
+		{'{', 3},
+		{'}', 3},
+		{'(', 2},
+		{')', 2},
+		{'<', 1},
+		{'>', 1},
 		// Non-hierarchy chars
 		{'_', 0},
 		{'A', 0},

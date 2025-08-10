@@ -39,7 +39,7 @@
   * **Kerning**: Minimize inter-glyph spaces without overlapping pixels.
   * **Smushing**: Allow overlaps by rules (controlled) or fallback (universal).
 * **Controlled smushing**: Applying specific rule set encoded in the font header.
-* **Universal smushing**: If no rule applies, overlap by taking the non-space of either side (with hardblank protection).
+* **Universal smushing**: When NO controlled rules are defined, the later character always overrides the earlier one at overlapping positions. Visible characters override spaces and hardblanks.
 * **Print direction**: 0 = left-to-right, 1 = right-to-left (honor font default; allow override).
 
 ---
@@ -148,7 +148,7 @@ var (
 
    * **Full-width**: concatenate.
    * **Kerning**: trim interstitial spaces to minimal non-overlap.
-   * **Smushing**: compute minimal overlap; attempt **controlled rules** in precedence order; if none apply → **universal smush** (except when hardblank collision forbids).
+   * **Smushing**: compute minimal overlap; with **controlled rules**, apply them in precedence order; with **universal smushing** (no rules defined), later character overrides earlier.
    * **Overlap selection rule:** choose the *maximum* overlap where **every** overlapped column satisfies either a controlled rule **or** the universal rule; otherwise fall back to the **kerning distance**.
 5. After final line assembly, **replace hardblanks** with spaces.
 6. Apply **print direction** (reverse horizontally if `dir == 1`).
@@ -157,14 +157,14 @@ var (
 
 **Precedence (top→down)**. If a rule matches, it decides the overlapped column:
 
-1. **Equal character** — identical non-space characters smush to that char (hardblanks excluded).
+1. **Equal character** — identical non-space, non-hardblank characters smush to that char. Note: hardblanks do NOT match this rule - they only smush via Rule 6.
 2. **Underscore** — `_` + border chars (`|/\\[]{}()<>`) → border char.
-3. **Hierarchy** — class order `|` > `/\\` > `[]` > `{}` > `()`; higher class survives.
+3. **Hierarchy** — class priority `|` > `/\\` > `[]` > `{}` > `()` > `<>`; when classes differ, the higher priority (earlier in list) wins.
 4. **Opposite pairs** — `[]`, `{}`, `()` and their reverses `][`, `}{`, `)(` → `|`.
 5. **Big X** — `/\\` → `|`, `\\/` → `Y`, `><` → `X`.
 6. **Hardblank** — two hardblanks smush to one hardblank.
 
-If none of the active rules match, but overlap is allowed, fall back to **universal**: the later sub-character overrides the earlier one. Visible characters always override blanks/hardblanks. When both are visible, the right one wins. Two hardblanks only smush via rule 6 (controlled smushing), not universal.
+**Universal smushing** only applies when NO controlled rules (bits 0-5) are defined. In universal mode, the later character always overrides the earlier one at each overlapping position. Visible characters override spaces and hardblanks. When controlled rules ARE defined but no rule matches at a position, fall back to **kerning** (no overlap).
 
 *(Vertical rules are out of scope for MVP.)*
 
@@ -312,7 +312,7 @@ Defaults mirror `figlet` where practical (smushing on if the font dictates it).
 * **Underscore**: `'_'` + `'|'` → `'|'`
 * **Hierarchy**: `'/'` vs `'|'` → `'|'` wins
 * **Opposite pairs**: `'('` + `')'` → `'|'`
-* **Big X**: `'/'` + `'\\'` → `'X'`, `'>'` + `'<'` → `'X'`
+* **Big X**: `'/'` + `'\\'` → `'|'`, `'\\'` + `'/'` → `'Y'`, `'>'` + `'<'` → `'X'`
 * **Hardblank**: hardblank + hardblank → hardblank (then replaced with space at end)
 
 ---

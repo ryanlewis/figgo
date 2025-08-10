@@ -70,47 +70,54 @@ func isOppositePair(left, right rune) bool {
 }
 
 // universalSmush implements universal smushing logic
-// Universal smushing: later character overrides earlier at overlapping position
-// "visible" means r != ' ' && r != hardblank
+// Per issue #14 spec: Universal takes non-space when one is space, else no smush
+// "Universal — take right if left is space; left if right is space; else no smush"
 // Special cases:
+//   - NEVER smush hardblank with visible (forbidden per spec)
 //   - Hardblank vs hardblank: NOT allowed (only via Rule 6)
-//   - Visible overrides both space and hardblank
-//   - Hardblank vs space: later wins (universal override principle)
+//   - Hardblank vs space: later wins (still follows universal principle)
 //
-// allowVisibleCollision: true for pure universal mode, false for fallback mode
+// allowVisibleCollision: ignored per issue #14 - universal never allows visible collision
 //
 //nolint:gocyclo // Multiple decision paths inherent to universal smushing spec
-func universalSmush(left, right, hardblank rune, allowVisibleCollision bool) (rune, bool) {
-	// Fast path: check if both are visible first
-	leftVisible := left != ' ' && left != hardblank
-	rightVisible := right != ' ' && right != hardblank
+func universalSmush(left, right, hardblank rune, _ bool) (rune, bool) {
+	// Check if either is hardblank first (per issue #14 spec)
+	leftIsHardblank := left == hardblank
+	rightIsHardblank := right == hardblank
 
-	if leftVisible && rightVisible {
-		if allowVisibleCollision {
-			return right, true // Pure universal: later wins
-		}
-		return 0, false // Fallback mode: no smush for visible collision
-	}
-
-	// One or both are not visible
-	if rightVisible {
-		return right, true // Right visible overrides space/hardblank
-	}
-	if leftVisible {
-		return left, true // Left visible, right is space/hardblank
-	}
-
-	// Neither is visible - handle space/hardblank combinations
-	// Block hardblank vs hardblank collision
-	if left == hardblank && right == hardblank {
+	// Block hardblank vs hardblank
+	if leftIsHardblank && rightIsHardblank {
 		return 0, false
 	}
 
-	// Hardblank vs space: "later wins" special case
-	if left == hardblank && right == ' ' {
+	// Check visibility
+	leftVisible := left != ' ' && left != hardblank
+	rightVisible := right != ' ' && right != hardblank
+
+	// Block hardblank vs visible (either direction) per issue #14
+	if (leftIsHardblank && rightVisible) || (leftVisible && rightIsHardblank) {
+		return 0, false // Universal never smushes hardblank with visible
+	}
+
+	// Per issue #14: Universal only smushes when one is space
+	// "take right if left is space; left if right is space; else no smush"
+	if left == ' ' && rightVisible {
+		return right, true // Take non-space (right)
+	}
+	if leftVisible && right == ' ' {
+		return left, true // Take non-space (left)
+	}
+
+	// Visible vs visible - NOT allowed in universal per issue #14
+	if leftVisible && rightVisible {
+		return 0, false // No smush for visible collision
+	}
+
+	// Hardblank vs space: later wins (still follows universal principle)
+	if leftIsHardblank && right == ' ' {
 		return ' ', true // Later (right) wins
 	}
-	if left == ' ' && right == hardblank {
+	if left == ' ' && rightIsHardblank {
 		return hardblank, true // Later (right) wins
 	}
 
@@ -204,74 +211,6 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 	return universalSmush(left, right, hardblank, false)
 }
 
-// calculateSmushingDistance finds the maximum overlap where all columns can smush
-// Returns the number of columns that can overlap (0 means no smushing possible)
-//
-//nolint:gocognit // Algorithm needs to test multiple overlaps and rows with smushing rules
-func calculateSmushingDistance(lines [][]byte, glyph []string, layout int, hardblank rune, h int) int {
-	maxOverlap := 0
-
-	// Find the minimum glyph width to determine max possible overlap
-	minGlyphWidth := len(glyph[0])
-	for i := 1; i < h; i++ {
-		if len(glyph[i]) < minGlyphWidth {
-			minGlyphWidth = len(glyph[i])
-		}
-	}
-
-	// Try increasing overlaps until we find the maximum valid one
-	for overlap := 1; overlap <= minGlyphWidth; overlap++ {
-		canSmush := true
-
-		// Check if all rows can smush at this overlap distance
-		for row := 0; row < h; row++ {
-			lineLen := len(lines[row])
-			glyphRow := glyph[row]
-
-			// For each overlapped column
-			for col := 0; col < overlap; col++ {
-				// Calculate positions
-				linePos := lineLen - overlap + col
-				glyphPos := col
-
-				// Get the characters at this position
-				var leftChar, rightChar rune
-
-				if linePos >= 0 && linePos < lineLen {
-					leftChar = rune(lines[row][linePos])
-				} else {
-					leftChar = ' '
-				}
-
-				if glyphPos < len(glyphRow) {
-					rightChar = rune(glyphRow[glyphPos])
-				} else {
-					rightChar = ' '
-				}
-
-				// Check if these can smush
-				_, ok := smushPair(leftChar, rightChar, layout, hardblank)
-				if !ok {
-					canSmush = false
-					break
-				}
-			}
-
-			if !canSmush {
-				break
-			}
-		}
-
-		if canSmush {
-			maxOverlap = overlap
-		} else {
-			break // Can't overlap more if this overlap failed
-		}
-	}
-
-	return maxOverlap
-}
-
 // applySmushing adds a glyph with smushing at the specified overlap
 func applySmushing(lines [][]byte, glyph []string, overlap, layout int, hardblank rune) {
 	h := len(lines)
@@ -359,13 +298,19 @@ func renderSmushing(text string, font *parser.Font, layout, printDir int, replac
 			// First character - just append as-is
 			appendGlyph(lines, glyph)
 		} else {
-			// Try to smush with previous character
-			overlap := calculateSmushingDistance(lines, glyph, layout, font.Hardblank, h)
+			// Get precomputed trims if available for efficiency
+			var trims []parser.GlyphTrim
+			if font.CharacterTrims != nil {
+				trims = font.CharacterTrims[r]
+			}
+
+			// Try to smush with previous character using optimal overlap algorithm
+			overlap := calculateOptimalOverlap(lines, glyph, layout, font.Hardblank, trims, h)
 			if overlap > 0 {
 				applySmushing(lines, glyph, overlap, layout, font.Hardblank)
 			} else {
 				// Fall back to kerning distance if no smushing possible
-				distance := calculateKerningDistance(lines, glyph, nil, h)
+				distance := calculateKerningDistance(lines, glyph, trims, h)
 				applyKerning(lines, glyph, distance)
 			}
 		}

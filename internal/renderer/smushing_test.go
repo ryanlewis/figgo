@@ -363,8 +363,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule6,
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Rule 6 doesn't match, falls back to universal (visible overrides hardblank)
+			want:      0,
+			wantOK:    false, // Rule 6 doesn't match, universal forbids hardblank vs visible
 		},
 
 		// Rule 6 precedence tests - ensure Rule 6 takes priority over universal HB-HB block
@@ -450,8 +450,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'B',
 			layout:    layoutSmushing, // No specific rules enabled
 			hardblank: '$',
-			want:      'B',
-			wantOK:    true, // Universal smushing: later character (right) overrides
+			want:      0,
+			wantOK:    false, // Universal only allows space replacement, not visible collision
 		},
 		{
 			name:      "universal_hardblank_override",
@@ -459,8 +459,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Visible chars override hardblanks in universal smushing
+			want:      0,
+			wantOK:    false, // Universal never allows hardblank vs visible
 		},
 		{
 			name:      "universal_hardblank_override_reverse",
@@ -468,8 +468,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Visible chars override hardblanks in universal smushing
+			want:      0,
+			wantOK:    false, // Universal never allows visible vs hardblank
 		},
 		{
 			name:      "universal_hardblank_collision",
@@ -526,8 +526,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Universal fallback: visible overrides hardblank
+			want:      0,
+			wantOK:    false, // Universal fallback: hardblank vs visible forbidden
 		},
 		{
 			name:      "controlled_rules_fallback_hardblank_right",
@@ -535,8 +535,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      'A',
-			wantOK:    true, // Universal fallback: visible overrides hardblank
+			want:      0,
+			wantOK:    false, // Universal fallback: visible vs hardblank forbidden
 		},
 		{
 			name:      "controlled_rules_fallback_both_hardblanks",
@@ -602,8 +602,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'B',
 			layout:    layoutSmushing, // no rules
 			hardblank: ',',
-			want:      'B', // later wins in pure universal
-			wantOK:    true,
+			want:      0, // per issue #14: universal only for space replacement
+			wantOK:    false,
 		},
 		{
 			name:      "pure_universal_visible_vs_hardblank_left",
@@ -611,8 +611,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'X',
 			layout:    layoutSmushing, // Pure universal - no rules
 			hardblank: '$',
-			want:      'X',
-			wantOK:    true, // Visible overrides hardblank in pure universal
+			want:      0,
+			wantOK:    false, // Universal never allows hardblank vs visible
 		},
 		{
 			name:      "pure_universal_visible_vs_hardblank_right",
@@ -620,8 +620,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // Pure universal - no rules
 			hardblank: '$',
-			want:      'Y',
-			wantOK:    true, // Visible overrides hardblank in pure universal
+			want:      0,
+			wantOK:    false, // Universal never allows visible vs hardblank
 		},
 		{
 			name:      "pure_universal_hardblank_vs_space_left",

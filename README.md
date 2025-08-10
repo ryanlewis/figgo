@@ -1,5 +1,7 @@
 # Figgo
 
+[![Coverage Status](https://coveralls.io/repos/github/ryanlewis/figgo/badge.svg?branch=main)](https://coveralls.io/github/ryanlewis/figgo?branch=main)
+
 A high-performance Go library and CLI for rendering FIGlet-compatible ASCII art.
 
 ## Features

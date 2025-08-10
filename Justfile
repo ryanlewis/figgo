@@ -82,6 +82,18 @@ env:
 test-verbose:
     go test -v -cover -race ./...
 
+# Install gotestsum if needed
+test-install:
+    @which gotestsum >/dev/null 2>&1 || (go install gotest.tools/gotestsum@latest && command -v asdf >/dev/null 2>&1 && asdf reshim golang || true)
+
+# Run tests with pretty output using gotestsum
+test-pretty: test-install
+    gotestsum --format testname -- -race ./...
+
+# Watch mode for continuous testing during development
+test-watch: test-install
+    gotestsum --watch --format testname -- -race ./...
+
 # Update all dependencies to latest versions
 update-deps:
     go get -u ./...

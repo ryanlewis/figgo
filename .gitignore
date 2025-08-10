@@ -22,6 +22,7 @@ go.work.sum
 
 # Build output
 /figgo
+figgo-*
 dist/
 build/
 
@@ -60,6 +61,10 @@ __debug_bin*
 
 # Log files
 *.log
+
+# Test reports
+*.xml
+test-results/
 
 # OS generated files
 Thumbs.db

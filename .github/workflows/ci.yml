@@ -27,9 +27,27 @@ jobs:
           args: --timeout=5m
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: |
+          go install gotest.tools/gotestsum@latest
+          gotestsum --junitfile test-results.xml --format github-actions -- -race -coverprofile=coverage.out ./...
 
-      - name: Upload coverage
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: '!cancelled()'
+        with:
+          files: test-results.xml
+          check_name: Test Results
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-figgo
+          verbose: true
+
+      - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report

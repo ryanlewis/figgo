@@ -34,12 +34,14 @@ Figgo normalizes FIGfont layout data into a single `Layout` bitmask used at rend
 
 Valid range: `-1..63`
 * **`-1`** → Horizontal **Full width** (no overlap)
-* **`0`** → Horizontal **Fitting** (kerning - minimal spacing without character overlap)
-* **`>0`** → Horizontal **Smushing** (controlled by rule bits):
-  * Bits 0-5 encode smushing rules 1-6
-  * Example: `3` = bits 0+1 = rules 1+2 enabled
+* **`0..63`** → Horizontal layout modes encoded as follows:
+  * **`0`** → Horizontal **Fitting** (kerning - minimal spacing without character overlap)
+  * **`1..63`** → Horizontal **Smushing** with controlled rules:
+    * Bits 0-5 encode smushing rules 1-6 respectively
+    * Example: `3` = bits 0+1 = rules 1+2 enabled
+    * Example: `63` = all 6 rules enabled
 
-**Note**: OldLayout cannot express universal smushing. Fonts requiring universal smushing as default set `OldLayout = 0` for backward compatibility.
+**Note**: OldLayout cannot express universal smushing. When `OldLayout = 0`, it means kerning/fitting for backward compatibility, NOT universal smushing.
 
 Invalid values (`< -1` or `> 63`) produce an error.
 
@@ -106,12 +108,13 @@ This function:
 When smushing is active and an overlap column is considered, apply rules **in order**:
 
 ### Rule 1: Equal Character
-Identical non‑space characters merge into one.
+Identical non‑space, non‑hardblank characters merge into one.
 ```
 Left: "H"    Right: "H"    Result: "H"
 Left: "#"    Right: "#"    Result: "#"
 Left: "@"    Right: "@"    Result: "@"
 ```
+**Note**: Hardblanks do NOT smush under this rule - they only smush via Rule 6.
 
 ### Rule 2: Underscore
 `_` merges with border characters (`|/\\[]{}()<>`), keeping the border char.
@@ -123,7 +126,7 @@ Left: "_"    Right: "["    Result: "["
 ```
 
 ### Rule 3: Hierarchy
-Class order: `|` > `/\\` > `[]` > `{}` > `()`; higher class survives.
+Class priority: `|` > `/\\` > `[]` > `{}` > `()` > `<>`; when classes differ, the higher priority (earlier in list) wins.
 ```
 Left: "/"    Right: "|"    Result: "|"  (| beats /)
 Left: "["    Right: "/"    Result: "/"  (/ beats [)
@@ -140,11 +143,11 @@ Left: "("    Right: ")"    Result: "|"
 ```
 
 ### Rule 5: Big‑X
-Diagonal pairs form X patterns.
+Diagonal pairs form specific patterns per FIGfont v2 spec.
 ```
-Left: "/"    Right: "\\"   Result: "X"
-Left: ">"    Right: "<"    Result: "X"
-Left: "\\"   Right: "/"    Result: "Y"  (reverse order creates Y)
+Left: "/"    Right: "\\"   Result: "|"  (/\ → |)
+Left: "\\"   Right: "/"    Result: "Y"  (\/ → Y)
+Left: ">"    Right: "<"    Result: "X"  (>< → X)
 ```
 
 ### Rule 6: Hardblank
@@ -153,18 +156,20 @@ Two hardblanks merge into one (replaced with space at final output).
 Left: "$"    Right: "$"    Result: "$"  (if $ is hardblank)
 ```
 
-### Universal Smushing Fallback
-If no controlled rule matches but smushing is allowed:
-- Take right if left is space
-- Take left if right is space
-- Otherwise **do not smush** (keep kerning distance)
-- **Hardblank collisions never universal‑smush**
+### Universal Smushing
+Universal smushing only applies when smushing is enabled but **NO controlled rules are defined** (bits 0-5 all clear):
+- The later character (right) **overrides** the earlier character at overlapping positions
+- Visible characters always override spaces and hardblanks
+- When controlled rules ARE defined but no rule matches at a position, fall back to **kerning** (no smush)
 
 ---
 
 ## 6) Overlap Selection Algorithm
 
-For each glyph boundary, choose the **maximum** overlap such that **every** overlapped column is valid by either a controlled rule or the universal rule.
+For each glyph boundary, choose the **maximum** overlap where:
+- **With controlled rules**: Every overlapped column satisfies a defined rule
+- **With universal smushing**: Use universal override semantics
+- **When no rule matches**: Fall back to kerning distance
 
 ### Step-by-Step Process
 
@@ -192,7 +197,7 @@ Trying overlap=2:
 Result: Valid 2-column overlap
 
 Trying overlap=2:
-  Column 1: '/' + '\\' → 'X' (Rule 5: Big-X) ✓
+  Column 1: '/' + '\\' → '|' (Rule 5: Big-X) ✓
   Column 2: ' ' + 'a' → 'a' (Universal) ✓
 Result: Valid 2-column overlap
 

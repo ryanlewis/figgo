@@ -18,8 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Other Critical Rules
 - NEVER create files unless absolutely necessary - always prefer editing existing files
 - NEVER proactively create documentation files (*.md) unless explicitly requested
-- When running potentially destructive commands, explain what they do first
 - NEVER commit if `just ci` fails or reports warnings
+- When running potentially destructive commands, explain what they do first
 
 ## Project Overview
 
@@ -37,6 +37,12 @@ The codebase follows a clean separation of concerns:
 - **`cmd/figgo/`**: CLI application for command-line FIGlet rendering
 
 The Font type is immutable and thread-safe, allowing concurrent use without locking. Layout handling uses a normalized bitmask system combining fitting modes with smushing rules.
+
+## Key documentation
+
+- `docs/figfont-spec.txt`: Specification for FIGlet fonts
+- `docs/prd.md`: Product Requirements Document
+- `docs/spec-compliance.md`: Trakcing of compliance with the spec
 
 ## Build and Development Commands
 
@@ -94,18 +100,18 @@ just mod
 
 The renderer implements 6 horizontal controlled smushing rules with strict precedence:
 
-1. **Equal character**: Identical non-space characters merge
+1. **Equal character**: Identical non-space, non-hardblank characters merge
 2. **Underscore**: `_` with border chars (`|/\[]{}()<>`) yields border
-3. **Hierarchy**: `|` > `/\` > `[]` > `{}` > `()`
-4. **Opposite pairs**: `[]`, `{}`, `()` become `|`
-5. **Big X**: `/\` → `X`, `><` → `X`
+3. **Hierarchy**: `|` > `/\` > `[]` > `{}` > `()` > `<>`
+4. **Opposite pairs**: `[]`, `{}`, `()` (and their reverses) become `|`
+5. **Big X**: `/\` → `|`, `\/` → `Y`, `><` → `X`
 6. **Hardblank**: Two hardblanks merge to one
 
-Universal smushing applies when no rule matches: take non-space character, never smush hardblank collisions.
+Universal smushing applies only when NO controlled rules are defined: later character overrides earlier at overlap position. When controlled rules ARE defined but no rule matches, fall back to kerning.
 
 ## Key Implementation Notes
 
-- **Layout Normalization**: Convert OldLayout (-1/-2/-3) to modern Layout bitmask on font parse
+- **Layout Normalization**: Convert OldLayout (-1 or 0..63) to modern Layout bitmask on font parse
 - **Hardblank Handling**: Replace with spaces only after final rendering
 - **Print Direction**: 0=LTR, 1=RTL - apply after smushing
 - **Error Policy**: Unknown runes → `?`, missing glyphs → `ErrUnsupportedRune`

@@ -65,8 +65,8 @@ const (
 // ErrLayoutConflict is returned when multiple fitting modes are set simultaneously
 var ErrLayoutConflict = errors.New("layout conflict: multiple fitting modes set")
 
-// ErrInvalidOldLayout is returned when OldLayout is outside the valid range (-3..63)
-var ErrInvalidOldLayout = errors.New("invalid OldLayout: must be in range -3..63")
+// ErrInvalidOldLayout is returned when OldLayout is outside the valid range (-1..63)
+var ErrInvalidOldLayout = errors.New("invalid OldLayout: must be in range -1..63")
 
 // ErrInvalidFullLayout is returned when FullLayout is outside the valid range (0..32767)
 var ErrInvalidFullLayout = errors.New("invalid FullLayout: must be in range 0..32767")
@@ -347,12 +347,12 @@ func (l Layout) String() string {
 //   - OldLayout is used only when fullLayoutSet is false
 //   - When FullLayout is present without any fit bits, defaults to Full/Full per spec
 //
-// OldLayout valid range: -3..63
-//   - -3: Horizontal universal smushing (no rules)
-//   - -2: Horizontal fitting (kerning) - alias for 0
+// OldLayout valid range: -1..63
 //   - -1: Horizontal full width
 //   - 0: Horizontal fitting (kerning)
-//   - >0: Horizontal controlled smushing with rules from bits 0-5
+//   - 1-63: Horizontal controlled smushing with rules from bits 0-5
+//
+// Note: OldLayout cannot express universal smushing directly
 //
 // FullLayout valid range: 0..32767 (15-bit bitmask)
 //   - Bits 0-5: Horizontal smushing rules (equal char, underscore, hierarchy, etc.)

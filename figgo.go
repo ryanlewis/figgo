@@ -473,7 +473,7 @@ func (o *options) toInternal() *renderer.Options {
 		rendererOpts.Layout = int(*o.layout)
 	}
 	if o.printDirection != nil {
-		rendererOpts.PrintDirection = *o.printDirection
+		rendererOpts.PrintDirection = o.printDirection
 	}
 	if o.unknownRune != nil {
 		rendererOpts.UnknownRune = o.unknownRune

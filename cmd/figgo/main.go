@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/pflag"
 )
@@ -86,19 +87,31 @@ func parseUnknownRune(s string) (rune, error) {
 	return 0, fmt.Errorf("invalid rune format: %s", s)
 }
 
+// validateRune checks if a rune is valid UTF-8 and not a surrogate
+func validateRune(r rune) (rune, bool) {
+	if r < 0 || r > utf8.MaxRune {
+		return 0, false
+	}
+	// Reject UTF-16 surrogates
+	if r >= 0xD800 && r <= 0xDFFF {
+		return 0, false
+	}
+	return r, true
+}
+
 func parseEscapedUnicode(s string) (rune, bool) {
-	// \uXXXX format
-	if strings.HasPrefix(s, "\\u") && len(s) >= 6 {
-		code, err := strconv.ParseInt(s[2:6], 16, 32)
+	// \uXXXX format - must be exactly 6 characters
+	if strings.HasPrefix(s, "\\u") && len(s) == 6 {
+		code, err := strconv.ParseInt(s[2:], 16, 32)
 		if err == nil {
-			return rune(code), true
+			return validateRune(rune(code))
 		}
 	}
-	// \UXXXXXXXX format
-	if strings.HasPrefix(s, "\\U") && len(s) >= 10 {
-		code, err := strconv.ParseInt(s[2:10], 16, 32)
+	// \UXXXXXXXX format - must be exactly 10 characters
+	if strings.HasPrefix(s, "\\U") && len(s) == 10 {
+		code, err := strconv.ParseInt(s[2:], 16, 32)
 		if err == nil {
-			return rune(code), true
+			return validateRune(rune(code))
 		}
 	}
 	return 0, false
@@ -108,7 +121,7 @@ func parseUnicodeNotation(s string) (rune, bool) {
 	if strings.HasPrefix(s, "U+") || strings.HasPrefix(s, "u+") {
 		code, err := strconv.ParseInt(s[2:], 16, 32)
 		if err == nil {
-			return rune(code), true
+			return validateRune(rune(code))
 		}
 	}
 	return 0, false
@@ -118,7 +131,7 @@ func parseHexadecimal(s string) (rune, bool) {
 	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
 		code, err := strconv.ParseInt(s[2:], 16, 32)
 		if err == nil {
-			return rune(code), true
+			return validateRune(rune(code))
 		}
 	}
 	return 0, false
@@ -127,7 +140,7 @@ func parseHexadecimal(s string) (rune, bool) {
 func parseDecimal(s string) (rune, bool) {
 	code, err := strconv.ParseInt(s, 10, 32)
 	if err == nil {
-		return rune(code), true
+		return validateRune(rune(code))
 	}
 	return 0, false
 }

@@ -44,6 +44,19 @@ func TestParseUnknownRune(t *testing.T) {
 		{"invalid hex", "0x", 0, true},
 		{"multi-rune literal", "abc", 0, true},
 		{"invalid format", "xyz", 0, true},
+
+		// Invalid rune values
+		{"beyond max rune", "U+110000", 0, true}, // > utf8.MaxRune
+		{"negative decimal", "-1", 0, true},
+		{"surrogate start", "U+D800", 0, true}, // UTF-16 surrogate
+		{"surrogate end", "U+DFFF", 0, true},   // UTF-16 surrogate
+		{"surrogate mid", "0xDC00", 0, true},   // UTF-16 surrogate
+
+		// Exact length validation
+		{"unicode escape too short", "\\u258", 0, true},
+		{"unicode escape too long", "\\u25888", 0, true},
+		{"unicode U escape too short", "\\U0002588", 0, true},
+		{"unicode U escape too long", "\\U000025888", 0, true},
 	}
 
 	for _, tt := range tests {

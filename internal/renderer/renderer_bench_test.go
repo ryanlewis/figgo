@@ -7,6 +7,11 @@ import (
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
+// intPtr returns a pointer to an int
+func intPtr(i int) *int {
+	return &i
+}
+
 const benchmarkText = "Hello, World!"
 
 // createBenchFont creates a font with full ASCII coverage for benchmarking
@@ -39,7 +44,7 @@ func BenchmarkRenderFullWidth(b *testing.B) {
 	text := benchmarkText
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	b.ResetTimer()
@@ -56,7 +61,7 @@ func BenchmarkRenderFullWidthLong(b *testing.B) {
 	text := "The quick brown fox jumps over the lazy dog. 1234567890"
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	b.ResetTimer()
@@ -73,7 +78,7 @@ func BenchmarkRenderFullWidthRTL(b *testing.B) {
 	text := benchmarkText
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 1, // RTL
+		PrintDirection: intPtr(1), // RTL
 	}
 
 	b.ResetTimer()
@@ -102,7 +107,7 @@ func BenchmarkRenderFullWidthWithHardblank(b *testing.B) {
 	text := benchmarkText
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	b.ResetTimer()
@@ -119,7 +124,7 @@ func BenchmarkRenderFullWidthNonASCII(b *testing.B) {
 	text := "Hello, 世界! €100 café"
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	b.ResetTimer()
@@ -137,7 +142,7 @@ func BenchmarkRenderFullWidthAllocs(b *testing.B) {
 	text := "Hello!"
 	opts := &Options{
 		Layout:         common.FitFullWidth,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	b.ReportAllocs()

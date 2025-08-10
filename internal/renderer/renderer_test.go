@@ -102,7 +102,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createMinimalFont(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: "H  H  III \nHHHH   I  \nH  H  III ",
 		},
@@ -112,7 +112,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createMinimalFont(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: "H  H \nHHHH \nH  H ",
 		},
@@ -122,7 +122,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createMinimalFont(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: "H  H  eee l    l     ooo \nHHHH e e el    l    o   o\nH  H  ee ellll llll  ooo ",
 		},
@@ -132,7 +132,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createFontWithHardblank(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: " AA BBB \nA  AB  B\nA  ABBB ",
 		},
@@ -157,7 +157,7 @@ func TestRenderFullWidth(t *testing.T) {
 			},
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			wantErr: true,
 			errMsg:  "unsupported rune",
@@ -167,8 +167,8 @@ func TestRenderFullWidth(t *testing.T) {
 			text: "HI",
 			font: createMinimalFont(),
 			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: 1, // RTL
+				Layout:         0,         // FitFullWidth
+				PrintDirection: intPtr(1), // RTL
 			},
 			want: " III  H  H\n  I   HHHH\n III  H  H",
 		},
@@ -178,7 +178,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: nil,
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			wantErr: true,
 			errMsg:  "font",
@@ -189,7 +189,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createMinimalFont(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: "\n\n", // Font height minus 1 newlines
 		},
@@ -199,7 +199,7 @@ func TestRenderFullWidth(t *testing.T) {
 			font: createMinimalFont(),
 			opts: &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			want: "H  H     III \nHHHH      I  \nH  H     III ",
 		},
@@ -245,7 +245,7 @@ func TestRenderFullWidth_GlyphHeightValidation(t *testing.T) {
 
 	_, err := Render("X", font, &Options{
 		Layout:         0, // FitFullWidth
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	})
 
 	if err == nil {
@@ -276,7 +276,7 @@ func TestRenderFullWidth_InvalidFontHeight(t *testing.T) {
 
 			_, err := Render("test", font, &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			})
 
 			if err == nil {
@@ -335,7 +335,7 @@ func TestRenderNonASCIIFiltering(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Render(tt.text, font, &Options{
 				Layout:         0, // FitFullWidth
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			})
 			if err != nil {
 				t.Errorf("Render() unexpected error = %v", err)
@@ -355,13 +355,13 @@ func TestRenderRulesWithoutSmushing(t *testing.T) {
 	// Layout with rules but no FitSmushing (should behave as FitFullWidth)
 	optsWithRules := &Options{
 		Layout:         common.RuleEqualChar | common.RuleUnderscore | common.RuleHierarchy,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	// Layout with just FitFullWidth
 	optsFullWidth := &Options{
 		Layout:         0,
-		PrintDirection: 0,
+		PrintDirection: intPtr(0),
 	}
 
 	text := "HI"
@@ -453,7 +453,7 @@ func TestRenderPrintDirectionValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Render("H", font, &Options{
 				Layout:         0,
-				PrintDirection: tt.printDir,
+				PrintDirection: &tt.printDir,
 			})
 			if err != nil {
 				t.Errorf("Render() unexpected error = %v", err)
@@ -596,7 +596,7 @@ func TestRenderKerning(t *testing.T) {
 			text: "AV",
 			opts: &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			// A has trailing spaces, V has no leading spaces - kerning should tighten
 			// Row 0: "  A   " + "V   V " -> A at pos 2, need 1 space, V starts at 0
@@ -610,7 +610,7 @@ func TestRenderKerning(t *testing.T) {
 			text: "A|",
 			opts: &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			// | starts at column 2, A ends at column 2, need at least 1 space
 			want: "  A   |   \n A A   |   \nA   A   |   ",
@@ -620,7 +620,7 @@ func TestRenderKerning(t *testing.T) {
 			text: "WA",
 			opts: &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			// W ends with visible at col 4, A starts with visible at col 2
 			// Row 2: W ends at 3, A starts at 1 - tightest constraint
@@ -631,7 +631,7 @@ func TestRenderKerning(t *testing.T) {
 			text: "A A",
 			opts: &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			},
 			// Space character goes through normal kerning like any other glyph
 			// A ends at col 4, space is all blanks (6 wide), next A can be kerned
@@ -643,7 +643,7 @@ func TestRenderKerning(t *testing.T) {
 			text: "AV",
 			opts: &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 1, // RTL
+				PrintDirection: intPtr(1), // RTL
 			},
 			// RTL composes glyphs in reverse order (V then A), not mirrored
 			// V first, then A with kerning
@@ -708,7 +708,7 @@ func TestRenderKerningWithHardblanks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Render(tt.text, font, &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			})
 			if err != nil {
 				t.Errorf("Render() error = %v", err)
@@ -779,7 +779,7 @@ func TestRenderKerningZeroGap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Render(tt.text, font, &Options{
 				Layout:         common.FitKerning,
-				PrintDirection: 0,
+				PrintDirection: intPtr(0),
 			})
 			if err != nil {
 				t.Errorf("Render() error = %v", err)
@@ -992,7 +992,7 @@ func TestRTLEquivalence(t *testing.T) {
 	// Render ABC with RTL
 	gotRTL, err := Render("ABC", font, &Options{
 		Layout:         common.FitKerning,
-		PrintDirection: 1, // RTL
+		PrintDirection: intPtr(1), // RTL
 	})
 	if err != nil {
 		t.Fatalf("Render() RTL error = %v", err)
@@ -1001,7 +1001,7 @@ func TestRTLEquivalence(t *testing.T) {
 	// Render CBA with LTR
 	gotLTR, err := Render("CBA", font, &Options{
 		Layout:         common.FitKerning,
-		PrintDirection: 0, // LTR
+		PrintDirection: intPtr(0), // LTR
 	})
 	if err != nil {
 		t.Fatalf("Render() LTR error = %v", err)

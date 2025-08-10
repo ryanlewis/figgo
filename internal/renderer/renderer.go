@@ -15,7 +15,7 @@ type Options struct {
 	Layout int
 
 	// PrintDirection overrides the font's default print direction
-	PrintDirection int
+	PrintDirection *int
 
 	// UnknownRune is the rune to use for unsupported characters
 	UnknownRune *rune
@@ -99,8 +99,8 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 
 	// Determine print direction (0 LTR, 1 RTL)
 	printDir := font.PrintDirection
-	if opts != nil && opts.PrintDirection != 0 {
-		printDir = opts.PrintDirection
+	if opts != nil && opts.PrintDirection != nil {
+		printDir = *opts.PrintDirection
 	}
 	// Validate print direction
 	if printDir != 0 && printDir != 1 {
@@ -139,8 +139,8 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	}
 }
 
-// filterNonASCII replaces non-ASCII characters with the replacement rune
-func filterNonASCII(runes []rune, replacement rune) {
+// filterUnsupportedRunes replaces unsupported characters (outside ASCII 32-126) with the replacement rune
+func filterUnsupportedRunes(runes []rune, replacement rune) {
 	for i, r := range runes {
 		if r < 32 || r > 126 {
 			runes[i] = replacement
@@ -206,9 +206,9 @@ func renderFullWidth(text string, font *parser.Font, printDir int, replacement r
 		return strings.Join(lines, "\n"), nil
 	}
 
-	// Convert text to runes and filter non-ASCII
+	// Convert text to runes and filter unsupported characters
 	runes := []rune(text)
-	filterNonASCII(runes, replacement)
+	filterUnsupportedRunes(runes, replacement)
 
 	// Compose glyphs
 	lines, err := composeGlyphs(runes, font, h)
@@ -375,9 +375,9 @@ func renderKerning(text string, font *parser.Font, printDir int, replacement run
 		return strings.Join(lines, "\n"), nil
 	}
 
-	// Convert text to runes and filter non-ASCII
+	// Convert text to runes and filter unsupported characters
 	runes := []rune(text)
-	filterNonASCII(runes, replacement)
+	filterUnsupportedRunes(runes, replacement)
 
 	// For RTL, reverse the order of runes (not the glyphs themselves)
 	if printDir == 1 {

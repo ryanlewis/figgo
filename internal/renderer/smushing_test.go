@@ -680,7 +680,7 @@ func TestHierarchyClass(t *testing.T) {
 		char  rune
 		class int
 	}{
-		{'|', 1},  // Earliest in list
+		{'|', 1}, // Earliest in list
 		{'/', 2},
 		{'\\', 2},
 		{'[', 3},
@@ -689,7 +689,7 @@ func TestHierarchyClass(t *testing.T) {
 		{'}', 4},
 		{'(', 5},
 		{')', 5},
-		{'<', 6},  // Latest in list (wins over all)
+		{'<', 6}, // Latest in list (wins over all)
 		{'>', 6},
 		// Non-hierarchy chars
 		{'_', 0},

@@ -1,7 +1,6 @@
 package renderer
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/ryanlewis/figgo/internal/common"
@@ -89,18 +88,18 @@ func TestRenderSmushingIntegration(t *testing.T) {
 
 		// Rule 3: Hierarchy
 		{
-			name:   "rule3_pipe_wins",
+			name:   "rule3_slash_wins",
 			text:   "/|",
 			layout: common.FitSmushing | common.RuleHierarchy,
-			want:   "||\n||",
-			desc:   "Hierarchy: | > /",
+			want:   "//\n//",
+			desc:   "Hierarchy: / (class 2) beats | (class 1)",
 		},
 		{
-			name:   "rule3_slash_wins",
+			name:   "rule3_bracket_wins",
 			text:   "[/",
 			layout: common.FitSmushing | common.RuleHierarchy,
-			want:   "//\n//",
-			desc:   "Hierarchy: / > [",
+			want:   "[[\n[[",
+			desc:   "Hierarchy: [ (class 3) beats / (class 2)",
 		},
 
 		// Rule 4: Opposite Pairs
@@ -126,6 +125,13 @@ func TestRenderSmushingIntegration(t *testing.T) {
 			layout: common.FitSmushing | common.RuleBigX,
 			want:   "||\n||",
 			desc:   "Big X: / + \\ = |",
+		},
+		{
+			name:   "rule5_backslash_slash",
+			text:   "\\/",
+			layout: common.FitSmushing | common.RuleBigX,
+			want:   "YY\nYY",
+			desc:   "Big X: \\ + / = Y",
 		},
 		{
 			name:   "rule5_greater_less",
@@ -176,11 +182,25 @@ func TestRenderSmushingIntegration(t *testing.T) {
 			desc:   "Universal: A + space = A",
 		},
 		{
-			name:   "universal_no_smush_visible_collision",
+			name:   "universal_hardblank_visible",
+			text:   "$A",
+			layout: common.FitSmushing, // No controlled rules
+			want:   "AA\nAA",
+			desc:   "Universal: hardblank + visible = visible (spec: hardblanks are overridden)",
+		},
+		{
+			name:   "universal_visible_hardblank",
+			text:   "A$",
+			layout: common.FitSmushing, // No controlled rules
+			want:   "AA\nAA",
+			desc:   "Universal: visible + hardblank = visible (spec: hardblanks are overridden)",
+		},
+		{
+			name:   "universal_visible_visible",
 			text:   "+*",
 			layout: common.FitSmushing, // No controlled rules
-			want:   "++**\n++**",
-			desc:   "Universal: + + * cannot smush (no overlap)",
+			want:   "**\n**",
+			desc:   "Universal: + + * = * (pure universal: later wins)",
 		},
 
 		// Fallback to kerning
@@ -254,29 +274,46 @@ func TestRenderSmushingPrintDirection(t *testing.T) {
 	font := createSmushingTestFont()
 
 	tests := []struct {
-		name string
-		text string
-		dir  int
-		want string
+		name   string
+		text   string
+		dir    int
+		layout int
+		want   string
 	}{
 		{
-			name: "RTL with smushing",
-			text: "[]",
-			dir:  1,        // RTL
-			want: "||\n||", // Same result due to how smushing works
+			name:   "RTL with smushing",
+			text:   "[]",
+			dir:    1, // RTL
+			layout: common.FitSmushing | common.RuleOppositePair,
+			want:   "||\n||", // Same result due to symmetric pairing
 		},
 		{
-			name: "RTL no smushing",
-			text: "+*",
-			dir:  1,            // RTL
-			want: "**++\n**++", // Reversed order
+			name:   "RTL no smushing",
+			text:   "+*",
+			dir:    1, // RTL
+			layout: common.FitSmushing | common.RuleEqualChar,
+			want:   "**++\n**++", // Reversed order
+		},
+		{
+			name:   "RTL asymmetric underscore rule",
+			text:   "_/",
+			dir:    0, // LTR
+			layout: common.FitSmushing | common.RuleUnderscore,
+			want:   "//\n//", // _ + / = / via underscore rule
+		},
+		{
+			name:   "RTL asymmetric underscore rule reversed",
+			text:   "_/",
+			dir:    1, // RTL - reverses to /_
+			layout: common.FitSmushing | common.RuleUnderscore,
+			want:   "//\n//", // RTL: "/" then "_", smushed via underscore rule
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := &Options{
-				Layout:         common.FitSmushing | common.RuleOppositePair,
+				Layout:         tt.layout,
 				PrintDirection: &tt.dir,
 			}
 
@@ -322,13 +359,13 @@ func TestPickLayoutWithSmushing(t *testing.T) {
 			wantLayout: common.FitSmushing | common.RuleBigX,
 		},
 		{
-			name: "oldlayout positive means smushing",
+			name: "oldlayout positive means smushing with rules",
 			font: &parser.Font{
 				OldLayout:     1,
 				FullLayoutSet: false,
 			},
 			opts:       nil,
-			wantLayout: common.FitSmushing,
+			wantLayout: common.FitSmushing | common.RuleEqualChar,
 		},
 	}
 
@@ -357,11 +394,13 @@ func TestRenderSmushingComplex(t *testing.T) {
 		MaxLength:      10,
 		OldLayout:      0,
 		PrintDirection: 0,
-		FullLayout:     common.FitSmushing | common.RuleOppositePair | common.RuleBigX,
+		FullLayout:     common.FitSmushing | common.RuleOppositePair | common.RuleBigX | common.RuleEqualChar,
 		FullLayoutSet:  true,
 		Characters: map[rune][]string{
 			'A': {"/]", "]/"},   // Ends with /] pattern
 			'B': {"\\[", "[\\"}, // Starts with \[ pattern
+			'C': {"=+", "+="},   // For testing backoff: = matches equal rule, + doesn't
+			'D': {"+*", "*+"},   // No rules match with C's second column
 		},
 	}
 
@@ -372,10 +411,16 @@ func TestRenderSmushingComplex(t *testing.T) {
 		desc string
 	}{
 		{
-			name: "multi_column_overlap",
+			name: "multi_column_full_overlap",
 			text: "AB",
-			want: "||", // After Big X and Opposite pairs rules
+			want: "||\n||", // After Big X and Opposite pairs rules
 			desc: "Two columns overlap: /\\ → | (Big X), ][ → | (Opposites)",
+		},
+		{
+			name: "multi_column_partial_backoff",
+			text: "CD",
+			want: "=++*\n+=*+", // No overlap: row 0 col 0 would match (+/+) but row 1 col 0 fails (=/*)
+			desc: "No overlap: controlled rules present, fallback universal blocks visible collision",
 		},
 	}
 
@@ -390,12 +435,9 @@ func TestRenderSmushingComplex(t *testing.T) {
 				t.Fatalf("Render() error = %v", err)
 			}
 
-			// Split into lines for easier comparison
-			gotLines := strings.Split(strings.TrimSpace(got), "\n")
-
-			// Both rows should have the same result after smushing
-			if len(gotLines) != 2 || gotLines[0] != "||" || gotLines[1] != "||" {
-				t.Errorf("%s\nRender() =\n%s\nwant =\n|| (both rows)", tt.desc, got)
+			// Check against expected result
+			if got != tt.want {
+				t.Errorf("%s\nRender() =\n%s\nwant =\n%s", tt.desc, got, tt.want)
 			}
 		})
 	}

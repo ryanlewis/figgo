@@ -161,14 +161,14 @@ func TestSmushPair(t *testing.T) {
 			wantOK:    false, // '+' is not a border char
 		},
 
-		// Rule 3: Hierarchy (| > /\ > [] > {} > ())
+		// Rule 3: Hierarchy - latter class wins: <> > () > {} > [] > /\ > |
 		{
 			name:      "rule3_slash_pipe",
 			left:      '/',
 			right:     '|',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '|',
+			want:      '/',
 			wantOK:    true,
 		},
 		{
@@ -177,7 +177,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '/',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '|',
+			want:      '/',
 			wantOK:    true,
 		},
 		{
@@ -186,7 +186,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '/',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '/',
+			want:      '[',
 			wantOK:    true,
 		},
 		{
@@ -195,7 +195,7 @@ func TestSmushPair(t *testing.T) {
 			right:     ']',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '\\',
+			want:      ']',
 			wantOK:    true,
 		},
 		{
@@ -204,7 +204,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '[',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '[',
+			want:      '{',
 			wantOK:    true,
 		},
 		{
@@ -213,7 +213,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '}',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      ']',
+			want:      '}',
 			wantOK:    true,
 		},
 		{
@@ -222,7 +222,7 @@ func TestSmushPair(t *testing.T) {
 			right:     '{',
 			layout:    layoutSmushing | layoutRule3,
 			hardblank: '$',
-			want:      '{',
+			want:      '(',
 			wantOK:    true,
 		},
 		{
@@ -363,8 +363,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule6,
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Rule 6 doesn't match, universal forbids hardblank vs visible
+			want:      'A',
+			wantOK:    true, // Rule 6 doesn't match, fallback universal: visible overrides hardblank
 		},
 
 		// Rule 6 precedence tests - ensure Rule 6 takes priority over universal HB-HB block
@@ -412,8 +412,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '|',
 			layout:    layoutAllRules,
 			hardblank: '$',
-			want:      '|',
-			wantOK:    true, // Rule 3 (hierarchy) wins even though / is part of Rule 5
+			want:      '/',
+			wantOK:    true, // Rule 3 (hierarchy) wins, / (class 2) beats | (class 1)
 		},
 		{
 			name:      "precedence_rule4_over_rule3",
@@ -450,8 +450,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'B',
 			layout:    layoutSmushing, // No specific rules enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal only allows space replacement, not visible collision
+			want:      'B',
+			wantOK:    true, // Pure universal: later wins
 		},
 		{
 			name:      "universal_hardblank_override",
@@ -459,8 +459,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal never allows hardblank vs visible
+			want:      'A',
+			wantOK:    true, // Universal: visible overrides hardblank per spec
 		},
 		{
 			name:      "universal_hardblank_override_reverse",
@@ -468,8 +468,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // No Rule 6 enabled
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal never allows visible vs hardblank
+			want:      'A',
+			wantOK:    true, // Universal: visible overrides hardblank per spec
 		},
 		{
 			name:      "universal_hardblank_collision",
@@ -526,8 +526,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'A',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal fallback: hardblank vs visible forbidden
+			want:      'A',
+			wantOK:    true, // Universal fallback: visible overrides hardblank per spec
 		},
 		{
 			name:      "controlled_rules_fallback_hardblank_right",
@@ -535,8 +535,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing | layoutRule1, // Rule 1 enabled but won't match
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal fallback: visible vs hardblank forbidden
+			want:      'A',
+			wantOK:    true, // Universal fallback: visible overrides hardblank per spec
 		},
 		{
 			name:      "controlled_rules_fallback_both_hardblanks",
@@ -602,8 +602,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'B',
 			layout:    layoutSmushing, // no rules
 			hardblank: ',',
-			want:      0, // per issue #14: universal only for space replacement
-			wantOK:    false,
+			want:      'B', // Pure universal: later wins
+			wantOK:    true,
 		},
 		{
 			name:      "pure_universal_visible_vs_hardblank_left",
@@ -611,8 +611,8 @@ func TestSmushPair(t *testing.T) {
 			right:     'X',
 			layout:    layoutSmushing, // Pure universal - no rules
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal never allows hardblank vs visible
+			want:      'X',
+			wantOK:    true, // Universal: visible overrides hardblank per spec
 		},
 		{
 			name:      "pure_universal_visible_vs_hardblank_right",
@@ -620,8 +620,8 @@ func TestSmushPair(t *testing.T) {
 			right:     '$',
 			layout:    layoutSmushing, // Pure universal - no rules
 			hardblank: '$',
-			want:      0,
-			wantOK:    false, // Universal never allows visible vs hardblank
+			want:      'Y',
+			wantOK:    true, // Universal: visible overrides hardblank per spec
 		},
 		{
 			name:      "pure_universal_hardblank_vs_space_left",
@@ -680,17 +680,17 @@ func TestHierarchyClass(t *testing.T) {
 		char  rune
 		class int
 	}{
-		{'|', 6},
-		{'/', 5},
-		{'\\', 5},
-		{'[', 4},
-		{']', 4},
-		{'{', 3},
-		{'}', 3},
-		{'(', 2},
-		{')', 2},
-		{'<', 1},
-		{'>', 1},
+		{'|', 1},  // Earliest in list
+		{'/', 2},
+		{'\\', 2},
+		{'[', 3},
+		{']', 3},
+		{'{', 4},
+		{'}', 4},
+		{'(', 5},
+		{')', 5},
+		{'<', 6},  // Latest in list (wins over all)
+		{'>', 6},
 		// Non-hierarchy chars
 		{'_', 0},
 		{'A', 0},

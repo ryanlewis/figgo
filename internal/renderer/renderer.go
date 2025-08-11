@@ -76,7 +76,28 @@ func pickLayout(font *parser.Font, opts *Options) (int, error) {
 	case 0:
 		return common.FitKerning, nil
 	default:
-		return common.FitSmushing, nil
+		// Positive OldLayout encodes smushing with rule bits
+		layout := common.FitSmushing
+		// Map rule bits (bits 0-5 correspond to rules 1-6)
+		if font.OldLayout&1 != 0 {
+			layout |= common.RuleEqualChar
+		}
+		if font.OldLayout&2 != 0 {
+			layout |= common.RuleUnderscore
+		}
+		if font.OldLayout&4 != 0 {
+			layout |= common.RuleHierarchy
+		}
+		if font.OldLayout&8 != 0 {
+			layout |= common.RuleOppositePair
+		}
+		if font.OldLayout&16 != 0 {
+			layout |= common.RuleBigX
+		}
+		if font.OldLayout&32 != 0 {
+			layout |= common.RuleHardblank
+		}
+		return layout, nil
 	}
 }
 

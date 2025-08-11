@@ -18,16 +18,17 @@ func isBorderChar(r rune) bool {
 }
 
 // getHierarchyClass returns the hierarchy class for Rule 3
-// Class priority order: | > /\ > [] > {} > () > <>
-// Higher numeric constant = earlier in priority list (higher priority)
+// Classes in order: | /\ [] {} () <>
+// Per spec: "the one from the latter class is used"
+// Lower numeric value = earlier in list, higher value = latter class (wins)
 func getHierarchyClass(r rune) int {
 	const (
-		classPipe    = 6 // | class
-		classSlash   = 5 // /\ class
-		classBracket = 4 // [] class
-		classBrace   = 3 // {} class
-		classParen   = 2 // () class
-		classAngle   = 1 // <> class
+		classPipe    = 1 // | class (earliest)
+		classSlash   = 2 // /\ class
+		classBracket = 3 // [] class
+		classBrace   = 4 // {} class
+		classParen   = 5 // () class
+		classAngle   = 6 // <> class (latest, wins over all)
 		classNone    = 0 // not a hierarchy char
 	)
 
@@ -69,56 +70,65 @@ func isOppositePair(left, right rune) bool {
 	}
 }
 
-// universalSmush implements universal smushing logic
-// Per issue #14 spec: Universal takes non-space when one is space, else no smush
-// "Universal — take right if left is space; left if right is space; else no smush"
-// Special cases:
-//   - NEVER smush hardblank with visible (forbidden per spec)
-//   - Hardblank vs hardblank: NOT allowed (only via Rule 6)
-//   - Hardblank vs space: later wins (still follows universal principle)
+// universalSmush implements universal smushing logic per FIGfont v2 spec
+// Universal smushing: later character overrides earlier at overlap position
+// Key spec behavior:
+//   - Space vs non-space: take the non-space
+//   - Visible vs visible: later wins (when allowVisibleCollision=true)
+//   - Hardblank vs visible: visible wins (hardblanks are overridden per spec)
+//   - Hardblank vs hardblank: NOT allowed (prevents illegibility)
+//   - Hardblank vs space: later wins
 //
-// allowVisibleCollision: ignored per issue #14 - universal never allows visible collision
+// allowVisibleCollision: true for pure universal, false for fallback universal
 //
-//nolint:gocyclo // Multiple decision paths inherent to universal smushing spec
-func universalSmush(left, right, hardblank rune, _ bool) (rune, bool) {
-	// Check if either is hardblank first (per issue #14 spec)
+//nolint:gocyclo,gocognit // Multiple decision paths inherent to universal smushing spec
+func universalSmush(left, right, hardblank rune, allowVisibleCollision bool) (rune, bool) {
+	// Check if either is hardblank
 	leftIsHardblank := left == hardblank
 	rightIsHardblank := right == hardblank
 
-	// Block hardblank vs hardblank
+	// Block hardblank vs hardblank (spec: prevents illegibility)
 	if leftIsHardblank && rightIsHardblank {
 		return 0, false
 	}
 
-	// Check visibility
+	// Check visibility (non-space, non-hardblank)
 	leftVisible := left != ' ' && left != hardblank
 	rightVisible := right != ' ' && right != hardblank
 
-	// Block hardblank vs visible (either direction) per issue #14
-	if (leftIsHardblank && rightVisible) || (leftVisible && rightIsHardblank) {
-		return 0, false // Universal never smushes hardblank with visible
+	// Hardblank vs visible: visible wins per FIGfont spec
+	// "Hardblanks ARE overridden by any visible sub-character"
+	if leftIsHardblank && rightVisible {
+		return right, true // Visible overrides hardblank
+	}
+	if leftVisible && rightIsHardblank {
+		return left, true // Visible overrides hardblank
 	}
 
-	// Per issue #14: Universal only smushes when one is space
-	// "take right if left is space; left if right is space; else no smush"
+	// Space vs visible: visible wins
 	if left == ' ' && rightVisible {
-		return right, true // Take non-space (right)
+		return right, true
 	}
 	if leftVisible && right == ' ' {
-		return left, true // Take non-space (left)
+		return left, true
 	}
 
-	// Visible vs visible - NOT allowed in universal per issue #14
+	// Visible vs visible
 	if leftVisible && rightVisible {
-		return 0, false // No smush for visible collision
+		if allowVisibleCollision {
+			// Pure universal: later wins
+			return right, true
+		}
+		// Fallback universal: no smush
+		return 0, false
 	}
 
-	// Hardblank vs space: later wins (still follows universal principle)
+	// Hardblank vs space: later wins
 	if leftIsHardblank && right == ' ' {
-		return ' ', true // Later (right) wins
+		return ' ', true
 	}
 	if left == ' ' && rightIsHardblank {
-		return hardblank, true // Later (right) wins
+		return hardblank, true
 	}
 
 	// Both are spaces
@@ -126,7 +136,7 @@ func universalSmush(left, right, hardblank rune, _ bool) (rune, bool) {
 		return ' ', true
 	}
 
-	// Should not reach here, but be safe
+	// Should not reach here
 	return 0, false
 }
 
@@ -161,6 +171,8 @@ func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
 		leftClass := getHierarchyClass(left)
 		rightClass := getHierarchyClass(right)
 		if leftClass > 0 && rightClass > 0 && leftClass != rightClass {
+			// Per spec: "the one from the latter class is used"
+			// Higher class number = latter in list = wins
 			if leftClass > rightClass {
 				return left, true
 			}

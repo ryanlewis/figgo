@@ -39,7 +39,7 @@
   * **Kerning**: Minimize inter-glyph spaces without overlapping pixels.
   * **Smushing**: Allow overlaps by rules (controlled) or fallback (universal).
 * **Controlled smushing**: Applying specific rule set encoded in the font header.
-* **Universal smushing**: When NO controlled rules are defined, the later character always overrides the earlier one at overlapping positions. Visible characters override spaces and hardblanks.
+* **Universal smushing**: When NO controlled rules are defined, the later character always overrides the earlier one at overlapping positions. Per FIGfont spec: visible characters override both spaces AND hardblanks (hardblanks are a stopping point only AFTER their locations are occupied).
 * **Print direction**: 0 = left-to-right, 1 = right-to-left (honor font default; allow override).
 
 ---
@@ -159,12 +159,12 @@ var (
 
 1. **Equal character** — identical non-space, non-hardblank characters smush to that char. Note: hardblanks do NOT match this rule - they only smush via Rule 6.
 2. **Underscore** — `_` + border chars (`|/\\[]{}()<>`) → border char.
-3. **Hierarchy** — class priority `|` > `/\\` > `[]` > `{}` > `()` > `<>`; when classes differ, the higher priority (earlier in list) wins.
+3. **Hierarchy** — classes: `|`, `/\`, `[]`, `{}`, `()`, `<>`; when classes differ, the one from the latter class wins (e.g., `<>` beats `()`, `()` beats `{}`, etc.).
 4. **Opposite pairs** — `[]`, `{}`, `()` and their reverses `][`, `}{`, `)(` → `|`.
 5. **Big X** — `/\\` → `|`, `\\/` → `Y`, `><` → `X`.
 6. **Hardblank** — two hardblanks smush to one hardblank.
 
-**Universal smushing** only applies when NO controlled rules (bits 0-5) are defined. In universal mode, the later character always overrides the earlier one at each overlapping position. Visible characters override spaces and hardblanks. When controlled rules ARE defined but no rule matches at a position, fall back to **kerning** (no overlap).
+**Universal smushing** only applies when NO controlled rules (bits 0-5) are defined. In universal mode, the later character always overrides the earlier one at each overlapping position. Per FIGfont spec: visible characters override both spaces AND hardblanks - hardblanks are NOT a blocking point for universal smushing. When controlled rules ARE defined but no rule matches at a position, fall back to **kerning** (no overlap).
 
 *(Vertical rules are out of scope for MVP.)*
 

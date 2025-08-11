@@ -34,8 +34,8 @@ func TestOverlapSelection(t *testing.T) {
 			lines:       [][]byte{{'#', '#'}},
 			glyph:       []string{"$#"},
 			layout:      common.FitSmushing | common.RuleEqualChar,
-			wantOverlap: 0,
-			description: "Hardblank vs visible should fail, fall back to kerning",
+			wantOverlap: 2,
+			description: "Hardblank vs visible: visible overrides hardblank per spec",
 		},
 		{
 			name:        "universal_space_override",
@@ -50,8 +50,8 @@ func TestOverlapSelection(t *testing.T) {
 			lines:       [][]byte{{'A', 'B'}},
 			glyph:       []string{"CD"},
 			layout:      common.FitSmushing, // No controlled rules
-			wantOverlap: 0,
-			description: "Universal: visible vs visible not allowed without rules",
+			wantOverlap: 2,
+			description: "Universal: visible vs visible allowed in pure universal (later wins)",
 		},
 		{
 			name:        "rule1_equal_char_multi_column",
@@ -190,8 +190,8 @@ func TestOverlapSelection(t *testing.T) {
 			lines:       [][]byte{{'A', 'B', 'C', 'D'}},
 			glyph:       []string{"EFGH"},
 			layout:      common.FitSmushing,
-			wantOverlap: 0,
-			description: "No valid overlap when all are visible chars",
+			wantOverlap: 4,
+			description: "Pure universal: all overlaps valid (visible+visible allowed, later wins)",
 		},
 	}
 
@@ -260,8 +260,8 @@ func TestLineLengthConstraint(t *testing.T) {
 				"BCDEF", // Wide glyph (length 5)
 			},
 			layout:      common.FitSmushing,
-			wantOverlap: 0, // Can't overlap - would exceed line length
-			description: "Wide glyph cannot overlap with short line",
+			wantOverlap: 1, // Pure universal: A+B=B (later wins), overlap=1 valid
+			description: "Wide glyph can overlap 1 column with short line",
 		},
 		{
 			name: "multi_line_shortest_constrains",

@@ -1,26 +1,25 @@
 package renderer
 
 import (
-	"errors"
+	"fmt"
+	"io"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
-// Render converts text to ASCII art using the font and options
-func Render(text string, font *parser.Font, opts *Options) (string, error) {
+// RenderTo writes ASCII art directly to the provided writer using the font and options.
+// This is more efficient than Render as it avoids allocating a string for the result.
+func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error {
 	if font == nil {
-		return "", errors.New("font cannot be nil")
+		return ErrNilFont
 	}
 
-	// Initialize render state
-	state := &renderState{
-		charHeight:      font.Height,
-		hardblank:       font.Hardblank,
-		outlineLenLimit: 10000, // Default large limit
-	}
-	
+	// Get render state from pool
+	state := acquireRenderState(font.Height, font.Hardblank)
+	defer releaseRenderState(state)
+
 	// Set trim whitespace option
 	if opts != nil {
 		state.trimWhitespace = opts.TrimWhitespace
@@ -50,17 +49,6 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 		}
 	}
 
-	// Initialize output lines with pre-allocated buffer (like figlet.c)
-	// This enables future buffer pooling and matches figlet.c's behavior
-	state.outputLine = make([][]rune, state.charHeight)
-	state.rowLengths = make([]int, state.charHeight)
-	for i := range state.outputLine {
-		// Pre-allocate full buffer size, not just capacity
-		state.outputLine[i] = make([]rune, state.outlineLenLimit)
-		// Note: in Go, rune zero value is 0, which works like C's null terminator
-		state.rowLengths[i] = 0 // Start with empty rows (like clearline in figlet.c)
-	}
-
 	// Process each character in the input text
 	for _, r := range text {
 		// Handle newlines and special characters
@@ -88,10 +76,10 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 				r = *opts.UnknownRune
 				glyph, exists = font.Characters[r]
 				if !exists {
-					return "", errors.New("unsupported rune: " + string(r))
+					return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
 				}
 			} else {
-				return "", errors.New("unsupported rune: " + string(r))
+				return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
 			}
 		}
 
@@ -102,8 +90,28 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 		}
 	}
 
-	// Convert output to string
-	return state.outputToString(), nil
+	// Write output directly to writer
+	return state.writeTo(w)
+}
+
+// Render converts text to ASCII art using the font and options.
+// It returns the rendered text as a string.
+func Render(text string, font *parser.Font, opts *Options) (string, error) {
+	var sb strings.Builder
+	// Pre-size the builder for efficiency
+	if font != nil {
+		// Estimate: ~10 chars per input char * height
+		estimatedSize := len(text) * 10 * font.Height
+		if estimatedSize > 0 && estimatedSize < 1<<20 { // Cap at 1MB
+			sb.Grow(estimatedSize)
+		}
+	}
+
+	err := RenderTo(&sb, text, font, opts)
+	if err != nil {
+		return "", err
+	}
+	return sb.String(), nil
 }
 
 // layoutToSmushMode converts figgo Layout bitmask to figlet.c smush mode
@@ -118,28 +126,28 @@ func layoutToSmushMode(layout int) int {
 
 	// Check fitting mode
 	if layout&(1<<6) != 0 { // FitKerning
-		smushMode |= SM_KERN
+		smushMode |= SMKern
 	} else if layout&(1<<7) != 0 { // FitSmushing
-		smushMode |= SM_SMUSH
-		
+		smushMode |= SMSmush
+
 		// Add smushing rules (bits 0-5)
 		if layout&(1<<0) != 0 { // RuleEqualChar
-			smushMode |= SM_EQUAL
+			smushMode |= SMEqual
 		}
 		if layout&(1<<1) != 0 { // RuleUnderscore
-			smushMode |= SM_LOWLINE
+			smushMode |= SMLowline
 		}
 		if layout&(1<<2) != 0 { // RuleHierarchy
-			smushMode |= SM_HIERARCHY
+			smushMode |= SMHierarchy
 		}
 		if layout&(1<<3) != 0 { // RuleOppositePair
-			smushMode |= SM_PAIR
+			smushMode |= SMPair
 		}
 		if layout&(1<<4) != 0 { // RuleBigX
-			smushMode |= SM_BIGX
+			smushMode |= SMBigX
 		}
 		if layout&(1<<5) != 0 { // RuleHardblank
-			smushMode |= SM_HARDBLANK
+			smushMode |= SMHardblank
 		}
 	}
 	// FitFullWidth = 0 means no bits set
@@ -153,14 +161,14 @@ func oldLayoutToSmushMode(oldLayout int) int {
 		// Full-width mode
 		return 0
 	} else if oldLayout == 0 {
-		// Kerning mode  
-		return SM_KERN
+		// Kerning mode
+		return SMKern
 	} else if oldLayout < 0 {
 		// Invalid, default to full-width
 		return 0
 	} else {
 		// Smushing mode with rules (1..63)
-		return SM_SMUSH | (oldLayout & 63)
+		return SMSmush | (oldLayout & 63)
 	}
 }
 
@@ -171,65 +179,85 @@ func (state *renderState) addChar(glyph []string) bool {
 	}
 
 	// Save previous width BEFORE updating current character (like figlet.c getletter)
-	state.previousCharWidth = state.currCharWidth
-	
+	state.previousCharWidth = state.currentCharWidth
+
 	// Set current character data
-	state.currChar = glyph
-	
+	state.currentChar = glyph
+
 	// Calculate character width - figlet.c uses ONLY first row's length
 	// currcharwidth = STRLEN(currchar[0]);
 	if len(glyph) > 0 {
-		state.currCharWidth = utf8.RuneCountInString(glyph[0])
+		state.currentCharWidth = getCachedRuneCount(glyph[0])
 	} else {
-		state.currCharWidth = 0
+		state.currentCharWidth = 0
 	}
 
 	// Calculate smush amount
-	smushAmount := state.smushAmt()
-	
+	smushAmount := state.smushAmount()
+
 	// Ensure smushAmount is not negative
 	if smushAmount < 0 {
 		smushAmount = 0
 	}
 
 	// Check if character fits
-	newLength := state.outlineLen + state.currCharWidth - smushAmount
+	newLength := state.outlineLen + state.currentCharWidth - smushAmount
 	if newLength > state.outlineLenLimit {
 		return false
 	}
 
+	// Get pooled buffer for rune conversion
+	runeBuffer := acquireRuneSlice()
+	defer releaseRuneSlice(runeBuffer)
+
 	// Add character to each row
 	for row := 0; row < state.charHeight; row++ {
-		rowRunes := []rune(glyph[row])
-		
+		// Convert to runes using pooled buffer for efficiency
+		rowStr := glyph[row]
+
+		// Ensure buffer is large enough
+		needed := len(rowStr) // Worst case: all ASCII
+		if cap(runeBuffer) < needed {
+			runeBuffer = make([]rune, needed)
+		} else {
+			runeBuffer = runeBuffer[:0] // Reset length
+		}
+
+		// Convert string to runes
+		for _, r := range rowStr {
+			runeBuffer = append(runeBuffer, r)
+		}
+		rowRunes := runeBuffer
+
 		if state.right2left != 0 {
 			// Right-to-left processing (exact figlet.c logic)
-			// Use pre-allocated temp buffer
-			tempLine := make([]rune, state.outlineLenLimit)
-			
+			// Get temp buffer from pool
+			tempLine := acquireTempLine()
+			defer releaseTempLine(tempLine)
+
 			// STRCPY(templine,currchar[row])
 			copy(tempLine, rowRunes)
-			
+
 			// Apply smushing at overlap positions
 			for k := 0; k < smushAmount; k++ {
 				if k < len(rowRunes) {
 					// Always assign result like figlet.c
-					tempLine[state.currCharWidth-smushAmount+k] = 
-						state.smushem(tempLine[state.currCharWidth-smushAmount+k], state.outputLine[row][k])
+					tempLine[state.currentCharWidth-smushAmount+k] =
+						state.smush(tempLine[state.currentCharWidth-smushAmount+k], state.outputLine[row][k])
 				}
 			}
-			
+
 			// STRCAT(templine,outputline[row]+smushamount)
 			if smushAmount < state.rowLengths[row] {
 				// Copy the part of outputline after smush region
-				copy(tempLine[state.currCharWidth:], state.outputLine[row][smushAmount:state.rowLengths[row]])
+				copy(tempLine[state.currentCharWidth:], state.outputLine[row][smushAmount:state.rowLengths[row]])
 			}
-			
+
 			// STRCPY(outputline[row],templine)
 			copy(state.outputLine[row], tempLine)
-			
+
 			// Update row length
-			state.rowLengths[row] = state.currCharWidth + state.rowLengths[row] - smushAmount
+			state.rowLengths[row] = state.currentCharWidth + state.rowLengths[row] - smushAmount
 		} else {
 			// Left-to-right processing (exact figlet.c logic)
 			// Apply smushing at overlap positions
@@ -242,7 +270,7 @@ func (state *renderState) addChar(glyph []string) bool {
 				// With pre-allocated buffer, we don't need to check outputLine bounds
 				if k < len(rowRunes) {
 					// Smush the characters - always assign result like figlet.c
-					state.outputLine[row][column] = state.smushem(state.outputLine[row][column], rowRunes[k])
+					state.outputLine[row][column] = state.smush(state.outputLine[row][column], rowRunes[k])
 				}
 			}
 
@@ -260,7 +288,7 @@ func (state *renderState) addChar(glyph []string) bool {
 	// Update output length and ensure all rows have consistent length
 	// figlet.c: outlinelen = STRLEN(outputline[0]);
 	state.outlineLen = newLength
-	
+
 	// Update all row lengths to match the new length
 	// This ensures consistency across all rows
 	for row := 0; row < state.charHeight; row++ {
@@ -269,31 +297,87 @@ func (state *renderState) addChar(glyph []string) bool {
 	return true
 }
 
-// outputToString converts the output lines to a final string
-func (state *renderState) outputToString() string {
+// writeTo writes the rendered output directly to an io.Writer.
+// This avoids allocating a string for the entire output.
+func (state *renderState) writeTo(w io.Writer) error {
 	if state.charHeight == 0 {
-		return ""
+		return nil
 	}
 
-	var result strings.Builder
+	// Get buffer from pool for UTF-8 encoding
+	buf := acquireWriteBuffer()
+	defer releaseWriteBuffer(buf)
+
+	// Ensure buffer has reasonable capacity
+	if cap(buf) < 256 {
+		buf = make([]byte, 0, 256)
+	}
+
 	for i, line := range state.outputLine {
 		// Extract only the actual content using row-specific length
-		// This emulates C's null-terminated string behavior
 		actualLine := line[:state.rowLengths[i]]
-		
-		// Replace hardblanks with spaces
-		lineStr := string(actualLine)
-		lineStr = strings.ReplaceAll(lineStr, string(state.hardblank), " ")
-		
-		// Optionally trim trailing spaces (figlet preserves them by default)
+
+		// Process the line, replacing hardblanks and optionally trimming
+		lastNonSpace := len(actualLine) - 1
 		if state.trimWhitespace {
-			lineStr = strings.TrimRight(lineStr, " ")
+			// Find last non-space character
+			for lastNonSpace >= 0 && actualLine[lastNonSpace] == ' ' {
+				lastNonSpace--
+			}
 		}
-		
-		result.WriteString(lineStr)
+
+		// Write runes to buffer, replacing hardblanks
+		buf = buf[:0] // Reset buffer
+		for j := 0; j <= lastNonSpace; j++ {
+			r := actualLine[j]
+			if r == state.hardblank {
+				r = ' '
+			}
+
+			// Append rune to buffer
+			buf = utf8.AppendRune(buf, r)
+
+			// Flush buffer if getting full (leave room for max rune size)
+			if len(buf) > 250 {
+				if _, err := w.Write(buf); err != nil {
+					return err
+				}
+				buf = buf[:0]
+			}
+		}
+
+		// Write any remaining buffer content
+		if len(buf) > 0 {
+			if _, err := w.Write(buf); err != nil {
+				return err
+			}
+		}
+
+		// Write newline between lines (but not after last line)
 		if i < len(state.outputLine)-1 {
-			result.WriteString("\n")
+			if _, err := w.Write([]byte{'\n'}); err != nil {
+				return err
+			}
 		}
 	}
-	return result.String()
+
+	return nil
+}
+
+// outputToString converts the output lines to a final string.
+// Deprecated: Use writeTo for better performance.
+func (state *renderState) outputToString() string {
+	var sb strings.Builder
+	// Pre-calculate capacity
+	maxWidth := 0
+	for _, len := range state.rowLengths {
+		if len > maxWidth {
+			maxWidth = len
+		}
+	}
+	sb.Grow(calculateBuilderCapacity(state.charHeight, maxWidth))
+
+	// Use writeTo to avoid duplication
+	_ = state.writeTo(&sb) // strings.Builder's Write never returns an error
+	return sb.String()
 }

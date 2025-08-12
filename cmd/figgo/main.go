@@ -25,11 +25,11 @@ func main() {
 
 func run() int {
 	var (
-		fontPath        string
-		unknownRune     string
-		showVersion     bool
-		showHelp        bool
-		trimWhitespace  bool
+		fontPath       string
+		unknownRune    string
+		showVersion    bool
+		showHelp       bool
+		trimWhitespace bool
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
@@ -86,7 +86,7 @@ func run() int {
 
 	// Render text with font's default layout (no override)
 	text := strings.Join(args, " ")
-	
+
 	// Build render options
 	renderOpts := []figgo.Option{
 		figgo.WithUnknownRune(unknownRuneValue),
@@ -94,7 +94,7 @@ func run() int {
 	if trimWhitespace {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))
 	}
-	
+
 	output, err := figgo.Render(text, font, renderOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering text: %v\n", err)

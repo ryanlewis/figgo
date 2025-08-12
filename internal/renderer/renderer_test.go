@@ -286,47 +286,47 @@ func TestLayoutToSmushMode(t *testing.T) {
 		{
 			name:   "kerning mode",
 			layout: 1 << 6, // 64
-			want:   SM_KERN,
+			want:   SMKern,
 		},
 		{
 			name:   "smushing mode with no rules",
 			layout: 1 << 7, // 128
-			want:   SM_SMUSH,
+			want:   SMSmush,
 		},
 		{
 			name:   "smushing with equal char rule",
 			layout: (1 << 7) | (1 << 0), // 128 + 1
-			want:   SM_SMUSH | SM_EQUAL,
+			want:   SMSmush | SMEqual,
 		},
 		{
 			name:   "smushing with underscore rule",
 			layout: (1 << 7) | (1 << 1), // 128 + 2
-			want:   SM_SMUSH | SM_LOWLINE,
+			want:   SMSmush | SMLowline,
 		},
 		{
 			name:   "smushing with hierarchy rule",
 			layout: (1 << 7) | (1 << 2), // 128 + 4
-			want:   SM_SMUSH | SM_HIERARCHY,
+			want:   SMSmush | SMHierarchy,
 		},
 		{
 			name:   "smushing with opposite pair rule",
 			layout: (1 << 7) | (1 << 3), // 128 + 8
-			want:   SM_SMUSH | SM_PAIR,
+			want:   SMSmush | SMPair,
 		},
 		{
 			name:   "smushing with big X rule",
 			layout: (1 << 7) | (1 << 4), // 128 + 16
-			want:   SM_SMUSH | SM_BIGX,
+			want:   SMSmush | SMBigX,
 		},
 		{
 			name:   "smushing with hardblank rule",
 			layout: (1 << 7) | (1 << 5), // 128 + 32
-			want:   SM_SMUSH | SM_HARDBLANK,
+			want:   SMSmush | SMHardblank,
 		},
 		{
 			name:   "smushing with all rules",
 			layout: (1 << 7) | 63, // 128 + 63
-			want:   SM_SMUSH | 63,
+			want:   SMSmush | 63,
 		},
 	}
 
@@ -354,17 +354,17 @@ func TestOldLayoutToSmushMode(t *testing.T) {
 		{
 			name:      "kerning mode (0)",
 			oldLayout: 0,
-			want:      SM_KERN,
+			want:      SMKern,
 		},
 		{
 			name:      "smushing with rules (1)",
 			oldLayout: 1,
-			want:      SM_SMUSH | 1,
+			want:      SMSmush | 1,
 		},
 		{
 			name:      "smushing with all rules (63)",
 			oldLayout: 63,
-			want:      SM_SMUSH | 63,
+			want:      SMSmush | 63,
 		},
 		{
 			name:      "invalid negative value",

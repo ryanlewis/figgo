@@ -104,7 +104,7 @@ func TestMissingASCIIGlyph(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error when '?' replacement is available: %v", err)
 	}
-	
+
 	// Should contain '?' as replacement for 't'
 	if !strings.Contains(output, "?") {
 		t.Errorf("expected '?' replacement for missing 't', got: %s", output)

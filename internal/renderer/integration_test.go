@@ -92,7 +92,7 @@ func createTestFont() *parser.Font {
 
 func TestIntegrationFullWidth(t *testing.T) {
 	font := createTestFont()
-	
+
 	tests := []struct {
 		name string
 		text string
@@ -141,7 +141,7 @@ func TestIntegrationFullWidth(t *testing.T) {
 func TestIntegrationKerning(t *testing.T) {
 	font := createTestFont()
 	font.OldLayout = 0 // Kerning mode
-	
+
 	tests := []struct {
 		name string
 		text string
@@ -183,7 +183,7 @@ func TestIntegrationKerning(t *testing.T) {
 
 func TestIntegrationSmushing(t *testing.T) {
 	font := createTestFont()
-	
+
 	tests := []struct {
 		name   string
 		text   string
@@ -193,31 +193,31 @@ func TestIntegrationSmushing(t *testing.T) {
 		{
 			name:   "smushing with equal rule",
 			text:   "||",
-			layout: (1 << 7) | SM_EQUAL, // Smushing with equal rule
+			layout: (1 << 7) | SMEqual, // Smushing with equal rule
 			want:   "|\n|\n|",
 		},
 		{
 			name:   "smushing with underscore rule",
 			text:   "_|",
-			layout: (1 << 7) | SM_LOWLINE, // Smushing with underscore rule
+			layout: (1 << 7) | SMLowline, // Smushing with underscore rule
 			want:   " |\n |\n_|",
 		},
 		{
 			name:   "smushing with hierarchy rule",
 			text:   "|/",
-			layout: (1 << 7) | SM_HIERARCHY, // Smushing with hierarchy rule
+			layout: (1 << 7) | SMHierarchy, // Smushing with hierarchy rule
 			want:   " /\n/ \n/ ",
 		},
 		{
 			name:   "smushing with pair rule",
 			text:   "[]",
-			layout: (1 << 7) | SM_PAIR, // Smushing with pair rule
+			layout: (1 << 7) | SMPair, // Smushing with pair rule
 			want:   "|\n|\n|",
 		},
 		{
 			name:   "smushing with big X rule",
 			text:   "/\\",
-			layout: (1 << 7) | SM_BIGX, // Smushing with big X rule
+			layout: (1 << 7) | SMBigX, // Smushing with big X rule
 			want:   " |\n | \n| ",
 		},
 	}
@@ -240,7 +240,7 @@ func TestIntegrationSmushing(t *testing.T) {
 func TestIntegrationRTL(t *testing.T) {
 	font := createTestFont()
 	font.PrintDirection = 1 // RTL
-	
+
 	tests := []struct {
 		name string
 		text string
@@ -282,7 +282,7 @@ func TestIntegrationRTL(t *testing.T) {
 
 func TestIntegrationComplexScenarios(t *testing.T) {
 	font := createTestFont()
-	
+
 	tests := []struct {
 		name string
 		text string
@@ -345,23 +345,23 @@ func TestIntegrationComplexScenarios(t *testing.T) {
 
 func TestIntegrationLargeText(t *testing.T) {
 	font := createTestFont()
-	
+
 	// Test with a longer string
 	text := "HELLO WORLD"
 	opts := &Options{Layout: 0} // Full width
-	
+
 	got, err := Render(text, font, opts)
 	if err != nil {
 		t.Errorf("Render() error = %v", err)
 		return
 	}
-	
+
 	// Check that output has correct number of lines
 	lines := strings.Split(got, "\n")
 	if len(lines) != font.Height {
 		t.Errorf("Expected %d lines, got %d", font.Height, len(lines))
 	}
-	
+
 	// Check that all lines have same length
 	firstLen := len(lines[0])
 	for i, line := range lines {
@@ -374,7 +374,7 @@ func TestIntegrationLargeText(t *testing.T) {
 func BenchmarkRenderFullWidth(b *testing.B) {
 	font := createTestFont()
 	opts := &Options{Layout: 0}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Render("HELLO WORLD", font, opts)
@@ -384,7 +384,7 @@ func BenchmarkRenderFullWidth(b *testing.B) {
 func BenchmarkRenderKerning(b *testing.B) {
 	font := createTestFont()
 	font.OldLayout = 0
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Render("HELLO WORLD", font, nil)
@@ -394,17 +394,17 @@ func BenchmarkRenderKerning(b *testing.B) {
 func BenchmarkRenderSmushing(b *testing.B) {
 	font := createTestFont()
 	opts := &Options{Layout: (1 << 7) | 63} // All smushing rules
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Render("HELLO WORLD", font, opts)
 	}
 }
 
-func BenchmarkRenderRTL(b *testing.B) {
+func BenchmarkRenderRTLDirection(b *testing.B) {
 	font := createTestFont()
 	font.PrintDirection = 1
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Render("HELLO WORLD", font, nil)

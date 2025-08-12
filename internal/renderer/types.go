@@ -1,19 +1,31 @@
 package renderer
 
+import "errors"
+
+// Error definitions for the renderer package
+var (
+	// ErrNilFont is returned when a nil font is provided to Render
+	ErrNilFont = errors.New("font cannot be nil")
+	// ErrUnsupportedRune is returned when a character is not found in the font
+	ErrUnsupportedRune = errors.New("unsupported rune")
+	// ErrInvalidGlyphHeight is returned when a glyph has incorrect height
+	ErrInvalidGlyphHeight = errors.New("invalid glyph height")
+)
+
 // Smushing mode constants from figlet.c
 const (
-	// SM_SMUSH indicates smushing mode is active
-	SM_SMUSH = 128
-	// SM_KERN indicates kerning mode is active  
-	SM_KERN = 64
-	
+	// SMSmush indicates smushing mode is active
+	SMSmush = 128
+	// SMKern indicates kerning mode is active
+	SMKern = 64
+
 	// Smushing rules (bits 0-5)
-	SM_EQUAL     = 1  // Equal character rule
-	SM_LOWLINE   = 2  // Underscore rule
-	SM_HIERARCHY = 4  // Hierarchy rule
-	SM_PAIR      = 8  // Opposite pair rule  
-	SM_BIGX      = 16 // Big X rule
-	SM_HARDBLANK = 32 // Hardblank rule
+	SMEqual     = 1  // Equal character rule
+	SMLowline   = 2  // Underscore rule
+	SMHierarchy = 4  // Hierarchy rule
+	SMPair      = 8  // Opposite pair rule
+	SMBigX      = 16 // Big X rule
+	SMHardblank = 32 // Hardblank rule
 )
 
 // Options contains rendering options passed from the main package
@@ -29,29 +41,25 @@ type Options struct {
 }
 
 // renderState holds the current rendering state, similar to figlet.c globals
+// Fields are ordered for optimal memory alignment (largest to smallest)
 type renderState struct {
-	// Current output line being built (one per font height)
-	outputLine [][]rune
-	// Length of each row (emulates C's strlen per row)
-	rowLengths []int
-	// Length of current output line  
-	outlineLen int
-	// Maximum line length allowed
-	outlineLenLimit int
-	// Current character being processed
-	currChar []string
-	// Width of current character
-	currCharWidth int
-	// Width of previous character
-	previousCharWidth int
-	// Character height from font
-	charHeight int
-	// Print direction (0=LTR, 1=RTL)
-	right2left int
-	// Smushing mode calculated from layout
-	smushMode int
-	// Hardblank character from font
-	hardblank rune
-	// Whether to trim trailing whitespace
-	trimWhitespace bool
+	// Slice fields (24 bytes each on 64-bit)
+	outputLine  [][]rune // Current output line being built (one per font height)
+	rowLengths  []int    // Length of each row (emulates C's strlen per row)
+	currentChar []string // Current character being processed
+
+	// int fields (8 bytes each on 64-bit)
+	outlineLen        int // Length of current output line
+	outlineLenLimit   int // Maximum line length allowed
+	currentCharWidth  int // Width of current character
+	previousCharWidth int // Width of previous character
+	charHeight        int // Character height from font
+	right2left        int // Print direction (0=LTR, 1=RTL)
+	smushMode         int // Smushing mode calculated from layout
+
+	// rune field (4 bytes)
+	hardblank rune // Hardblank character from font
+
+	// bool field (1 byte)
+	trimWhitespace bool // Whether to trim trailing whitespace
 }

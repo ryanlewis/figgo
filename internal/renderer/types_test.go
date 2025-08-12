@@ -11,14 +11,14 @@ func TestConstants(t *testing.T) {
 		got  int
 		want int
 	}{
-		{"SM_SMUSH", SM_SMUSH, 128},
-		{"SM_KERN", SM_KERN, 64},
-		{"SM_EQUAL", SM_EQUAL, 1},
-		{"SM_LOWLINE", SM_LOWLINE, 2},
-		{"SM_HIERARCHY", SM_HIERARCHY, 4},
-		{"SM_PAIR", SM_PAIR, 8},
-		{"SM_BIGX", SM_BIGX, 16},
-		{"SM_HARDBLANK", SM_HARDBLANK, 32},
+		{"SMSmush", SMSmush, 128},
+		{"SMKern", SMKern, 64},
+		{"SMEqual", SMEqual, 1},
+		{"SMLowline", SMLowline, 2},
+		{"SMHierarchy", SMHierarchy, 4},
+		{"SMPair", SMPair, 8},
+		{"SMBigX", SMBigX, 16},
+		{"SMHardblank", SMHardblank, 32},
 	}
 
 	for _, tt := range tests {
@@ -89,11 +89,11 @@ func TestRenderStateStruct(t *testing.T) {
 		if state.outlineLenLimit != 0 {
 			t.Errorf("outlineLenLimit = %v, want 0", state.outlineLenLimit)
 		}
-		if state.currChar != nil {
-			t.Errorf("currChar = %v, want nil", state.currChar)
+		if state.currentChar != nil {
+			t.Errorf("currentChar = %v, want nil", state.currentChar)
 		}
-		if state.currCharWidth != 0 {
-			t.Errorf("currCharWidth = %v, want 0", state.currCharWidth)
+		if state.currentCharWidth != 0 {
+			t.Errorf("currentCharWidth = %v, want 0", state.currentCharWidth)
 		}
 		if state.previousCharWidth != 0 {
 			t.Errorf("previousCharWidth = %v, want 0", state.previousCharWidth)
@@ -124,12 +124,12 @@ func TestRenderStateStruct(t *testing.T) {
 			rowLengths:        []int{4, 4},
 			outlineLen:        10,
 			outlineLenLimit:   100,
-			currChar:          []string{"A", "B"},
-			currCharWidth:     1,
+			currentChar:       []string{"A", "B"},
+			currentCharWidth:  1,
 			previousCharWidth: 2,
 			charHeight:        2,
 			right2left:        1,
-			smushMode:         SM_SMUSH | SM_EQUAL,
+			smushMode:         SMSmush | SMEqual,
 			hardblank:         '$',
 			trimWhitespace:    true,
 		}
@@ -146,11 +146,11 @@ func TestRenderStateStruct(t *testing.T) {
 		if state.outlineLenLimit != 100 {
 			t.Errorf("outlineLenLimit = %v, want 100", state.outlineLenLimit)
 		}
-		if len(state.currChar) != 2 {
-			t.Errorf("len(currChar) = %v, want 2", len(state.currChar))
+		if len(state.currentChar) != 2 {
+			t.Errorf("len(currentChar) = %v, want 2", len(state.currentChar))
 		}
-		if state.currCharWidth != 1 {
-			t.Errorf("currCharWidth = %v, want 1", state.currCharWidth)
+		if state.currentCharWidth != 1 {
+			t.Errorf("currentCharWidth = %v, want 1", state.currentCharWidth)
 		}
 		if state.previousCharWidth != 2 {
 			t.Errorf("previousCharWidth = %v, want 2", state.previousCharWidth)
@@ -161,8 +161,8 @@ func TestRenderStateStruct(t *testing.T) {
 		if state.right2left != 1 {
 			t.Errorf("right2left = %v, want 1", state.right2left)
 		}
-		if state.smushMode != (SM_SMUSH | SM_EQUAL) {
-			t.Errorf("smushMode = %v, want %v", state.smushMode, SM_SMUSH|SM_EQUAL)
+		if state.smushMode != (SMSmush | SMEqual) {
+			t.Errorf("smushMode = %v, want %v", state.smushMode, SMSmush|SMEqual)
 		}
 		if state.hardblank != '$' {
 			t.Errorf("hardblank = %v, want '$'", state.hardblank)
@@ -176,66 +176,66 @@ func TestRenderStateStruct(t *testing.T) {
 func TestSmushModeCombinations(t *testing.T) {
 	// Test that smush mode combinations work correctly
 	tests := []struct {
-		name string
-		mode int
+		name     string
+		mode     int
 		hasSmush bool
-		hasKern bool
-		rules []int
+		hasKern  bool
+		rules    []int
 	}{
 		{
-			name: "no mode",
-			mode: 0,
+			name:     "no mode",
+			mode:     0,
 			hasSmush: false,
-			hasKern: false,
-			rules: []int{},
+			hasKern:  false,
+			rules:    []int{},
 		},
 		{
-			name: "kern only",
-			mode: SM_KERN,
+			name:     "kern only",
+			mode:     SMKern,
 			hasSmush: false,
-			hasKern: true,
-			rules: []int{},
+			hasKern:  true,
+			rules:    []int{},
 		},
 		{
-			name: "smush only",
-			mode: SM_SMUSH,
+			name:     "smush only",
+			mode:     SMSmush,
 			hasSmush: true,
-			hasKern: false,
-			rules: []int{},
+			hasKern:  false,
+			rules:    []int{},
 		},
 		{
-			name: "smush with one rule",
-			mode: SM_SMUSH | SM_EQUAL,
+			name:     "smush with one rule",
+			mode:     SMSmush | SMEqual,
 			hasSmush: true,
-			hasKern: false,
-			rules: []int{SM_EQUAL},
+			hasKern:  false,
+			rules:    []int{SMEqual},
 		},
 		{
-			name: "smush with multiple rules",
-			mode: SM_SMUSH | SM_EQUAL | SM_LOWLINE | SM_HIERARCHY,
+			name:     "smush with multiple rules",
+			mode:     SMSmush | SMEqual | SMLowline | SMHierarchy,
 			hasSmush: true,
-			hasKern: false,
-			rules: []int{SM_EQUAL, SM_LOWLINE, SM_HIERARCHY},
+			hasKern:  false,
+			rules:    []int{SMEqual, SMLowline, SMHierarchy},
 		},
 		{
-			name: "smush with all rules",
-			mode: SM_SMUSH | SM_EQUAL | SM_LOWLINE | SM_HIERARCHY | SM_PAIR | SM_BIGX | SM_HARDBLANK,
+			name:     "smush with all rules",
+			mode:     SMSmush | SMEqual | SMLowline | SMHierarchy | SMPair | SMBigX | SMHardblank,
 			hasSmush: true,
-			hasKern: false,
-			rules: []int{SM_EQUAL, SM_LOWLINE, SM_HIERARCHY, SM_PAIR, SM_BIGX, SM_HARDBLANK},
+			hasKern:  false,
+			rules:    []int{SMEqual, SMLowline, SMHierarchy, SMPair, SMBigX, SMHardblank},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Check if smush mode is set
-			hasSmush := (tt.mode & SM_SMUSH) != 0
+			hasSmush := (tt.mode & SMSmush) != 0
 			if hasSmush != tt.hasSmush {
 				t.Errorf("hasSmush = %v, want %v", hasSmush, tt.hasSmush)
 			}
 
 			// Check if kern mode is set
-			hasKern := (tt.mode & SM_KERN) != 0
+			hasKern := (tt.mode & SMKern) != 0
 			if hasKern != tt.hasKern {
 				t.Errorf("hasKern = %v, want %v", hasKern, tt.hasKern)
 			}
@@ -253,34 +253,34 @@ func TestSmushModeCombinations(t *testing.T) {
 func TestLayoutBitmaskConversion(t *testing.T) {
 	// Test that layout bitmasks convert correctly
 	tests := []struct {
-		name string
-		layout int
+		name         string
+		layout       int
 		expectedMode int
 	}{
 		{
-			name: "full width",
-			layout: 0,
+			name:         "full width",
+			layout:       0,
 			expectedMode: 0,
 		},
 		{
-			name: "kerning",
-			layout: 1 << 6,
-			expectedMode: SM_KERN,
+			name:         "kerning",
+			layout:       1 << 6,
+			expectedMode: SMKern,
 		},
 		{
-			name: "smushing no rules",
-			layout: 1 << 7,
-			expectedMode: SM_SMUSH,
+			name:         "smushing no rules",
+			layout:       1 << 7,
+			expectedMode: SMSmush,
 		},
 		{
-			name: "smushing with equal rule",
-			layout: (1 << 7) | 1,
-			expectedMode: SM_SMUSH | SM_EQUAL,
+			name:         "smushing with equal rule",
+			layout:       (1 << 7) | 1,
+			expectedMode: SMSmush | SMEqual,
 		},
 		{
-			name: "smushing with all rules",
-			layout: (1 << 7) | 63,
-			expectedMode: SM_SMUSH | 63,
+			name:         "smushing with all rules",
+			layout:       (1 << 7) | 63,
+			expectedMode: SMSmush | 63,
 		},
 	}
 

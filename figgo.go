@@ -387,7 +387,49 @@ func convertParserFont(pf *parser.Font) (*Font, error) {
 	}, nil
 }
 
+// RenderTo writes ASCII art directly to the provided writer using the specified font and options.
+// This is more efficient than Render as it avoids allocating a string for the result.
+//
+// Example:
+//
+//	var buf bytes.Buffer
+//	err := figgo.RenderTo(&buf, "Hello", font, figgo.WithLayout(figgo.LayoutKerning))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Print(buf.String())
+func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
+	if f == nil {
+		return ErrUnknownFont
+	}
+	options := defaultOptions()
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	// Default to font's layout and direction if not specified
+	if options.layout == nil {
+		l := f.Layout
+		options.layout = &l
+	}
+	if options.printDirection == nil {
+		d := f.PrintDirection
+		options.printDirection = &d
+	}
+
+	// Validate layout options
+	if err := validateLayout(options); err != nil {
+		return err
+	}
+	// Convert public Font back to internal parser.Font for renderer
+	pf := convertToParserFont(f)
+	return renderer.RenderTo(w, text, pf, options.toInternal())
+}
+
 // Render converts text to ASCII art using the specified font and options.
+// It returns the rendered text as a string.
+//
+// For better performance when writing to an io.Writer, use RenderTo instead.
 func Render(text string, f *Font, opts ...Option) (string, error) {
 	if f == nil {
 		return "", ErrUnknownFont

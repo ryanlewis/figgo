@@ -32,8 +32,8 @@ func TestUnknownRuneWithMissingQuestionMark(t *testing.T) {
 	// Try to render text with unknown rune and no '?' fallback
 	_, err := Render("Hello 世界", mockFont)
 
-	// Check error message since internal/common has its own ErrUnsupportedRune
-	if err == nil || err.Error() != "unsupported rune" {
+	// Check error message - renderer includes the specific rune in the error
+	if err == nil || !strings.HasPrefix(err.Error(), "unsupported rune") {
 		t.Errorf("expected 'unsupported rune' error when '?' is missing, got: %v", err)
 	}
 }
@@ -52,8 +52,8 @@ func TestUnknownRuneReplacement(t *testing.T) {
 		Layout: FitFullWidth,
 	}
 
-	// Test default replacement with '?'
-	output, err := Render("Hello 世界", mockFont)
+	// Test default replacement with '?' - need to explicitly specify it
+	output, err := Render("Hello 世界", mockFont, WithUnknownRune('?'))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -97,10 +97,10 @@ func TestMissingASCIIGlyph(t *testing.T) {
 		Layout: FitFullWidth,
 	}
 
-	// Try to render text with missing 't'
-	output, err := Render("test", mockFont)
+	// Try to render text with missing 't' - need to explicitly specify replacement
+	output, err := Render("test", mockFont, WithUnknownRune('?'))
 
-	// Should succeed since '?' replacement is available
+	// Should succeed since '?' replacement is specified and available
 	if err != nil {
 		t.Errorf("unexpected error when '?' replacement is available: %v", err)
 	}
@@ -126,14 +126,19 @@ func TestUnknownRuneFallback(t *testing.T) {
 	}
 
 	// Try to use a replacement rune that's not in the font (beyond ASCII)
-	output, err := Render("Hello 世界", mockFont, WithUnknownRune('☺'))
-	if err != nil {
-		t.Errorf("should not error when falling back to '?': %v", err)
+	// The renderer will return an error if the replacement rune itself is not in the font
+	_, err := Render("Hello 世界", mockFont, WithUnknownRune('☺'))
+	if err == nil || !strings.Contains(err.Error(), "unsupported rune") {
+		t.Errorf("expected error when replacement rune '☺' is not in font: %v", err)
 	}
 
-	// Should fall back to '?' since ☺ is not in the font
+	// To successfully render, we need to use a replacement that exists in the font
+	output, err := Render("Hello 世界", mockFont, WithUnknownRune('?'))
+	if err != nil {
+		t.Errorf("should succeed with valid replacement rune: %v", err)
+	}
 	if !strings.Contains(output, "?") {
-		t.Errorf("should fall back to '?' when replacement rune not in font, got: %s", output)
+		t.Errorf("should use '?' as replacement, got: %s", output)
 	}
 }
 

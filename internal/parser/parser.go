@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -67,14 +68,53 @@ func computeGlyphTrims(glyph []string) []GlyphTrim {
 	return trims
 }
 
+// GetCharacterTrims returns the precomputed trim data for a character,
+// computing it lazily if necessary. This is thread-safe.
+func (f *Font) GetCharacterTrims(r rune) ([]GlyphTrim, bool) {
+	// Fast path: check if already computed (with read lock)
+	f.trimsMu.RLock()
+	if f.trimsComputed[r] {
+		trims := f.CharacterTrims[r]
+		f.trimsMu.RUnlock()
+		return trims, true
+	}
+	f.trimsMu.RUnlock()
+
+	// Slow path: compute the trims (with write lock)
+	f.trimsMu.Lock()
+	defer f.trimsMu.Unlock()
+
+	// Double-check in case another goroutine computed it
+	if f.trimsComputed[r] {
+		return f.CharacterTrims[r], true
+	}
+
+	// Check if the character exists
+	glyph, exists := f.Characters[r]
+	if !exists {
+		return nil, false
+	}
+
+	// Compute and cache the trims
+	trims := computeGlyphTrims(glyph)
+	f.CharacterTrims[r] = trims
+	f.trimsComputed[r] = true
+
+	return trims, true
+}
+
 // Font represents a parsed FIGfont with all its metadata and character glyphs.
 type Font struct {
 	// Characters maps ASCII codes to their glyph representations
 	Characters map[rune][]string
 
 	// CharacterTrims maps ASCII characters to their precomputed trim data per row
-	// This is computed during parsing for performance
+	// This is computed lazily on first access for better parse performance
 	CharacterTrims map[rune][]GlyphTrim
+
+	// trimsComputed tracks which glyphs have had their trims computed
+	trimsComputed map[rune]bool
+	trimsMu       sync.RWMutex // Protects trimsComputed and CharacterTrims for lazy computation
 
 	// Comments contains the font comments
 	Comments []string
@@ -118,9 +158,9 @@ type Font struct {
 
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
 func Parse(r io.Reader) (*Font, error) {
-	scanner := bufio.NewScanner(r)
-	// Increase buffer size for large fonts (default is 64KB, set max to 4MB)
-	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
+	// Use pooled scanner with pooled buffer
+	scanner, buf := createPooledScanner(r)
+	defer releaseScannerBuffer(buf)
 
 	// Parse header and comments first
 	font, err := parseHeaderWithScanner(scanner)
@@ -140,9 +180,9 @@ func Parse(r io.Reader) (*Font, error) {
 // It reads the signature line, validates all required fields, and reads
 // the specified number of comment lines.
 func ParseHeader(r io.Reader) (*Font, error) {
-	scanner := bufio.NewScanner(r)
-	// Increase buffer size for large fonts
-	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
+	// Use pooled scanner with pooled buffer
+	scanner, buf := createPooledScanner(r)
+	defer releaseScannerBuffer(buf)
 	return parseHeaderWithScanner(scanner)
 }
 
@@ -193,6 +233,7 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 	// Initialize Characters map with capacity for ASCII (95) + German (7) + some extras
 	font.Characters = make(map[rune][]string, 128)
 	font.CharacterTrims = make(map[rune][]GlyphTrim, 128)
+	font.trimsComputed = make(map[rune]bool, 128)
 
 	return font, nil
 }
@@ -367,7 +408,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
-	font.CharacterTrims[' '] = computeGlyphTrims(spaceGlyph)
+	// Don't compute trims immediately - do it lazily
 	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
@@ -381,7 +422,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
+		// Don't compute trims immediately - do it lazily
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -398,7 +439,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
+		// Don't compute trims immediately - do it lazily
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -464,8 +505,18 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 
 // parseGlyph parses a single character glyph
 func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
-	glyph = make([]string, 0, height)
+	glyph = acquireGlyphSlice(height)
+	warnings = acquireWarnings()
 	width := -1 // -1 indicates width not yet set
+
+	// Ensure we release the warnings slice if we don't use it
+	needsWarnings := false
+	defer func() {
+		if !needsWarnings && len(warnings) == 0 {
+			releaseWarnings(warnings)
+			warnings = nil
+		}
+	}()
 
 	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
@@ -489,6 +540,7 @@ func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings 
 		bodyWidth := utf8.RuneCountInString(body)
 		if bodyWidth > maxLength {
 			// Advisory warning only - many real fonts exceed their stated MaxLength
+			needsWarnings = true
 			warnings = append(warnings,
 				fmt.Sprintf("line %d width (%d) exceeds MaxLength (%d)",
 					row+1, bodyWidth, maxLength))

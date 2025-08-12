@@ -12,7 +12,7 @@ var (
 	ErrInvalidGlyphHeight = errors.New("invalid glyph height")
 )
 
-// Smushing mode constants from figlet.c
+// Smushing mode constants
 const (
 	// SMSmush indicates smushing mode is active
 	SMSmush = 128
@@ -40,12 +40,12 @@ type Options struct {
 	TrimWhitespace bool
 }
 
-// renderState holds the current rendering state, similar to figlet.c globals
+// renderState holds the current rendering state.
 // Fields are ordered for optimal memory alignment (largest to smallest)
 type renderState struct {
 	// Slice fields (24 bytes each on 64-bit)
 	outputLine  [][]rune // Current output line being built (one per font height)
-	rowLengths  []int    // Length of each row (emulates C's strlen per row)
+	rowLengths  []int    // Length of each row
 	currentChar []string // Current character being processed
 
 	// int fields (8 bytes each on 64-bit)

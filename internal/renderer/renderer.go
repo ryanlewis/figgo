@@ -37,7 +37,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		state.smushMode = layoutToSmushMode(opts.Layout)
 	} else {
 		// Use font's default layout
-		// figlet.c uses FullLayout when available, falls back to OldLayout
+		// Use FullLayout when available, fall back to OldLayout
 		if font.FullLayoutSet && font.FullLayout != 0 {
 			// Extract horizontal layout from FullLayout
 			// FullLayout contains both horizontal (bits 0-7) and vertical (bits 8-14) layout
@@ -114,7 +114,7 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	return sb.String(), nil
 }
 
-// layoutToSmushMode converts figgo Layout bitmask to figlet.c smush mode
+// layoutToSmushMode converts figgo Layout bitmask to smush mode
 func layoutToSmushMode(layout int) int {
 	// Layout constants from figgo/layout.go:
 	// FitFullWidth = 0
@@ -178,14 +178,13 @@ func (state *renderState) addChar(glyph []string) bool {
 		return false // Invalid glyph height
 	}
 
-	// Save previous width BEFORE updating current character (like figlet.c getletter)
+	// Save previous width BEFORE updating current character
 	state.previousCharWidth = state.currentCharWidth
 
 	// Set current character data
 	state.currentChar = glyph
 
-	// Calculate character width - figlet.c uses ONLY first row's length
-	// currcharwidth = STRLEN(currchar[0]);
+	// Calculate character width using only first row's length
 	if len(glyph) > 0 {
 		state.currentCharWidth = getCachedRuneCount(glyph[0])
 	} else {
@@ -230,36 +229,36 @@ func (state *renderState) addChar(glyph []string) bool {
 		rowRunes := runeBuffer
 
 		if state.right2left != 0 {
-			// Right-to-left processing (exact figlet.c logic)
+			// Right-to-left processing
 			// Get temp buffer from pool
 			tempLine := acquireTempLine()
 			defer releaseTempLine(tempLine)
 
-			// STRCPY(templine,currchar[row])
+			// Copy current character to temp buffer
 			copy(tempLine, rowRunes)
 
 			// Apply smushing at overlap positions
 			for k := 0; k < smushAmount; k++ {
 				if k < len(rowRunes) {
-					// Always assign result like figlet.c
+					// Always assign result
 					tempLine[state.currentCharWidth-smushAmount+k] =
 						state.smush(tempLine[state.currentCharWidth-smushAmount+k], state.outputLine[row][k])
 				}
 			}
 
-			// STRCAT(templine,outputline[row]+smushamount)
+			// Append remaining output line after smush region
 			if smushAmount < state.rowLengths[row] {
 				// Copy the part of outputline after smush region
 				copy(tempLine[state.currentCharWidth:], state.outputLine[row][smushAmount:state.rowLengths[row]])
 			}
 
-			// STRCPY(outputline[row],templine)
+			// Copy temp buffer back to output line
 			copy(state.outputLine[row], tempLine)
 
 			// Update row length
 			state.rowLengths[row] = state.currentCharWidth + state.rowLengths[row] - smushAmount
 		} else {
-			// Left-to-right processing (exact figlet.c logic)
+			// Left-to-right processing
 			// Apply smushing at overlap positions
 			for k := 0; k < smushAmount; k++ {
 				column := state.outlineLen - smushAmount + k
@@ -269,12 +268,12 @@ func (state *renderState) addChar(glyph []string) bool {
 				// Use currchar[row][k] directly - no adjustment for leading spaces
 				// With pre-allocated buffer, we don't need to check outputLine bounds
 				if k < len(rowRunes) {
-					// Smush the characters - always assign result like figlet.c
+					// Smush the characters - always assign result
 					state.outputLine[row][column] = state.smush(state.outputLine[row][column], rowRunes[k])
 				}
 			}
 
-			// STRCAT(outputline[row],currchar[row]+smushamount)
+			// Append character after smush region to output
 			// Copy the part of the new character after the smush region
 			if smushAmount < len(rowRunes) {
 				remaining := rowRunes[smushAmount:]
@@ -286,7 +285,7 @@ func (state *renderState) addChar(glyph []string) bool {
 	}
 
 	// Update output length and ensure all rows have consistent length
-	// figlet.c: outlinelen = STRLEN(outputline[0]);
+	// Update output length
 	state.outlineLen = newLength
 
 	// Update all row lengths to match the new length

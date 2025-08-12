@@ -1,8 +1,7 @@
 package renderer
 
-// smush implements the character smushing logic from figlet.c (lines 1358-1434)
-// Given 2 characters, attempts to smush them into 1, according to smushmode.
-// Returns smushed character or 0 if no smushing can be done.
+// smush attempts to combine two characters into one according to the smush mode.
+// Returns the smushed character or 0 if no smushing can be done.
 func (state *renderState) smush(lch, rch rune) rune {
 	// Handle spaces first
 	if lch == ' ' {
@@ -157,8 +156,8 @@ func (state *renderState) smush(lch, rch rune) rune {
 	return 0
 }
 
-// smushAmount returns the maximum amount that the current character can be smushed
-// into the current line (from figlet.c lines 1446-1485)
+// smushAmount returns the maximum amount that the current character can overlap
+// with the current output line
 func (state *renderState) smushAmount() int {
 	// Get a pooled rune buffer for conversions
 	runeBuffer := acquireRuneSlice()
@@ -168,8 +167,7 @@ func (state *renderState) smushAmount() int {
 		return 0
 	}
 
-	// Note: figlet.c does NOT return 0 when output is empty!
-	// It continues to calculate overlap even for the first character
+	// Calculate overlap even for the first character
 
 	maxSmush := state.currentCharWidth
 
@@ -222,22 +220,19 @@ func (state *renderState) smushAmount() int {
 
 			amt = lineBoundary + state.currentCharWidth - 1 - charBoundary
 		} else {
-			// Left-to-right processing (exact figlet.c logic)
+			// Left-to-right processing
 			// Find the rightmost non-space character in output line
-			// figlet.c: for (linebd=STRLEN(outputline[row]);
-			//   ch1 = outputline[row][linebd],(linebd>0&&(!ch1||ch1==' '));linebd--)
-			// Use row-specific length (emulates C's strlen)
+			// Use row-specific length
 			lineBoundary = state.rowLengths[row]
 
-			// Emulate figlet.c's loop exactly
+			// Find rightmost non-space in output line
 			for {
 				// Get character at linebd position
-				// In C, accessing string[strlen] gives null terminator
-				// In Go, we need to handle this explicitly
+				// Handle end of string as null terminator
 				if lineBoundary < len(state.outputLine[row]) {
 					ch1 = state.outputLine[row][lineBoundary]
 				} else {
-					ch1 = 0 // Emulate C's null terminator at end of string
+					ch1 = 0 // Treat as null terminator at end
 				}
 
 				// Check condition: linebd>0 && (!ch1 || ch1==' ')
@@ -250,8 +245,7 @@ func (state *renderState) smushAmount() int {
 			// ch1 already has the correct value from the loop above
 
 			// Find the leftmost non-space character in the current character
-			// figlet.c: for (charbd=0;ch2=currchar[row][charbd],ch2==' ';charbd++)
-			// CRITICAL: In C, this loop continues until it hits a non-space OR null terminator
+			// Find leftmost non-space in current character
 			charBoundary = 0
 			// Use pooled buffer for rune conversion
 			rowStr := state.currentChar[row]
@@ -266,13 +260,13 @@ func (state *renderState) smushAmount() int {
 			}
 			currRunes := runeBuffer
 
-			// Emulate figlet.c's loop with null terminator handling
+			// Loop until we find a non-space or reach the end
 			for {
 				// Get character at charbd position
 				if charBoundary < len(currRunes) {
 					ch2 = currRunes[charBoundary]
 				} else {
-					ch2 = 0 // Emulate C's null terminator when past end
+					ch2 = 0 // Treat as null when past end
 					break   // Exit loop when we hit the "null terminator"
 				}
 
@@ -285,7 +279,7 @@ func (state *renderState) smushAmount() int {
 			// charBd is the 0-based index of leftmost non-space (or length if all spaces)
 			// ch2 has the character at that position (or 0 if all spaces)
 
-			// Calculate overlap amount using figlet.c formula
+			// Calculate overlap amount
 			amt = charBoundary + state.outlineLen - 1 - lineBoundary
 		}
 

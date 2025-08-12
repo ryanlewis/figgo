@@ -98,11 +98,16 @@ func TestMissingASCIIGlyph(t *testing.T) {
 	}
 
 	// Try to render text with missing 't'
-	_, err := Render("test", mockFont)
+	output, err := Render("test", mockFont)
 
-	// Check error message since internal/common has its own ErrUnsupportedRune
-	if err == nil || err.Error() != "unsupported rune" {
-		t.Errorf("expected 'unsupported rune' error for missing ASCII glyph, got: %v", err)
+	// Should succeed since '?' replacement is available
+	if err != nil {
+		t.Errorf("unexpected error when '?' replacement is available: %v", err)
+	}
+	
+	// Should contain '?' as replacement for 't'
+	if !strings.Contains(output, "?") {
+		t.Errorf("expected '?' replacement for missing 't', got: %s", output)
 	}
 }
 

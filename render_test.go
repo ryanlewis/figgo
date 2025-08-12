@@ -101,7 +101,7 @@ func TestRender_FullWidth(t *testing.T) {
 			name: "hardblank character $",
 			text: "$",
 			opts: []Option{WithLayout(FitFullWidth)},
-			want: " \n \n \n ", // $ is hardblank, replaced with space
+			want: "\n\n\n", // $ glyph contains hardblanks, which become spaces, then get trimmed
 		},
 		{
 			name: "character with tilde ~",

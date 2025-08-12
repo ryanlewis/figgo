@@ -84,3 +84,11 @@ func WithUnknownRune(r rune) Option {
 		opts.unknownRune = &r
 	}
 }
+
+// WithTrimWhitespace enables trimming of trailing whitespace from each line.
+// By default, figgo preserves trailing spaces to match figlet's behavior.
+func WithTrimWhitespace(trim bool) Option {
+	return func(opts *options) {
+		opts.trimWhitespace = trim
+	}
+}

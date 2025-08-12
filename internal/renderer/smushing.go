@@ -1,341 +1,285 @@
 package renderer
 
-import (
-	"strings"
+import "strings"
 
-	"github.com/ryanlewis/figgo/internal/common"
-	"github.com/ryanlewis/figgo/internal/parser"
-)
-
-// isBorderChar checks if a rune is a border character for Rule 2
-func isBorderChar(r rune) bool {
-	switch r {
-	case '|', '/', '\\', '[', ']', '{', '}', '(', ')', '<', '>':
-		return true
-	default:
-		return false
+// smushem implements the character smushing logic from figlet.c (lines 1358-1434)
+// Given 2 characters, attempts to smush them into 1, according to smushmode.
+// Returns smushed character or 0 if no smushing can be done.
+func (state *renderState) smushem(lch, rch rune) rune {
+	// Handle spaces first
+	if lch == ' ' {
+		return rch
 	}
-}
-
-// getHierarchyClass returns the hierarchy class for Rule 3
-// Classes in order: | /\ [] {} () <>
-// Per spec: "the one from the latter class is used"
-// Lower numeric value = earlier in list, higher value = latter class (wins)
-func getHierarchyClass(r rune) int {
-	const (
-		classPipe    = 1 // | class (earliest)
-		classSlash   = 2 // /\ class
-		classBracket = 3 // [] class
-		classBrace   = 4 // {} class
-		classParen   = 5 // () class
-		classAngle   = 6 // <> class (latest, wins over all)
-		classNone    = 0 // not a hierarchy char
-	)
-
-	switch r {
-	case '|':
-		return classPipe
-	case '/', '\\':
-		return classSlash
-	case '[', ']':
-		return classBracket
-	case '{', '}':
-		return classBrace
-	case '(', ')':
-		return classParen
-	case '<', '>':
-		return classAngle
-	default:
-		return classNone
-	}
-}
-
-// isOppositePair checks if two runes form an opposite pair for Rule 4
-func isOppositePair(left, right rune) bool {
-	switch {
-	case left == '(' && right == ')':
-		return true
-	case left == ')' && right == '(':
-		return true
-	case left == '[' && right == ']':
-		return true
-	case left == ']' && right == '[':
-		return true
-	case left == '{' && right == '}':
-		return true
-	case left == '}' && right == '{':
-		return true
-	default:
-		return false
-	}
-}
-
-// universalSmush implements universal smushing logic per FIGfont v2 spec
-// Universal smushing: later character overrides earlier at overlap position
-// Key spec behavior:
-//   - Space vs non-space: take the non-space
-//   - Visible vs visible: later wins (when allowVisibleCollision=true)
-//   - Hardblank vs visible: visible wins (hardblanks are overridden per spec)
-//   - Hardblank vs hardblank: NOT allowed (prevents illegibility)
-//   - Hardblank vs space: later wins
-//
-// allowVisibleCollision: true for pure universal, false for fallback universal
-//
-//nolint:gocyclo,gocognit // Multiple decision paths inherent to universal smushing spec
-func universalSmush(left, right, hardblank rune, allowVisibleCollision bool) (rune, bool) {
-	// Check if either is hardblank
-	leftIsHardblank := left == hardblank
-	rightIsHardblank := right == hardblank
-
-	// Block hardblank vs hardblank (spec: prevents illegibility)
-	if leftIsHardblank && rightIsHardblank {
-		return 0, false
+	if rch == ' ' {
+		return lch
 	}
 
-	// Check visibility (non-space, non-hardblank)
-	leftVisible := left != ' ' && left != hardblank
-	rightVisible := right != ' ' && right != hardblank
-
-	// Hardblank vs visible: visible wins per FIGfont spec
-	// "Hardblanks ARE overridden by any visible sub-character"
-	if leftIsHardblank && rightVisible {
-		return right, true // Visible overrides hardblank
-	}
-	if leftVisible && rightIsHardblank {
-		return left, true // Visible overrides hardblank
+	// Disallow overlapping if the previous character or current character has width < 2
+	if state.previousCharWidth < 2 || state.currCharWidth < 2 {
+		return 0
 	}
 
-	// Space vs visible: visible wins
-	if left == ' ' && rightVisible {
-		return right, true
-	}
-	if leftVisible && right == ' ' {
-		return left, true
+	// If not in smushing mode, return 0 (kerning)
+	if (state.smushMode & SM_SMUSH) == 0 {
+		return 0
 	}
 
-	// Visible vs visible
-	if leftVisible && rightVisible {
-		if allowVisibleCollision {
-			// Pure universal: later wins
-			return right, true
+	// Universal smushing mode (no specific rules set)
+	if (state.smushMode & 63) == 0 {
+		// This is smushing by universal overlapping
+		
+		// Handle hardblanks - prefer visible characters
+		if lch == state.hardblank {
+			return rch
 		}
-		// Fallback universal: no smush
-		return 0, false
-	}
-
-	// Hardblank vs space: later wins
-	if leftIsHardblank && right == ' ' {
-		return ' ', true
-	}
-	if left == ' ' && rightIsHardblank {
-		return hardblank, true
-	}
-
-	// Both are spaces
-	if left == ' ' && right == ' ' {
-		return ' ', true
-	}
-
-	// Should not reach here
-	return 0, false
-}
-
-// smushPair determines if two characters can be smushed and returns the result
-// Returns the smushed character and true if smushing is possible, or (0, false) if not
-// This implements controlled smushing rules 1-6 with strict precedence
-//
-//nolint:gocognit,gocyclo // High complexity is inherent to the FIGfont spec with 6 rules and strict precedence
-func smushPair(left, right rune, layout int, hardblank rune) (rune, bool) {
-	// Check if smushing mode is enabled
-	if (layout & common.FitSmushing) == 0 {
-		return 0, false
-	}
-
-	// Rule 1: Equal Character (takes precedence)
-	if (layout&common.RuleEqualChar) != 0 && left == right && left != ' ' && left != hardblank {
-		return left, true
-	}
-
-	// Rule 2: Underscore
-	if (layout & common.RuleUnderscore) != 0 {
-		if left == '_' && isBorderChar(right) {
-			return right, true
+		if rch == state.hardblank {
+			return lch
 		}
-		if right == '_' && isBorderChar(left) {
-			return left, true
+		
+		// For right-to-left, prefer left character (latter in user's text)
+		if state.right2left == 1 {
+			return lch
+		}
+		
+		// Default: prefer right character
+		return rch
+	}
+
+	// Controlled smushing rules - check in order of precedence
+
+	// Rule 6: Hardblank smushing
+	if (state.smushMode & SM_HARDBLANK) != 0 {
+		if lch == state.hardblank && rch == state.hardblank {
+			return lch
 		}
 	}
 
-	// Rule 3: Hierarchy (only when classes differ)
-	if (layout & common.RuleHierarchy) != 0 {
-		leftClass := getHierarchyClass(left)
-		rightClass := getHierarchyClass(right)
-		if leftClass > 0 && rightClass > 0 && leftClass != rightClass {
-			// Per spec: "the one from the latter class is used"
-			// Higher class number = latter in list = wins
-			if leftClass > rightClass {
-				return left, true
+	// If either character is hardblank and we're not doing hardblank rule, no smushing
+	if lch == state.hardblank || rch == state.hardblank {
+		return 0
+	}
+
+	// Rule 1: Equal character smushing
+	if (state.smushMode & SM_EQUAL) != 0 {
+		if lch == rch {
+			return lch
+		}
+	}
+
+	// Rule 2: Underscore smushing
+	if (state.smushMode & SM_LOWLINE) != 0 {
+		if lch == '_' && strings.ContainsRune("|/\\[]{}()<>", rch) {
+			return rch
+		}
+		if rch == '_' && strings.ContainsRune("|/\\[]{}()<>", lch) {
+			return lch
+		}
+	}
+
+	// Rule 3: Hierarchy smushing
+	if (state.smushMode & SM_HIERARCHY) != 0 {
+		// "|" replaces "/\", "[]", "{}", "()", "<>"
+		if lch == '|' && strings.ContainsRune("/\\[]{}()<>", rch) {
+			return rch
+		}
+		if rch == '|' && strings.ContainsRune("/\\[]{}()<>", lch) {
+			return lch
+		}
+		
+		// "/\" replaces "[]", "{}", "()", "<>"
+		if strings.ContainsRune("/\\", lch) && strings.ContainsRune("[]{}()<>", rch) {
+			return rch
+		}
+		if strings.ContainsRune("/\\", rch) && strings.ContainsRune("[]{}()<>", lch) {
+			return lch
+		}
+		
+		// "[]" replaces "{}", "()", "<>"
+		if strings.ContainsRune("[]", lch) && strings.ContainsRune("{}()<>", rch) {
+			return rch
+		}
+		if strings.ContainsRune("[]", rch) && strings.ContainsRune("{}()<>", lch) {
+			return lch
+		}
+		
+		// "{}" replaces "()", "<>"
+		if strings.ContainsRune("{}", lch) && strings.ContainsRune("()<>", rch) {
+			return rch
+		}
+		if strings.ContainsRune("{}", rch) && strings.ContainsRune("()<>", lch) {
+			return lch
+		}
+		
+		// "()" replaces "<>"
+		if strings.ContainsRune("()", lch) && strings.ContainsRune("<>", rch) {
+			return rch
+		}
+		if strings.ContainsRune("()", rch) && strings.ContainsRune("<>", lch) {
+			return lch
+		}
+	}
+
+	// Rule 4: Opposite pair smushing
+	if (state.smushMode & SM_PAIR) != 0 {
+		if lch == '[' && rch == ']' {
+			return '|'
+		}
+		if rch == '[' && lch == ']' {
+			return '|'
+		}
+		if lch == '{' && rch == '}' {
+			return '|'
+		}
+		if rch == '{' && lch == '}' {
+			return '|'
+		}
+		if lch == '(' && rch == ')' {
+			return '|'
+		}
+		if rch == '(' && lch == ')' {
+			return '|'
+		}
+	}
+
+	// Rule 5: Big X smushing
+	if (state.smushMode & SM_BIGX) != 0 {
+		if lch == '/' && rch == '\\' {
+			return '|'
+		}
+		if rch == '/' && lch == '\\' {
+			return 'Y'
+		}
+		if lch == '>' && rch == '<' {
+			return 'X'
+		}
+		// Note: Don't want the reverse of above to give 'X'
+	}
+
+	// No smushing rule matched
+	return 0
+}
+
+// smushAmt returns the maximum amount that the current character can be smushed
+// into the current line (from figlet.c lines 1446-1485)
+func (state *renderState) smushAmt() int {
+	// If not in kerning or smushing mode, no overlap
+	if (state.smushMode & (SM_SMUSH | SM_KERN)) == 0 {
+		return 0
+	}
+
+	// Note: figlet.c does NOT return 0 when output is empty!
+	// It continues to calculate overlap even for the first character
+	
+	maxSmush := state.currCharWidth
+	
+	for row := 0; row < state.charHeight; row++ {
+		var amt int
+		var ch1, ch2 rune
+		var lineBd, charBd int  // Declare here for debug access
+		
+		if state.right2left != 0 {
+			// Right-to-left processing
+			if maxSmush > len(state.outputLine[row]) {
+				maxSmush = len(state.outputLine[row])
 			}
-			return right, true
-		}
-	}
-
-	// Rule 4: Opposite Pairs
-	if (layout & common.RuleOppositePair) != 0 {
-		if isOppositePair(left, right) {
-			return '|', true
-		}
-	}
-
-	// Rule 5: Big X (per FIGfont v2 spec)
-	// /\ → '|', \/ → 'Y', >< → 'X'
-	if (layout & common.RuleBigX) != 0 {
-		if left == '/' && right == '\\' {
-			return '|', true
-		}
-		if left == '\\' && right == '/' {
-			return 'Y', true
-		}
-		if left == '>' && right == '<' {
-			return 'X', true
-		}
-	}
-
-	// Rule 6: Hardblank
-	if (layout & common.RuleHardblank) != 0 {
-		if left == hardblank && right == hardblank {
-			return hardblank, true
-		}
-	}
-
-	// Check if any controlled smushing rules are defined
-	hasRules := (layout & (common.RuleEqualChar | common.RuleUnderscore | common.RuleHierarchy |
-		common.RuleOppositePair | common.RuleBigX | common.RuleHardblank)) != 0
-
-	if !hasRules {
-		// Pure universal smushing (only when NO controlled rules are defined)
-		// In pure universal mode, visible characters can smush (later wins)
-		return universalSmush(left, right, hardblank, true)
-	}
-
-	// Controlled rules are defined but none matched - fall back to universal smushing
-	// In fallback mode, visible-visible collisions are NOT allowed
-	return universalSmush(left, right, hardblank, false)
-}
-
-// applySmushing adds a glyph with smushing at the specified overlap
-func applySmushing(lines [][]byte, glyph []string, overlap, layout int, hardblank rune) {
-	h := len(lines)
-
-	for row := 0; row < h; row++ {
-		lineLen := len(lines[row])
-		glyphRow := glyph[row]
-
-		// Smush the overlapped columns
-		for col := 0; col < overlap; col++ {
-			linePos := lineLen - overlap + col
-			glyphPos := col
-
-			var leftChar, rightChar rune
-			if linePos >= 0 && linePos < lineLen {
-				leftChar = rune(lines[row][linePos])
-			} else {
-				leftChar = ' '
+			
+			// Find rightmost non-space in current character
+			charBd = len(state.currChar[row])
+			currRunes := []rune(state.currChar[row])
+			for charBd > 0 {
+				if charBd-1 < len(currRunes) {
+					ch1 = currRunes[charBd-1]
+				} else {
+					ch1 = 0
+				}
+				if ch1 != 0 && ch1 != ' ' {
+					break
+				}
+				charBd--
 			}
-
-			if glyphPos < len(glyphRow) {
-				rightChar = rune(glyphRow[glyphPos])
-			} else {
-				rightChar = ' '
+			
+			// Find leftmost non-space in output line
+			lineBd = 0
+			for lineBd < len(state.outputLine[row]) {
+				ch2 = state.outputLine[row][lineBd]
+				if ch2 != ' ' {
+					break
+				}
+				lineBd++
 			}
-
-			smushed, _ := smushPair(leftChar, rightChar, layout, hardblank)
-
-			// Replace the character at linePos with the smushed result
-			if linePos >= 0 && linePos < lineLen {
-				lines[row][linePos] = byte(smushed)
-			}
-		}
-
-		// Append the non-overlapped portion of the glyph
-		if overlap < len(glyphRow) {
-			lines[row] = append(lines[row], []byte(glyphRow[overlap:])...)
-		}
-	}
-}
-
-// renderSmushing renders text using smushing layout with controlled smushing rules
-func renderSmushing(text string, font *parser.Font, layout, printDir int, replacement rune) (string, error) {
-	if font == nil {
-		return "", common.ErrUnknownFont
-	}
-
-	h := font.Height
-	if h <= 0 {
-		return "", common.ErrBadFontFormat
-	}
-
-	// Handle empty text
-	if text == "" {
-		lines := make([]string, h)
-		return strings.Join(lines, "\n"), nil
-	}
-
-	// Convert text to runes and filter unsupported characters
-	runes := []rune(text)
-	filterUnsupportedRunes(runes, replacement)
-
-	// For RTL, reverse the order of runes (not the glyphs themselves)
-	if printDir == 1 {
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			runes[i], runes[j] = runes[j], runes[i]
-		}
-	}
-
-	// Build output line by line, character by character
-	const avgGlyphWidth = 10
-	lines := make([][]byte, h)
-	for i := range lines {
-		lines[i] = make([]byte, 0, len(runes)*avgGlyphWidth)
-	}
-
-	// Process each character
-	for idx, r := range runes {
-		glyph, err := lookupGlyph(font, r, h)
-		if err != nil {
-			return "", err
-		}
-
-		if idx == 0 {
-			// First character - just append as-is
-			appendGlyph(lines, glyph)
+			
+			amt = lineBd + state.currCharWidth - 1 - charBd
 		} else {
-			// Get precomputed trims if available for efficiency
-			var trims []parser.GlyphTrim
-			if font.CharacterTrims != nil {
-				trims = font.CharacterTrims[r]
+			// Left-to-right processing (exact figlet.c logic)
+			// Find the rightmost non-space character in output line
+			// figlet.c: for (linebd=STRLEN(outputline[row]);
+			//   ch1 = outputline[row][linebd],(linebd>0&&(!ch1||ch1==' '));linebd--)
+			// Use row-specific length (emulates C's strlen)
+			lineBd = state.rowLengths[row]
+			
+			// Emulate figlet.c's loop exactly
+			for {
+				// Get character at linebd position
+				// In C, accessing string[strlen] gives null terminator
+				// In Go, we need to handle this explicitly
+				if lineBd < len(state.outputLine[row]) {
+					ch1 = state.outputLine[row][lineBd]
+				} else {
+					ch1 = 0 // Emulate C's null terminator at end of string
+				}
+				
+				// Check condition: linebd>0 && (!ch1 || ch1==' ')
+				if !(lineBd > 0 && (ch1 == 0 || ch1 == ' ')) {
+					break
+				}
+				lineBd--
 			}
+			// Now lineBd points to rightmost non-space character
+			// ch1 already has the correct value from the loop above
+			
+			// Find the leftmost non-space character in the current character
+			// figlet.c: for (charbd=0;ch2=currchar[row][charbd],ch2==' ';charbd++)
+			// CRITICAL: In C, this loop continues until it hits a non-space OR null terminator
+			charBd = 0
+			currRunes := []rune(state.currChar[row])
+			
+			// Emulate figlet.c's loop with null terminator handling
+			for {
+				// Get character at charbd position
+				if charBd < len(currRunes) {
+					ch2 = currRunes[charBd]
+				} else {
+					ch2 = 0 // Emulate C's null terminator when past end
+					break   // Exit loop when we hit the "null terminator"
+				}
+				
+				// Check if it's a space - if not, exit loop
+				if ch2 != ' ' {
+					break
+				}
+				charBd++
+			}
+			// charBd is the 0-based index of leftmost non-space (or length if all spaces)
+			// ch2 has the character at that position (or 0 if all spaces)
+			
+			// Calculate overlap amount using figlet.c formula
+			amt = charBd + state.outlineLen - 1 - lineBd
+		}
 
-			// Try to smush with previous character using optimal overlap algorithm
-			overlap := calculateOptimalOverlap(lines, glyph, layout, font.Hardblank, trims, h)
-			if overlap > 0 {
-				applySmushing(lines, glyph, overlap, layout, font.Hardblank)
-			} else {
-				// Fall back to kerning distance if no smushing possible
-				distance := calculateKerningDistance(lines, glyph, trims, h)
-				applyKerning(lines, glyph, distance)
+		// Adjust amount based on character overlap rules
+		if ch1 == 0 || ch1 == ' ' {
+			amt++
+		} else if ch2 != 0 {
+			if state.smushem(ch1, ch2) != 0 {
+				amt++
 			}
+		}
+
+		// Take minimum overlap across all rows
+		if amt < maxSmush {
+			maxSmush = amt
 		}
 	}
 
-	// Replace hardblanks with spaces
-	replaceHardblanks(lines, byte(font.Hardblank))
-
-	// Convert to strings and join
-	result := make([]string, h)
-	for i := 0; i < h; i++ {
-		result[i] = string(lines[i])
-	}
-
-	return strings.Join(result, "\n"), nil
+	return maxSmush
 }

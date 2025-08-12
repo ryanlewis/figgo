@@ -4,10 +4,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/ryanlewis/figgo"
 	"github.com/spf13/pflag"
 )
 
@@ -18,39 +20,89 @@ var (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	var (
-		fontPath    string
-		unknownRune string
-		showVersion bool
-		showHelp    bool
+		fontPath        string
+		unknownRune     string
+		showVersion     bool
+		showHelp        bool
+		trimWhitespace  bool
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
 	pflag.StringVarP(&unknownRune, "unknown-rune", "u", "?", "Rune to replace unknown/unsupported characters")
 	pflag.BoolVarP(&showVersion, "version", "v", false, "Show version information")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show help message")
+	pflag.BoolVar(&trimWhitespace, "trim-whitespace", false, "Trim trailing whitespace from each line")
 	pflag.Parse()
 
 	if showHelp {
 		printHelp()
-		os.Exit(0)
+		return 0
 	}
 
 	if showVersion {
 		fmt.Printf("figgo version %s (commit: %s, built: %s)\n", version, commit, date)
-		os.Exit(0)
+		return 0
 	}
 
 	args := pflag.Args()
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: no text provided")
 		printHelp()
-		os.Exit(1)
+		return 1
 	}
 
-	// TODO: Implement font loading and rendering
+	// Parse unknown rune option
+	var unknownRuneValue = '?'
+	if unknownRune != "" {
+		parsed, err := parseUnknownRune(unknownRune)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing unknown rune: %v\n", err)
+			return 1
+		}
+		unknownRuneValue = parsed
+	}
+
+	// Resolve font path
+	resolvedPath := resolveFontPath(fontPath)
+
+	// Load font
+	fontFile, err := os.Open(resolvedPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening font file: %v\n", err)
+		return 1
+	}
+	defer fontFile.Close()
+
+	font, err := figgo.ParseFont(fontFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing font: %v\n", err)
+		return 1
+	}
+
+	// Render text with font's default layout (no override)
 	text := strings.Join(args, " ")
-	fmt.Printf("TODO: Render '%s' with font '%s'\n", text, fontPath)
+	
+	// Build render options
+	renderOpts := []figgo.Option{
+		figgo.WithUnknownRune(unknownRuneValue),
+	}
+	if trimWhitespace {
+		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))
+	}
+	
+	output, err := figgo.Render(text, font, renderOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering text: %v\n", err)
+		return 1
+	}
+
+	fmt.Println(output)
+	return 0
 }
 
 // parseUnknownRune parses the unknown rune flag value which can be in various formats:
@@ -143,6 +195,34 @@ func parseDecimal(s string) (rune, bool) {
 		return validateRune(rune(code))
 	}
 	return 0, false
+}
+
+// resolveFontPath resolves a font path from either a full path or just a font name
+func resolveFontPath(fontPath string) string {
+	// If it's already a full path to a .flf file, use it directly
+	if filepath.Ext(fontPath) == ".flf" {
+		return fontPath
+	}
+
+	// Check if it exists as is
+	if _, err := os.Stat(fontPath); err == nil {
+		return fontPath
+	}
+
+	// Try adding .flf extension
+	withExt := fontPath + ".flf"
+	if _, err := os.Stat(withExt); err == nil {
+		return withExt
+	}
+
+	// Try in fonts/ directory
+	inFonts := filepath.Join("fonts", fontPath+".flf")
+	if _, err := os.Stat(inFonts); err == nil {
+		return inFonts
+	}
+
+	// Default to original path (will fail with better error later)
+	return fontPath
 }
 
 func printHelp() {

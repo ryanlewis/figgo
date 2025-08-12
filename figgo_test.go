@@ -1,6 +1,7 @@
 package figgo
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -430,4 +431,83 @@ func TestRenderValidation(t *testing.T) {
 			t.Error("Render() with valid smushing layout returned empty output")
 		}
 	})
+}
+
+func TestStandardFontRendering(t *testing.T) {
+	// Load standard font
+	fontFile, err := os.Open("fonts/standard.flf")
+	if err != nil {
+		t.Fatalf("Failed to open font: %v", err)
+	}
+	defer fontFile.Close()
+
+	font, err := ParseFont(fontFile)
+	if err != nil {
+		t.Fatalf("Failed to parse font: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:  "Single H",
+			input: "H",
+			expected: ` _   _ 
+| | | |
+| |_| |
+|  _  |
+|_| |_|
+       `,
+		},
+		{
+			name:  "Single e",
+			input: "e",
+			expected: `      
+  ___ 
+ / _ \
+|  __/
+ \___|
+      `,
+		},
+		{
+			name:  "He",
+			input: "He",
+			expected: ` _   _      
+| | | | ___ 
+| |_| |/ _ \
+|  _  |  __/
+|_| |_|\___|
+            `,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Render(tt.input, font)
+			if err != nil {
+				t.Fatalf("Render failed: %v", err)
+			}
+
+			// Trim trailing spaces from each line for comparison
+			gotLines := strings.Split(got, "\n")
+			expectedLines := strings.Split(tt.expected, "\n")
+
+			if len(gotLines) != len(expectedLines) {
+				t.Errorf("Line count mismatch: got %d, want %d", len(gotLines), len(expectedLines))
+				t.Logf("Got:\n%s", got)
+				t.Logf("Expected:\n%s", tt.expected)
+				return
+			}
+
+			for i := range gotLines {
+				gotTrimmed := strings.TrimRight(gotLines[i], " ")
+				expectedTrimmed := strings.TrimRight(expectedLines[i], " ")
+				if gotTrimmed != expectedTrimmed {
+					t.Errorf("Line %d mismatch:\ngot:      [%s]\nexpected: [%s]", i+1, gotLines[i], expectedLines[i])
+				}
+			}
+		})
+	}
 }

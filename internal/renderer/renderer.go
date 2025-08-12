@@ -1,448 +1,299 @@
-// Package renderer implements ASCII art rendering from parsed FIGfonts.
 package renderer
 
 import (
+	"errors"
 	"strings"
+	"unicode/utf8"
 
-	"github.com/ryanlewis/figgo/internal/common"
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
-// Options configures rendering behavior.
-type Options struct {
-	// Layout controls the fitting/smushing rules
-	Layout int
-
-	// PrintDirection overrides the font's default print direction
-	PrintDirection *int
-
-	// UnknownRune is the rune to use for unsupported characters
-	UnknownRune *rune
-}
-
-// normalizeFit validates and normalizes a layout value
-func normalizeFit(l int) (int, error) {
-	// Extract fitting mode and rule bits separately
-	fittingMask := common.FitKerning | common.FitSmushing
-	ruleMask := common.RuleEqualChar | common.RuleUnderscore | common.RuleHierarchy |
-		common.RuleOppositePair | common.RuleBigX | common.RuleHardblank
-
-	fitting := l & fittingMask
-	rules := l & ruleMask
-
-	// Count fitting mode bits
-	fitBits := 0
-	if (fitting & common.FitKerning) != 0 {
-		fitBits++
-	}
-	if (fitting & common.FitSmushing) != 0 {
-		fitBits++
-	}
-
-	// Validate at most one fitting mode
-	if fitBits > 1 {
-		return 0, common.ErrLayoutConflict
-	}
-
-	// If no fitting bits set, default to full-width
-	// Preserve rule bits even though they're ignored without smushing
-	if fitBits == 0 {
-		return common.FitFullWidth | rules, nil
-	}
-
-	// Return the fitting mode with preserved rule bits
-	return fitting | rules, nil
-}
-
-// pickLayout determines the effective layout from font defaults and options
-func pickLayout(font *parser.Font, opts *Options) (int, error) {
-	if opts != nil {
-		return normalizeFit(opts.Layout)
-	}
-
-	// Prefer FullLayout if available (per PRD §7)
-	if font.FullLayoutSet {
-		// FullLayout=0 with FullLayoutSet=true means full width
-		if font.FullLayout == 0 {
-			return common.FitFullWidth, nil
-		}
-		return normalizeFit(font.FullLayout)
-	}
-
-	// Fallback to OldLayout
-	switch font.OldLayout {
-	case -1:
-		return common.FitFullWidth, nil
-	case 0:
-		return common.FitKerning, nil
-	default:
-		// Positive OldLayout encodes smushing with rule bits
-		layout := common.FitSmushing
-		// Map rule bits (bits 0-5 correspond to rules 1-6)
-		if font.OldLayout&1 != 0 {
-			layout |= common.RuleEqualChar
-		}
-		if font.OldLayout&2 != 0 {
-			layout |= common.RuleUnderscore
-		}
-		if font.OldLayout&4 != 0 {
-			layout |= common.RuleHierarchy
-		}
-		if font.OldLayout&8 != 0 {
-			layout |= common.RuleOppositePair
-		}
-		if font.OldLayout&16 != 0 {
-			layout |= common.RuleBigX
-		}
-		if font.OldLayout&32 != 0 {
-			layout |= common.RuleHardblank
-		}
-		return layout, nil
-	}
-}
-
-// Render converts text to ASCII art using the specified font and options.
+// Render converts text to ASCII art using the font and options
 func Render(text string, font *parser.Font, opts *Options) (string, error) {
-	// Check font validity
 	if font == nil {
-		return "", common.ErrUnknownFont
-	}
-	if font.Height <= 0 {
-		return "", common.ErrBadFontFormat
+		return "", errors.New("font cannot be nil")
 	}
 
-	// Determine layout mode with validation
-	layout, err := pickLayout(font, opts)
-	if err != nil {
-		return "", err
+	// Initialize render state
+	state := &renderState{
+		charHeight:      font.Height,
+		hardblank:       font.Hardblank,
+		outlineLenLimit: 10000, // Default large limit
+	}
+	
+	// Set trim whitespace option
+	if opts != nil {
+		state.trimWhitespace = opts.TrimWhitespace
 	}
 
-	// Determine print direction (0 LTR, 1 RTL)
-	printDir := font.PrintDirection
+	// Set print direction from options or font
 	if opts != nil && opts.PrintDirection != nil {
-		printDir = *opts.PrintDirection
-	}
-	// Validate print direction
-	if printDir != 0 && printDir != 1 {
-		printDir = 0 // default to LTR
+		state.right2left = *opts.PrintDirection
+	} else {
+		state.right2left = font.PrintDirection
 	}
 
-	// Determine replacement rune for unknown characters
-	replacement := '?'
-	if opts != nil && opts.UnknownRune != nil {
-		replacement = *opts.UnknownRune
-		// Validate that replacement rune exists in font
-		if _, ok := font.Characters[replacement]; !ok {
-			// Fall back to '?' if available
-			if _, hasQuestion := font.Characters['?']; hasQuestion {
-				replacement = '?'
-			} else {
-				// Neither replacement nor '?' available
-				return "", common.ErrUnsupportedRune
-			}
-		}
-	}
-
-	// Extract the fitting mode (ignore rule bits)
-	fittingMode := layout & (common.FitKerning | common.FitSmushing)
-
-	switch fittingMode {
-	case 0: // No fitting bits set = full-width
-		return renderFullWidth(text, font, printDir, replacement)
-	case common.FitKerning:
-		return renderKerning(text, font, printDir, replacement)
-	case common.FitSmushing:
-		return renderSmushing(text, font, layout, printDir, replacement)
-	default:
-		return "", common.ErrLayoutConflict
-	}
-}
-
-// filterUnsupportedRunes replaces unsupported characters (outside ASCII 32-126) with the replacement rune
-func filterUnsupportedRunes(runes []rune, replacement rune) {
-	for i, r := range runes {
-		if r < 32 || r > 126 {
-			runes[i] = replacement
-		}
-	}
-}
-
-// composeGlyphs assembles glyphs into lines
-func composeGlyphs(runes []rune, font *parser.Font, h int) ([][]byte, error) {
-	const avgGlyphWidth = 10 // Average glyph width estimate (increased to reduce reslices)
-	estimatedWidth := len(runes) * avgGlyphWidth
-	lines := make([][]byte, h)
-	for i := range lines {
-		lines[i] = make([]byte, 0, estimatedWidth)
-	}
-
-	for _, r := range runes {
-		glyph, ok := font.Characters[r]
-		if !ok {
-			// For ASCII characters that should be supported (32-126), return error
-			if r >= 32 && r <= 126 {
-				return nil, common.ErrUnsupportedRune
-			}
-			// Non-ASCII characters should have been filtered already, but if not, this is an error
-			return nil, common.ErrUnsupportedRune
-		}
-		if len(glyph) != h {
-			return nil, common.ErrBadFontFormat
-		}
-		for i := 0; i < h; i++ {
-			lines[i] = append(lines[i], []byte(glyph[i])...)
-		}
-	}
-	return lines, nil
-}
-
-// replaceHardblanks replaces hardblank characters with spaces in-place
-func replaceHardblanks(lines [][]byte, hb byte) {
-	for i := range lines {
-		b := lines[i]
-		for j := range b {
-			if b[j] == hb {
-				b[j] = ' '
-			}
-		}
-	}
-}
-
-// renderFullWidth renders text using Full-Width layout (no overlap)
-func renderFullWidth(text string, font *parser.Font, printDir int, replacement rune) (string, error) {
-	if font == nil {
-		return "", common.ErrUnknownFont
-	}
-
-	h := font.Height
-	if h <= 0 {
-		return "", common.ErrBadFontFormat
-	}
-
-	// Handle empty text
-	if text == "" {
-		lines := make([]string, h)
-		return strings.Join(lines, "\n"), nil
-	}
-
-	// Convert text to runes and filter unsupported characters
-	runes := []rune(text)
-	filterUnsupportedRunes(runes, replacement)
-
-	// Compose glyphs
-	lines, err := composeGlyphs(runes, font, h)
-	if err != nil {
-		return "", err
-	}
-
-	// Replace hardblanks with spaces
-	replaceHardblanks(lines, byte(font.Hardblank))
-
-	// Apply print direction (1 = RTL)
-	if printDir == 1 {
-		for i := range lines {
-			reverseBytes(lines[i])
-		}
-	}
-
-	// Convert to strings and join
-	result := make([]string, h)
-	for i := 0; i < h; i++ {
-		result[i] = string(lines[i])
-	}
-
-	return strings.Join(result, "\n"), nil
-}
-
-// reverseBytes reverses a byte slice in-place (safe for ASCII)
-func reverseBytes(b []byte) {
-	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
-		b[i], b[j] = b[j], b[i]
-	}
-}
-
-// lookupGlyph finds a glyph for a rune in the font
-// Returns ErrUnsupportedRune if the glyph is missing (no fallback)
-func lookupGlyph(font *parser.Font, r rune, h int) ([]string, error) {
-	glyph, ok := font.Characters[r]
-	if !ok {
-		return nil, common.ErrUnsupportedRune
-	}
-
-	if len(glyph) != h {
-		return nil, common.ErrBadFontFormat
-	}
-
-	return glyph, nil
-}
-
-// appendGlyph adds a glyph to the output lines
-func appendGlyph(lines [][]byte, glyph []string) {
-	for i := range lines {
-		lines[i] = append(lines[i], []byte(glyph[i])...)
-	}
-}
-
-// findRightmostVisible finds the rightmost non-space character in a line
-// Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
-// TODO(perf): Consider caching trailing-space counts per composed line segment to reduce scans.
-func findRightmostVisible(line []byte) int {
-	for j := len(line) - 1; j >= 0; j-- {
-		if line[j] != ' ' {
-			return j
-		}
-	}
-	return -1
-}
-
-// findLeftmostVisible finds the leftmost non-space character in a string
-// Note: Only ASCII space ' ' is considered blank. Hardblanks are treated as visible.
-func findLeftmostVisible(s string) int {
-	for j := 0; j < len(s); j++ {
-		if s[j] != ' ' {
-			return j
-		}
-	}
-	return len(s)
-}
-
-// calculateKerningDistance calculates the maximum required gap to avoid collision
-// Returns the maximum gap needed across all rows (touching is allowed when gap=0)
-//
-// INVARIANT: Blank = ASCII space only; hardblank is visible.
-// Trailing spaces are trimmed later in applyKerning, so the computed gap
-// assumes those spaces are not preserved.
-func calculateKerningDistance(lines [][]byte, glyph []string, trims []parser.GlyphTrim, h int) int {
-	maxRequired := 0
-
-	for row := 0; row < h; row++ {
-		rightmost := findRightmostVisible(lines[row])
-		// Use precomputed trim if available, otherwise compute on the fly
-		var leftmost int
-		if trims != nil && row < len(trims) {
-			if trims[row].LeftmostVisible == -1 {
-				leftmost = len(glyph[row]) // All spaces
-			} else {
-				leftmost = trims[row].LeftmostVisible
-			}
+	// Convert layout to smush mode
+	if opts != nil {
+		state.smushMode = layoutToSmushMode(opts.Layout)
+	} else {
+		// Use font's default layout
+		// figlet.c uses FullLayout when available, falls back to OldLayout
+		if font.FullLayoutSet && font.FullLayout != 0 {
+			// Extract horizontal layout from FullLayout
+			// FullLayout contains both horizontal (bits 0-7) and vertical (bits 8-14) layout
+			// We only need horizontal for now
+			state.smushMode = font.FullLayout & 0xFF // Get bits 0-7 for horizontal layout
 		} else {
-			leftmost = findLeftmostVisible(glyph[row])
+			// Fall back to converting OldLayout
+			state.smushMode = oldLayoutToSmushMode(font.OldLayout)
+		}
+	}
+
+	// Initialize output lines with pre-allocated buffer (like figlet.c)
+	// This enables future buffer pooling and matches figlet.c's behavior
+	state.outputLine = make([][]rune, state.charHeight)
+	state.rowLengths = make([]int, state.charHeight)
+	for i := range state.outputLine {
+		// Pre-allocate full buffer size, not just capacity
+		state.outputLine[i] = make([]rune, state.outlineLenLimit)
+		// Note: in Go, rune zero value is 0, which works like C's null terminator
+		state.rowLengths[i] = 0 // Start with empty rows (like clearline in figlet.c)
+	}
+
+	// Process each character in the input text
+	for _, r := range text {
+		// Handle newlines and special characters
+		if r == '\n' {
+			// Print current line and reset
+			// For now, we'll just continue processing - line breaks will be added later
+			continue
 		}
 
-		var need int
-		switch {
-		case rightmost == -1 && leftmost == len(glyph[row]):
-			// Both current line and new glyph line are all blanks
-			// No gap needed when both sides are blank
-			need = 0
-		case rightmost == -1:
-			// Current line is all blanks
-			need = leftmost
-		case leftmost == len(glyph[row]):
-			// New glyph line is all blanks
-			need = 0
-		default:
-			// Both have visible characters
-			// Calculate: leftmost - trailing spaces in current line
-			trailing := len(lines[row]) - rightmost - 1
-			need = leftmost - trailing
-			if need < 0 {
-				need = 0 // Touching is allowed (zero gap valid)
+		// Skip control characters except space
+		if r < ' ' && r != '\n' {
+			continue
+		}
+
+		// Normalize whitespace
+		if r == '\t' {
+			r = ' '
+		}
+
+		// Get character glyph
+		glyph, exists := font.Characters[r]
+		if !exists {
+			// Handle unknown character
+			if opts != nil && opts.UnknownRune != nil {
+				r = *opts.UnknownRune
+				glyph, exists = font.Characters[r]
+				if !exists {
+					return "", errors.New("unsupported rune: " + string(r))
+				}
+			} else {
+				return "", errors.New("unsupported rune: " + string(r))
 			}
 		}
 
-		if need > maxRequired {
-			maxRequired = need
+		// Add character to output
+		if !state.addChar(glyph) {
+			// Character didn't fit - for now just continue
+			// Line breaking logic would go here
 		}
 	}
 
-	return maxRequired
+	// Convert output to string
+	return state.outputToString(), nil
 }
 
-// applyKerning adds a glyph with calculated kerning distance
-func applyKerning(lines [][]byte, glyph []string, distance int) {
-	for i := range lines {
-		// Trim trailing spaces from current line (but not hardblanks)
-		for len(lines[i]) > 0 && lines[i][len(lines[i])-1] == ' ' {
-			lines[i] = lines[i][:len(lines[i])-1]
-		}
+// layoutToSmushMode converts figgo Layout bitmask to figlet.c smush mode
+func layoutToSmushMode(layout int) int {
+	// Layout constants from figgo/layout.go:
+	// FitFullWidth = 0
+	// FitKerning = 1 << 6 = 64
+	// FitSmushing = 1 << 7 = 128
+	// Rules are in bits 0-5
 
-		// Add spacing
-		for j := 0; j < distance; j++ {
-			lines[i] = append(lines[i], ' ')
-		}
+	smushMode := 0
 
-		// Append new glyph
-		lines[i] = append(lines[i], []byte(glyph[i])...)
+	// Check fitting mode
+	if layout&(1<<6) != 0 { // FitKerning
+		smushMode |= SM_KERN
+	} else if layout&(1<<7) != 0 { // FitSmushing
+		smushMode |= SM_SMUSH
+		
+		// Add smushing rules (bits 0-5)
+		if layout&(1<<0) != 0 { // RuleEqualChar
+			smushMode |= SM_EQUAL
+		}
+		if layout&(1<<1) != 0 { // RuleUnderscore
+			smushMode |= SM_LOWLINE
+		}
+		if layout&(1<<2) != 0 { // RuleHierarchy
+			smushMode |= SM_HIERARCHY
+		}
+		if layout&(1<<3) != 0 { // RuleOppositePair
+			smushMode |= SM_PAIR
+		}
+		if layout&(1<<4) != 0 { // RuleBigX
+			smushMode |= SM_BIGX
+		}
+		if layout&(1<<5) != 0 { // RuleHardblank
+			smushMode |= SM_HARDBLANK
+		}
+	}
+	// FitFullWidth = 0 means no bits set
+
+	return smushMode
+}
+
+// oldLayoutToSmushMode converts font OldLayout (-1 or 0..63) to smush mode
+func oldLayoutToSmushMode(oldLayout int) int {
+	if oldLayout == -1 {
+		// Full-width mode
+		return 0
+	} else if oldLayout == 0 {
+		// Kerning mode  
+		return SM_KERN
+	} else if oldLayout < 0 {
+		// Invalid, default to full-width
+		return 0
+	} else {
+		// Smushing mode with rules (1..63)
+		return SM_SMUSH | (oldLayout & 63)
 	}
 }
 
-// renderKerning renders text using kerning layout (minimal spacing without overlap)
-func renderKerning(text string, font *parser.Font, printDir int, replacement rune) (string, error) {
-	if font == nil {
-		return "", common.ErrUnknownFont
+// addChar attempts to add a character glyph to the current output line
+func (state *renderState) addChar(glyph []string) bool {
+	if len(glyph) != state.charHeight {
+		return false // Invalid glyph height
 	}
 
-	h := font.Height
-	if h <= 0 {
-		return "", common.ErrBadFontFormat
+	// Save previous width BEFORE updating current character (like figlet.c getletter)
+	state.previousCharWidth = state.currCharWidth
+	
+	// Set current character data
+	state.currChar = glyph
+	
+	// Calculate character width - figlet.c uses ONLY first row's length
+	// currcharwidth = STRLEN(currchar[0]);
+	if len(glyph) > 0 {
+		state.currCharWidth = utf8.RuneCountInString(glyph[0])
+	} else {
+		state.currCharWidth = 0
 	}
 
-	// Handle empty text
-	if text == "" {
-		lines := make([]string, h)
-		return strings.Join(lines, "\n"), nil
+	// Calculate smush amount
+	smushAmount := state.smushAmt()
+	
+	// Ensure smushAmount is not negative
+	if smushAmount < 0 {
+		smushAmount = 0
 	}
 
-	// Convert text to runes and filter unsupported characters
-	runes := []rune(text)
-	filterUnsupportedRunes(runes, replacement)
-
-	// For RTL, reverse the order of runes (not the glyphs themselves)
-	if printDir == 1 {
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			runes[i], runes[j] = runes[j], runes[i]
-		}
+	// Check if character fits
+	newLength := state.outlineLen + state.currCharWidth - smushAmount
+	if newLength > state.outlineLenLimit {
+		return false
 	}
 
-	// Build output line by line, character by character
-	const avgGlyphWidth = 10 // Average glyph width estimate (increased to reduce reslices)
-	lines := make([][]byte, h)
-	for i := range lines {
-		lines[i] = make([]byte, 0, len(runes)*avgGlyphWidth)
-	}
-
-	// Process each character
-	for idx, r := range runes {
-		glyph, err := lookupGlyph(font, r, h)
-		if err != nil {
-			return "", err
-		}
-
-		if idx == 0 {
-			// First character - just append as-is
-			appendGlyph(lines, glyph)
+	// Add character to each row
+	for row := 0; row < state.charHeight; row++ {
+		rowRunes := []rune(glyph[row])
+		
+		if state.right2left != 0 {
+			// Right-to-left processing (exact figlet.c logic)
+			// Use pre-allocated temp buffer
+			tempLine := make([]rune, state.outlineLenLimit)
+			
+			// STRCPY(templine,currchar[row])
+			copy(tempLine, rowRunes)
+			
+			// Apply smushing at overlap positions
+			for k := 0; k < smushAmount; k++ {
+				if k < len(rowRunes) {
+					// Always assign result like figlet.c
+					tempLine[state.currCharWidth-smushAmount+k] = 
+						state.smushem(tempLine[state.currCharWidth-smushAmount+k], state.outputLine[row][k])
+				}
+			}
+			
+			// STRCAT(templine,outputline[row]+smushamount)
+			if smushAmount < state.rowLengths[row] {
+				// Copy the part of outputline after smush region
+				copy(tempLine[state.currCharWidth:], state.outputLine[row][smushAmount:state.rowLengths[row]])
+			}
+			
+			// STRCPY(outputline[row],templine)
+			copy(state.outputLine[row], tempLine)
+			
+			// Update row length
+			state.rowLengths[row] = state.currCharWidth + state.rowLengths[row] - smushAmount
 		} else {
-			// Calculate and apply kerning for all non-first characters
-			// (including spaces - they're controlled by font design)
-			// Use precomputed trims if available
-			var trims []parser.GlyphTrim
-			if font.CharacterTrims != nil {
-				trims = font.CharacterTrims[r]
+			// Left-to-right processing (exact figlet.c logic)
+			// Apply smushing at overlap positions
+			for k := 0; k < smushAmount; k++ {
+				column := state.outlineLen - smushAmount + k
+				if column < 0 {
+					column = 0
+				}
+				// Use currchar[row][k] directly - no adjustment for leading spaces
+				// With pre-allocated buffer, we don't need to check outputLine bounds
+				if k < len(rowRunes) {
+					// Smush the characters - always assign result like figlet.c
+					state.outputLine[row][column] = state.smushem(state.outputLine[row][column], rowRunes[k])
+				}
 			}
-			distance := calculateKerningDistance(lines, glyph, trims, h)
-			applyKerning(lines, glyph, distance)
+
+			// STRCAT(outputline[row],currchar[row]+smushamount)
+			// Copy the part of the new character after the smush region
+			if smushAmount < len(rowRunes) {
+				remaining := rowRunes[smushAmount:]
+				// Copy to the current end of this row's content
+				// Note: rowLengths[row] hasn't been updated yet, so it's the old length
+				copy(state.outputLine[row][state.rowLengths[row]:], remaining)
+			}
 		}
 	}
 
-	// Replace hardblanks with spaces
-	replaceHardblanks(lines, byte(font.Hardblank))
+	// Update output length and ensure all rows have consistent length
+	// figlet.c: outlinelen = STRLEN(outputline[0]);
+	state.outlineLen = newLength
+	
+	// Update all row lengths to match the new length
+	// This ensures consistency across all rows
+	for row := 0; row < state.charHeight; row++ {
+		state.rowLengths[row] = newLength
+	}
+	return true
+}
 
-	// Convert to strings and join
-	result := make([]string, h)
-	for i := 0; i < h; i++ {
-		result[i] = string(lines[i])
+// outputToString converts the output lines to a final string
+func (state *renderState) outputToString() string {
+	if state.charHeight == 0 {
+		return ""
 	}
 
-	return strings.Join(result, "\n"), nil
+	var result strings.Builder
+	for i, line := range state.outputLine {
+		// Extract only the actual content using row-specific length
+		// This emulates C's null-terminated string behavior
+		actualLine := line[:state.rowLengths[i]]
+		
+		// Replace hardblanks with spaces
+		lineStr := string(actualLine)
+		lineStr = strings.ReplaceAll(lineStr, string(state.hardblank), " ")
+		
+		// Optionally trim trailing spaces (figlet preserves them by default)
+		if state.trimWhitespace {
+			lineStr = strings.TrimRight(lineStr, " ")
+		}
+		
+		result.WriteString(lineStr)
+		if i < len(state.outputLine)-1 {
+			result.WriteString("\n")
+		}
+	}
+	return result.String()
 }

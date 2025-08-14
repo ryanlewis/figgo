@@ -63,14 +63,40 @@ var (
 	ErrBadFontFormat = errors.New("bad font format")
 )
 
-// WithLayout sets the layout mode for rendering, overriding the font's default
+// WithLayout sets the layout mode for rendering, overriding the font's default.
+//
+// Layout Override Behavior:
+// - Completely replaces the font's built-in layout settings
+// - Can change fitting mode (full-width, kerning, smushing)
+// - Can enable/disable specific smushing rules
+// - Layout validation occurs during rendering (will return error if invalid)
+//
+// Common Usage:
+//   - WithLayout(FitFullWidth): Force full-width spacing
+//   - WithLayout(FitKerning): Use minimal spacing without overlap
+//   - WithLayout(FitSmushing | RuleEqualChar): Enable equal character smushing only
+//
+// The layout will be normalized and validated when rendering begins.
 func WithLayout(layout Layout) Option {
 	return func(opts *options) {
 		opts.layout = &layout
 	}
 }
 
-// WithPrintDirection sets the print direction (0=LTR, 1=RTL)
+// WithPrintDirection sets the print direction, overriding the font's default.
+//
+// Direction Values:
+//   - 0: Left-to-right (LTR) - normal reading direction
+//   - 1: Right-to-left (RTL) - characters added in reverse order
+//
+// RTL Behavior:
+// - Characters are processed in input order but assembled right-to-left
+// - Affects smushing calculations and character positioning
+// - Useful for Arabic-style layouts or special visual effects
+// - Does not reverse the input string, only the rendering direction
+//
+// Note: Most fonts are designed for LTR rendering. RTL may produce
+// unexpected results with some font designs.
 func WithPrintDirection(direction int) Option {
 	return func(opts *options) {
 		opts.printDirection = &direction
@@ -79,6 +105,19 @@ func WithPrintDirection(direction int) Option {
 
 // WithUnknownRune sets the rune used to replace unknown/unsupported runes during rendering.
 // Default is '?' when not set.
+//
+// Error Handling Strategy:
+// - Without this option: rendering fails with ErrUnsupportedRune
+// - With this option: unknown runes are replaced with the specified rune
+// - The replacement rune must exist in the font, or rendering will still fail
+//
+// Common Usage:
+//   - WithUnknownRune('?'): Replace with question mark (if font supports it)
+//   - WithUnknownRune(' '): Replace with space (creates gaps)
+//   - WithUnknownRune('*'): Replace with asterisk (visible placeholder)
+//
+// This is particularly useful when rendering user input that may contain
+// characters not supported by the chosen font.
 func WithUnknownRune(r rune) Option {
 	return func(opts *options) {
 		opts.unknownRune = &r
@@ -87,6 +126,21 @@ func WithUnknownRune(r rune) Option {
 
 // WithTrimWhitespace enables trimming of trailing whitespace from each line.
 // By default, figgo preserves trailing spaces to match figlet's behavior.
+//
+// Whitespace Handling:
+//   - true: Removes trailing spaces from each output line
+//   - false: Preserves all trailing spaces (maintains rectangular output)
+//
+// Considerations:
+// - FIGlet traditionally preserves trailing spaces for consistent formatting
+// - Trimming can reduce output size and eliminate unwanted trailing spaces
+// - May affect visual alignment in multi-line layouts
+// - Applies to each row independently during output generation
+//
+// Use Cases:
+// - Enable for web output where trailing spaces cause display issues
+// - Disable for terminal output where consistent width is important
+// - Enable when concatenating with other text to avoid spacing issues
 func WithTrimWhitespace(trim bool) Option {
 	return func(opts *options) {
 		opts.trimWhitespace = trim

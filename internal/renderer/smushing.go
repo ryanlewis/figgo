@@ -2,6 +2,26 @@ package renderer
 
 // smush attempts to combine two characters into one according to the smush mode.
 // Returns the smushed character or 0 if no smushing can be done.
+//
+// Smushing Rule Precedence (CRITICAL):
+// The rules are checked in a specific order that affects the output:
+// 1. Spaces always combine (fundamental rule)
+// 2. Width check prevents invalid overlaps
+// 3. Universal smushing (if no specific rules)
+// 4. Hardblank rule (highest precedence among controlled rules)
+// 5. Equal character rule
+// 6. Underscore rule
+// 7. Hierarchy rule (complex multi-level precedence)
+// 8. Opposite pair rule
+// 9. Big X rule (lowest precedence)
+//
+// This order is not arbitrary - it ensures predictable, aesthetically
+// pleasing output. Earlier rules override later ones when multiple
+// rules could apply to the same character pair.
+//
+// Character Direction:
+// In RTL mode, the left character (lch) is preferred in universal smushing
+// because it appears later in the user's text (right-to-left reading).
 func (state *renderState) smush(lch, rch rune) rune {
 	// Handle spaces first
 	if lch == ' ' {
@@ -74,6 +94,16 @@ func (state *renderState) smush(lch, rch rune) rune {
 	}
 
 	// Rule 3: Hierarchy smushing
+	// Character hierarchy (strongest to weakest):
+	// Level 0: | (strongest, survives against all)
+	// Level 1: /\
+	// Level 2: []
+	// Level 3: {}
+	// Level 4: ()
+	// Level 5: <> (weakest)
+	//
+	// The stronger character replaces the weaker one.
+	// This creates visually pleasing overlaps in ASCII art.
 	if (state.smushMode & SMHierarchy) != 0 {
 		// "|" replaces "/\", "[]", "{}", "()", "<>"
 		if lch == '|' && hierarchyLevel1[rch] {
@@ -157,7 +187,29 @@ func (state *renderState) smush(lch, rch rune) rune {
 }
 
 // smushAmount returns the maximum amount that the current character can overlap
-// with the current output line
+// with the current output line.
+//
+// Dual-Direction Algorithm:
+// The function handles both LTR and RTL rendering with different boundary
+// calculations:
+//
+// LTR (Left-to-Right):
+// 1. Find rightmost non-space in output line (lineBoundary)
+// 2. Find leftmost non-space in new character (charBoundary)
+// 3. Calculate potential overlap: charBoundary + outlineLen - 1 - lineBoundary
+//
+// RTL (Right-to-Left):
+// 1. Find leftmost non-space in output line (lineBoundary)
+// 2. Find rightmost non-space in new character (charBoundary)
+// 3. Calculate potential overlap: lineBoundary + currentCharWidth - 1 - charBoundary
+//
+// The function checks each row independently and returns the MINIMUM overlap
+// across all rows. This ensures no row exceeds safe overlap limits.
+//
+// Special Cases:
+// - Empty spaces at boundaries allow additional overlap (+1)
+// - Characters that can smush together allow additional overlap (+1)
+// - First character in a line gets special handling
 func (state *renderState) smushAmount() int {
 	// Get a pooled rune buffer for conversions
 	runeBuffer := acquireRuneSlice()
@@ -284,6 +336,10 @@ func (state *renderState) smushAmount() int {
 		}
 
 		// Adjust amount based on character overlap rules
+		// These adjustments determine if characters can overlap by one more position:
+		// 1. If boundary character is space/null, safe to overlap (+1)
+		// 2. If both characters exist and can smush, safe to overlap (+1)
+		// 3. Otherwise, maintain current overlap amount (no adjustment)
 		if ch1 == 0 || ch1 == ' ' {
 			amt++
 		} else if ch2 != 0 {

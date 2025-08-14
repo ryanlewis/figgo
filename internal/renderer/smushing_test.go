@@ -324,6 +324,7 @@ func TestSmushAmt(t *testing.T) {
 				currentCharWidth: 3,
 				charHeight:       2,
 				right2left:       0,
+				outlineLen:       3,
 				outputLine: [][]rune{
 					make([]rune, 10),
 					make([]rune, 10),

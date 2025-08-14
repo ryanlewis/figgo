@@ -114,7 +114,21 @@ func Render(text string, font *parser.Font, opts *Options) (string, error) {
 	return sb.String(), nil
 }
 
-// layoutToSmushMode converts figgo Layout bitmask to smush mode
+// layoutToSmushMode converts figgo Layout bitmask to smush mode.
+//
+// Bitmask Conversion:
+// The figgo Layout type uses a different bit layout than the internal smush mode:
+// - figgo: Fitting modes in bits 6-7, rules in bits 0-5
+// - smush: Combined mode and rules in a single integer
+//
+// This function bridges the two representations:
+// 1. Extracts fitting mode from bits 6-7 (FitKerning/FitSmushing)
+// 2. If smushing is enabled, extracts rules from bits 0-5
+// 3. Maps each rule bit to the corresponding SM* constant
+//
+// The conversion is necessary because figgo's public API uses a cleaner
+// bitmask design, while the renderer uses the original FIGlet constants
+// for compatibility with the smushing algorithm.
 func layoutToSmushMode(layout int) int {
 	// Layout constants from figgo/layout.go:
 	// FitFullWidth = 0
@@ -155,7 +169,22 @@ func layoutToSmushMode(layout int) int {
 	return smushMode
 }
 
-// oldLayoutToSmushMode converts font OldLayout (-1 or 0..63) to smush mode
+// oldLayoutToSmushMode converts font OldLayout (-1 or 0..63) to smush mode.
+//
+// OldLayout Interpretation (from FIGfont v2 spec):
+// - -1: Full-width mode (no character overlap)
+// - 0: Kerning mode (minimal spacing, no overlap)
+// - 1-63: Smushing mode with rules encoded in bits 0-5
+//
+// The bits directly map to smushing rules:
+// - Bit 0: Equal character smushing
+// - Bit 1: Underscore smushing
+// - Bit 2: Hierarchy smushing
+// - Bit 3: Opposite pair smushing
+// - Bit 4: Big X smushing
+// - Bit 5: Hardblank smushing
+//
+// Invalid values (<-1) default to full-width for safety.
 func oldLayoutToSmushMode(oldLayout int) int {
 	if oldLayout == -1 {
 		// Full-width mode
@@ -172,7 +201,25 @@ func oldLayoutToSmushMode(oldLayout int) int {
 	}
 }
 
-// addChar attempts to add a character glyph to the current output line
+// addChar attempts to add a character glyph to the current output line.
+//
+// Character Addition Algorithm:
+// 1. Validates glyph height matches font height
+// 2. Saves previous character width for smushing calculations
+// 3. Calculates how much characters can overlap (smushAmount)
+// 4. Checks if the new character fits within line limits
+// 5. Applies smushing at overlap positions (row by row)
+// 6. Handles both LTR and RTL rendering directions
+//
+// State Management:
+// - previousCharWidth: Width of last added character (for smushing)
+// - currentChar: The glyph being added
+// - currentCharWidth: Width of current glyph
+// - outlineLen: Total length of output line so far
+// - rowLengths: Actual content length per row (for trimming)
+//
+// The function uses pooled buffers for rune conversion to minimize allocations.
+// RTL processing requires a temporary buffer to reverse the merge order.
 func (state *renderState) addChar(glyph []string) bool {
 	if len(glyph) != state.charHeight {
 		return false // Invalid glyph height
@@ -298,6 +345,23 @@ func (state *renderState) addChar(glyph []string) bool {
 
 // writeTo writes the rendered output directly to an io.Writer.
 // This avoids allocating a string for the entire output.
+//
+// Buffer Management Strategy:
+// 1. Uses a pooled byte buffer for UTF-8 encoding
+// 2. Processes each row independently
+// 3. Replaces hardblanks with spaces during output
+// 4. Optionally trims trailing whitespace per row
+// 5. Flushes buffer when approaching capacity (>250 bytes)
+//
+// The function minimizes memory allocations by:
+// - Reusing a single byte buffer across all rows
+// - Writing directly to the io.Writer in chunks
+// - Using utf8.AppendRune for efficient rune encoding
+//
+// Row Processing:
+// - Uses row-specific lengths (rowLengths[i]) for accurate content
+// - Trims trailing spaces if trimWhitespace is enabled
+// - Preserves internal spaces for ASCII art alignment
 func (state *renderState) writeTo(w io.Writer) error {
 	if state.charHeight == 0 {
 		return nil

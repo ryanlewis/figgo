@@ -5,28 +5,43 @@ set -eu
 # Usage:
 #   FIGLET=/path/to/figlet ./tools/generate-goldens.sh
 #   FONTS="standard slant" LAYOUTS="full kern smush" ./tools/generate-goldens.sh
+#   STRICT=1 ./tools/generate-goldens.sh  # Fail on warnings (CI mode)
+#   SAMPLES_FILE=custom_samples.txt ./tools/generate-goldens.sh
 # Requires: figlet (C implementation) in PATH unless FIGLET is set
+
+# Force consistent locale for deterministic output
+export LC_ALL=C
 
 FIGLET="${FIGLET:-figlet}"
 OUT_DIR="${OUT_DIR:-testdata/goldens}"
 FONTS="${FONTS:-standard slant small big}"
 LAYOUTS="${LAYOUTS:-full kern smush}"
 INDEX_FILE="${OUT_DIR}/index.md"
+STRICT="${STRICT:-0}"
+SAMPLES_FILE="${SAMPLES_FILE:-}"
+FONTDIR="${FONTDIR:-}"  # Optional font directory for figlet
 
 # Sample strings (ASCII only, one per line)
-SAMPLES=$(cat <<'EOS'
+if [ -n "$SAMPLES_FILE" ] && [ -f "$SAMPLES_FILE" ]; then
+  SAMPLES=$(cat "$SAMPLES_FILE")
+else
+  # Default samples including edge cases from issue #26
+  SAMPLES=$(cat <<'EOS'
 Hello, World!
 FIGgo 1.0
 |/\[]{}()<>
 The quick brown fox jumps over the lazy dog
-""
-" "
+ 
 a
    
 $$$$
 !@#$%^&*()_+-=[]{}:;'",.<>?/\|
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+abcdefghijklmnopqrstuvwxyz
+0123456789
 EOS
 )
+fi
 
 # Ensure dependencies
 if ! command -v "$FIGLET" >/dev/null 2>&1; then
@@ -73,19 +88,41 @@ cat >> "$INDEX_FILE" << 'EOF'
 EOF
 
 slugify() {
-  # Replace non-alnum with _, handle empty string
+  # Replace non-alnum with _, handle special cases
   if [ -z "$1" ]; then
     printf "empty"
+  elif [ "$1" = " " ]; then
+    printf "space"
+  elif [ "$1" = "  " ]; then
+    printf "two_spaces"
+  elif [ "$1" = "   " ]; then
+    printf "three_spaces"
   else
-    printf '%s' "$1" | tr -c 'A-Za-z0-9' '_' | sed 's/^_*//;s/_*$//;s/__*/_/g'
+    # General slugification
+    slug=$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_' | sed 's/^_*//;s/_*$//;s/__*/_/g')
+    # Handle collision by appending hash if needed
+    if [ -z "$slug" ]; then
+      # If slug is empty after processing, use hash of original
+      slug=$(printf '%s' "$1" | hash_sha256 | cut -c1-8)
+    fi
+    printf '%s' "$slug"
   fi
 }
 
 get_layout_args() {
   case "$1" in
-    full)  echo "" ;;
-    kern)  echo "-k" ;;
-    smush) echo "-S" ;;
+    full)  echo "-W" ;;  # Full width mode
+    kern)  echo "-k" ;;  # Kerning mode
+    smush) 
+      # Detect which smushing flag is supported
+      if "$FIGLET" -S test 2>/dev/null | grep -q "test"; then
+        echo "-S"  # Standard smushing
+      elif "$FIGLET" -m 128 test 2>/dev/null | grep -q "test"; then
+        echo "-m 128"  # Alternative smushing flag
+      else
+        echo "-s"  # Fallback to old smushing
+      fi
+      ;;
     *)     echo "" ;;
   esac
 }
@@ -99,16 +136,43 @@ get_layout_name() {
   esac
 }
 
+# Detect smushing flag support once
+SMUSH_FLAG=""
+if printf "test" | "$FIGLET" -S 2>/dev/null | grep -q "test"; then
+  SMUSH_FLAG="-S"
+elif printf "test" | "$FIGLET" -m 128 2>/dev/null | grep -q "test"; then
+  SMUSH_FLAG="-m 128"
+else
+  SMUSH_FLAG="-s"
+fi
+
 # Process each combination
 for font in $FONTS; do
+  # Set font directory if provided
+  font_args=""
+  if [ -n "$FONTDIR" ]; then
+    font_args="-d $FONTDIR"
+  fi
+  
   # Check if font is available
-  if ! printf "test" | "$FIGLET" -f "$font" >/dev/null 2>&1; then
-    echo "Warning: Font '$font' not available, skipping" >&2
+  if ! printf "test" | "$FIGLET" $font_args -f "$font" >/dev/null 2>&1; then
+    msg="Warning: Font '$font' not available, skipping"
+    echo "$msg" >&2
+    if [ "$STRICT" = "1" ]; then
+      echo "ERROR: In strict mode, all fonts must be available" >&2
+      exit 1
+    fi
     continue
   fi
   
   for layout in $LAYOUTS; do
-    layout_args=$(get_layout_args "$layout")
+    # Set layout args based on detected support
+    case "$layout" in
+      full)  layout_args="-W" ;;
+      kern)  layout_args="-k" ;;
+      smush) layout_args="$SMUSH_FLAG" ;;
+      *)     layout_args="" ;;
+    esac
     layout_name=$(get_layout_name "$layout")
     
     # Create font/layout directory
@@ -119,16 +183,26 @@ for font in $FONTS; do
       slug=$(slugify "$sample")
       out_file="$OUT_DIR/$font/$layout_name/${slug}.md"
       
-      # Skip if sample is empty
-      if [ "$slug" = "empty" ] || [ -z "$slug" ]; then
-        continue
-      fi
+      # Don't skip empty or space samples - they're important edge cases
       
       printf 'Generating %s/%s/%s.md\n' "$font" "$layout_name" "$slug"
       
+      # Get font info and layout info for metadata
+      font_info=""
+      layout_info=""
+      if command -v "$FIGLET" >/dev/null 2>&1; then
+        font_info=$("$FIGLET" $font_args -f "$font" -I 0 2>/dev/null | head -1 || echo "")
+        layout_info=$("$FIGLET" $font_args -f "$font" -I 1 2>/dev/null | head -1 || echo "")
+      fi
+      
       # Generate the ASCII art
-      if ! art_output=$(printf '%s' "$sample" | "$FIGLET" -f "$font" $layout_args 2>/dev/null); then
-        echo "Warning: figlet failed for font=$font layout=$layout_name sample=$slug" >&2
+      if ! art_output=$(printf '%s' "$sample" | "$FIGLET" $font_args -f "$font" $layout_args 2>/dev/null); then
+        msg="Warning: figlet failed for font=$font layout=$layout_name sample=$slug"
+        echo "$msg" >&2
+        if [ "$STRICT" = "1" ]; then
+          echo "ERROR: In strict mode, all renders must succeed" >&2
+          exit 1
+        fi
         continue
       fi
       
@@ -138,21 +212,25 @@ for font in $FONTS; do
       # Escape sample for YAML (handle quotes and special chars)
       escaped_sample=$(printf '%s' "$sample" | sed 's/"/\\"/g')
       
-      # Create markdown file with front matter
+      # Create markdown file with enhanced front matter per issue #26
       cat > "$out_file" << EOF
 ---
 font: $font
-layout: $layout_name
+layout: $layout
+sample: "$escaped_sample"
+figlet_version: $FIGLET_VERSION
+font_info: "$font_info"
+layout_info: "$layout_info"
+print_direction: 0
+generated: "$(date -u +"%Y-%m-%d" 2>/dev/null || date +"%Y-%m-%d")"
+generator: generate-goldens.sh
 figlet_args: "$layout_args"
-input: "$escaped_sample"
-generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)
-figlet_version: "$FIGLET_VERSION"
 checksum_sha256: "$checksum"
 ---
 
-~~~
+\`\`\`text
 $art_output
-~~~
+\`\`\`
 EOF
       
       # Add entry to index (escape pipe characters for markdown tables)

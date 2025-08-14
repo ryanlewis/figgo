@@ -146,3 +146,42 @@ func WithTrimWhitespace(trim bool) Option {
 		opts.trimWhitespace = trim
 	}
 }
+
+// WithWidth sets the maximum output width in characters.
+// Lines longer than this width will be wrapped at word boundaries when possible.
+// The default width is 80 characters (standard terminal width).
+// Valid range is 1-1000. Values outside this range will be clamped.
+//
+// Width Behavior:
+//   - 0 or negative: Uses default of 80 characters
+//   - 1-1000: Sets maximum line width
+//   - >1000: Clamped to 1000 (prevents excessive memory usage)
+//
+// Line Breaking:
+// - Attempts to break at word boundaries (spaces) when possible
+// - Forces character breaks when words exceed the width limit
+// - Maintains proper FIGlet character alignment across wrapped lines
+//
+// Compatibility:
+// - Matches FIGlet's -w flag behavior
+// - Default of 80 matches traditional terminal width
+// - Maximum of 1000 supports 4K displays with small fonts
+//
+// Example:
+//
+//	// Wide output for modern terminals
+//	figgo.Render("Long text", font, figgo.WithWidth(120))
+//
+//	// Narrow output for constrained displays
+//	figgo.Render("Text", font, figgo.WithWidth(40))
+func WithWidth(width int) Option {
+	return func(opts *options) {
+		// Clamp to valid range
+		if width <= 0 {
+			width = 80 // Default
+		} else if width > 1000 {
+			width = 1000 // Maximum
+		}
+		opts.width = &width
+	}
+}

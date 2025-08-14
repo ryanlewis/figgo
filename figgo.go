@@ -548,6 +548,7 @@ type options struct {
 	printDirection *int
 	unknownRune    *rune
 	trimWhitespace bool
+	width          *int
 }
 
 func defaultOptions() *options {
@@ -566,5 +567,8 @@ func (o *options) toInternal() *renderer.Options {
 		rendererOpts.UnknownRune = o.unknownRune
 	}
 	rendererOpts.TrimWhitespace = o.trimWhitespace
+	if o.width != nil {
+		rendererOpts.Width = o.width
+	}
 	return rendererOpts
 }

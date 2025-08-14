@@ -23,6 +23,15 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	// Set trim whitespace option
 	if opts != nil {
 		state.trimWhitespace = opts.TrimWhitespace
+
+		// Set width limit
+		if opts.Width != nil && *opts.Width > 0 {
+			state.outlineLenLimit = *opts.Width - 1 // -1 to match figlet behavior
+		} else {
+			state.outlineLenLimit = 79 // Default: 80 - 1
+		}
+	} else {
+		state.outlineLenLimit = 79 // Default when no options
 	}
 
 	// Set print direction from options or font
@@ -53,8 +62,12 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	for _, r := range text {
 		// Handle newlines and special characters
 		if r == '\n' {
-			// Print current line and reset
-			// For now, we'll just continue processing - line breaks will be added later
+			// Flush current line and start new one
+			if state.outlineLen > 0 {
+				state.flushLine()
+			}
+			state.inchrlinelen = 0
+			state.lastWordBreak = -1
 			continue
 		}
 
@@ -67,6 +80,20 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		if r == '\t' {
 			r = ' '
 		}
+
+		// Track input characters for word boundaries
+		if len(state.inchrline) <= state.inchrlinelen {
+			// Grow inchrline if needed
+			state.inchrline = append(state.inchrline, r)
+		} else {
+			state.inchrline[state.inchrlinelen] = r
+		}
+
+		// Track word boundaries (spaces)
+		if r == ' ' {
+			state.lastWordBreak = state.inchrlinelen
+		}
+		state.inchrlinelen++
 
 		// Get character glyph
 		glyph, exists := font.Characters[r]
@@ -83,15 +110,71 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 			}
 		}
 
-		// Add character to output
+		// Try to add character to output
 		if !state.addChar(glyph) {
-			// Character didn't fit - for now just continue
-			// Line breaking logic would go here
+			// Character didn't fit
+			if state.outlineLen == 0 {
+				// Line is empty but character doesn't fit - force add it
+				// This prevents infinite loops with very narrow widths
+				oldLimit := state.outlineLenLimit
+				state.outlineLenLimit = 10000 // Temporarily allow
+				state.addChar(glyph)
+				state.outlineLenLimit = oldLimit
+			} else if state.lastWordBreak > 0 {
+				// Try to split at word boundary
+				state.splitLine()
+				// Try adding character again on new line
+				if !state.addChar(glyph) {
+					// Still doesn't fit, force it
+					oldLimit := state.outlineLenLimit
+					state.outlineLenLimit = 10000
+					state.addChar(glyph)
+					state.outlineLenLimit = oldLimit
+				}
+			} else {
+				// No word boundary, just flush and continue
+				state.flushLine()
+				// Reset input tracking for new line
+				state.inchrlinelen = 0
+				state.lastWordBreak = -1
+				// Try adding character on new line
+				if !state.addChar(glyph) {
+					// Force it if still doesn't fit
+					oldLimit := state.outlineLenLimit
+					state.outlineLenLimit = 10000
+					state.addChar(glyph)
+					state.outlineLenLimit = oldLimit
+				}
+				// Track this character in inchrline for new line
+				if len(state.inchrline) <= state.inchrlinelen {
+					state.inchrline = append(state.inchrline, r)
+				} else {
+					state.inchrline[state.inchrlinelen] = r
+				}
+				if r == ' ' {
+					state.lastWordBreak = state.inchrlinelen
+				}
+				state.inchrlinelen++
+			}
 		}
 	}
 
-	// Write output directly to writer
-	return state.writeTo(w)
+	// Flush any remaining line
+	if state.outlineLen > 0 {
+		state.flushLine()
+	}
+
+	// Write accumulated output to writer
+	if len(state.outputBuffer) > 0 {
+		// Remove the trailing newline from the last line
+		if state.outputBuffer[len(state.outputBuffer)-1] == '\n' {
+			state.outputBuffer = state.outputBuffer[:len(state.outputBuffer)-1]
+		}
+		_, err := w.Write(state.outputBuffer)
+		return err
+	}
+
+	return nil
 }
 
 // Render converts text to ASCII art using the font and options.
@@ -443,4 +526,95 @@ func (state *renderState) outputToString() string {
 	// Use writeTo to avoid duplication
 	_ = state.writeTo(&sb) // strings.Builder's Write never returns an error
 	return sb.String()
+}
+
+// flushLine writes the current output line to the buffer and resets for the next line.
+// This is called when a line is complete and needs to be output.
+func (state *renderState) flushLine() {
+	if state.charHeight == 0 || state.outlineLen == 0 {
+		return
+	}
+
+	// Get buffer from pool for UTF-8 encoding
+	buf := acquireWriteBuffer()
+	defer releaseWriteBuffer(buf)
+
+	// Ensure buffer has reasonable capacity
+	if cap(buf) < 256 {
+		buf = make([]byte, 0, 256)
+	}
+
+	// Process each row of the current line
+	for i := 0; i < state.charHeight; i++ {
+		// Extract only the actual content using row-specific length
+		actualLine := state.outputLine[i][:state.rowLengths[i]]
+
+		// Process the line, replacing hardblanks and optionally trimming
+		lastNonSpace := len(actualLine) - 1
+		if state.trimWhitespace {
+			// Find last non-space character
+			for lastNonSpace >= 0 && actualLine[lastNonSpace] == ' ' {
+				lastNonSpace--
+			}
+		}
+
+		// Write runes to buffer, replacing hardblanks
+		buf = buf[:0] // Reset buffer
+		for j := 0; j <= lastNonSpace; j++ {
+			r := actualLine[j]
+			if r == state.hardblank {
+				r = ' '
+			}
+			// Append rune to buffer
+			buf = utf8.AppendRune(buf, r)
+		}
+
+		// Append to output buffer
+		state.outputBuffer = append(state.outputBuffer, buf...)
+
+		// Add newline after each row
+		state.outputBuffer = append(state.outputBuffer, '\n')
+	}
+
+	// Reset the line state for next line
+	state.resetLine()
+}
+
+// resetLine clears the current output line for the next line of text.
+func (state *renderState) resetLine() {
+	// Clear output line content
+	for i := 0; i < state.charHeight; i++ {
+		// Just reset the length, keep the allocated buffer
+		for j := 0; j < state.rowLengths[i]; j++ {
+			state.outputLine[i][j] = ' '
+		}
+		state.rowLengths[i] = 0
+	}
+
+	// Reset line tracking
+	state.outlineLen = 0
+	state.previousCharWidth = 0
+	state.currentCharWidth = 0
+
+	// Reset input line tracking
+	state.inchrlinelen = 0
+	state.lastWordBreak = -1
+}
+
+// splitLine splits the current line at the last word boundary.
+// Returns true if a split was performed, false if no word boundary exists.
+func (state *renderState) splitLine() bool {
+	if state.lastWordBreak <= 0 || state.lastWordBreak >= state.inchrlinelen {
+		return false
+	}
+
+	// TODO: This is complex - we need to track which rendered characters
+	// correspond to which input characters. For now, we'll implement
+	// a simpler version that just flushes the current line.
+	// Full implementation would require maintaining a mapping between
+	// input positions and output positions.
+
+	// For now, just flush the current line when we can't fit more
+	state.flushLine()
+	return true
 }

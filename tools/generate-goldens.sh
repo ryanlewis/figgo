@@ -15,7 +15,7 @@ export LC_ALL=C
 FIGLET="${FIGLET:-figlet}"
 OUT_DIR="${OUT_DIR:-testdata/goldens}"
 FONTS="${FONTS:-standard slant small big}"
-LAYOUTS="${LAYOUTS:-full kern smush}"
+LAYOUTS="${LAYOUTS:-default full kern smush}"
 INDEX_FILE="${OUT_DIR}/index.md"
 STRICT="${STRICT:-0}"
 SAMPLES_FILE="${SAMPLES_FILE:-}"
@@ -111,6 +111,7 @@ slugify() {
 
 get_layout_args() {
   case "$1" in
+    default) echo "" ;;  # Default mode - no layout arguments
     full)  echo "-W" ;;  # Full width mode
     kern)  echo "-k" ;;  # Kerning mode
     smush) 
@@ -129,6 +130,7 @@ get_layout_args() {
 
 get_layout_name() {
   case "$1" in
+    default) echo "default" ;;
     full)  echo "full-width" ;;
     kern)  echo "kerning" ;;
     smush) echo "smushing" ;;
@@ -168,6 +170,7 @@ for font in $FONTS; do
   for layout in $LAYOUTS; do
     # Set layout args based on detected support
     case "$layout" in
+      default) layout_args="" ;;
       full)  layout_args="-W" ;;
       kern)  layout_args="-k" ;;
       smush) layout_args="$SMUSH_FLAG" ;;

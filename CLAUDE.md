@@ -8,11 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Subject line**: Maximum 50 characters, lowercase, no period
 - **Format**: `type: brief description` (types: feat, fix, test, docs, refactor, perf, chore)
 - **Body**: 2-4 lines MAX explaining what and why, not how
-- **NEVER include**: AI watermarks, "Generated with Claude", emoji, signatures, "Co-Authored-By"
 - **Examples**:
   ```
   ✅ GOOD: feat: implement full-width rendering - closes #9
-  ❌ BAD:  feat: implement Full-Width rendering mode with comprehensive tests - closes #9 🤖 Generated with Claude
   ```
 
 ### Other Critical Rules
@@ -46,6 +44,7 @@ The Font type is immutable and thread-safe, allowing concurrent use without lock
 - `docs/prd.md`: Product Requirements Document
 - `docs/spec-compliance.md`: Tracking of compliance with the spec
 
+- https://raw.githubusercontent.com/cmatsuoka/figlet/refs/heads/master/figlet.c: Reference C implementation
 ## Available Test Fonts
 
 The project includes 4 FIGlet fonts for testing:
@@ -168,7 +167,6 @@ The project uses GitHub Actions for CI with the following jobs:
 <2-4 line body if needed>
 <Closes #N if applicable>
 ```
-NO WATERMARKS. NO "Generated with". NO "Co-Authored-By: Claude".
 
 ## Current Status
 

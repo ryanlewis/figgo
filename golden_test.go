@@ -131,6 +131,9 @@ func parseGoldenFile(path string) (*goldenMetadata, string, error) {
 // mapLayoutString converts layout string from golden file to Layout constant
 func mapLayoutString(layout string) Layout {
 	switch layout {
+	case "default":
+		// Return 0 to use font's default layout
+		return 0
 	case "full":
 		return FitFullWidth
 	case "kern":
@@ -201,9 +204,12 @@ func TestGoldenFiles(t *testing.T) {
 			opts := []Option{}
 
 			// Map layout string to Layout constant
-			layout := mapLayoutString(metadata.Layout)
-			if layout != 0 {
-				opts = append(opts, WithLayout(layout))
+			// Special handling for "default" - don't pass any layout option to use font's default
+			if metadata.Layout != "default" {
+				layout := mapLayoutString(metadata.Layout)
+				if layout != 0 {
+					opts = append(opts, WithLayout(layout))
+				}
 			}
 
 			// Add print direction if RTL
@@ -387,6 +393,8 @@ func slugify(s string) string {
 
 func getLayoutName(layout string) string {
 	switch layout {
+	case "default":
+		return "default"
 	case "full":
 		return "full-width"
 	case "kern":

@@ -30,6 +30,7 @@ func run() int {
 		showVersion    bool
 		showHelp       bool
 		trimWhitespace bool
+		width          int
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
@@ -37,6 +38,7 @@ func run() int {
 	pflag.BoolVarP(&showVersion, "version", "v", false, "Show version information")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show help message")
 	pflag.BoolVar(&trimWhitespace, "trim-whitespace", false, "Trim trailing whitespace from each line")
+	pflag.IntVarP(&width, "width", "w", 80, "Maximum output width in characters (1-1000, 0=default)")
 	pflag.Parse()
 
 	if showHelp {
@@ -90,6 +92,7 @@ func run() int {
 	// Build render options
 	renderOpts := []figgo.Option{
 		figgo.WithUnknownRune(unknownRuneValue),
+		figgo.WithWidth(width),
 	}
 	if trimWhitespace {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))

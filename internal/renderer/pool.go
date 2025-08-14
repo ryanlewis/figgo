@@ -85,6 +85,14 @@ func acquireRenderState(height int, hardblank rune) *renderState {
 	state.smushMode = 0
 	state.trimWhitespace = false
 
+	// Reset new line breaking fields
+	state.inchrlinelen = 0
+	state.lastWordBreak = -1
+	state.wordbreakmode = 0
+
+	// Reset output buffer
+	state.outputBuffer = state.outputBuffer[:0]
+
 	// Resize slices if needed (without reallocating if possible)
 	if cap(state.outputLine) < height {
 		state.outputLine = make([][]rune, height)
@@ -92,6 +100,13 @@ func acquireRenderState(height int, hardblank rune) *renderState {
 	} else {
 		state.outputLine = state.outputLine[:height]
 		state.rowLengths = state.rowLengths[:height]
+	}
+
+	// Initialize inchrline buffer if needed
+	if cap(state.inchrline) < 1000 {
+		state.inchrline = make([]rune, 0, 1000)
+	} else {
+		state.inchrline = state.inchrline[:0]
 	}
 
 	// Initialize output lines with pre-allocated buffers
@@ -372,4 +387,3 @@ func getCachedRuneCount(s string) int {
 	// Fall back to standard count
 	return utf8.RuneCountInString(s)
 }
-

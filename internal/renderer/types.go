@@ -38,6 +38,8 @@ type Options struct {
 	UnknownRune *rune
 	// TrimWhitespace removes trailing spaces from each line
 	TrimWhitespace bool
+	// Width is the maximum output width in characters (default 80)
+	Width *int
 }
 
 // renderState holds the current rendering state.
@@ -47,6 +49,10 @@ type renderState struct {
 	outputLine  [][]rune // Current output line being built (one per font height)
 	rowLengths  []int    // Length of each row
 	currentChar []string // Current character being processed
+	inchrline   []rune   // Input characters for word boundary tracking
+
+	// String builder for accumulated output
+	outputBuffer []byte // Accumulated output from completed lines
 
 	// int fields (8 bytes each on 64-bit)
 	outlineLen        int // Length of current output line
@@ -56,6 +62,9 @@ type renderState struct {
 	charHeight        int // Character height from font
 	right2left        int // Print direction (0=LTR, 1=RTL)
 	smushMode         int // Smushing mode calculated from layout
+	inchrlinelen      int // Length of input line
+	lastWordBreak     int // Position of last space/word boundary in inchrline
+	wordbreakmode     int // State machine for line breaking
 
 	// rune field (4 bytes)
 	hardblank rune // Hardblank character from font

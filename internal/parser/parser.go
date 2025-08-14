@@ -70,6 +70,22 @@ func computeGlyphTrims(glyph []string) []GlyphTrim {
 
 // GetCharacterTrims returns the precomputed trim data for a character,
 // computing it lazily if necessary. This is thread-safe.
+//
+// Lazy Trim Computation Pattern:
+// Trim data (leftmost/rightmost visible positions) is expensive to compute for
+// all glyphs upfront. Instead, we compute it on first access per glyph:
+//
+// 1. Fast path: Check with read lock if already computed
+// 2. Slow path: Acquire write lock, double-check (another thread may have
+//    computed it), then compute and cache
+//
+// This pattern optimizes for:
+// - Fast font loading (no upfront computation)
+// - Efficient rendering (computed once, reused many times)
+// - Thread safety (proper locking without contention on cached data)
+//
+// The double-check pattern prevents redundant computation in concurrent scenarios
+// where multiple goroutines request the same glyph simultaneously.
 func (f *Font) GetCharacterTrims(r rune) ([]GlyphTrim, bool) {
 	// Fast path: check if already computed (with read lock)
 	f.trimsMu.RLock()
@@ -204,6 +220,13 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 
 	// Parse numeric fields - need to skip past the hardblank character properly
 	// Convert to runes to handle multi-byte characters correctly
+	//
+	// Why rune-based parsing is critical here:
+	// The header format is: "flf2a<hardblank> <height> <baseline> ..."
+	// If hardblank is multi-byte (e.g., '♠' = 3 bytes in UTF-8), byte-based
+	// indexing would put us in the middle of the character, causing parsing
+	// failures or data corruption. Rune-based indexing ensures we skip exactly
+	// 6 characters regardless of their byte representation.
 	runes := []rune(headerLine)
 	if len(runes) < minSignatureRunes {
 		return nil, fmt.Errorf("header line too short")
@@ -269,7 +292,16 @@ func readHeaderLine(scanner *bufio.Scanner) (string, error) {
 	return headerLine, nil
 }
 
-// parseSignature validates and extracts the signature and hardblank
+// parseSignature validates and extracts the signature and hardblank from the header.
+//
+// The FIGfont header starts with a 5-character signature "flf2a" followed immediately
+// by the hardblank character (no space between them). The hardblank can be any
+// non-whitespace character, including multi-byte UTF-8 characters.
+//
+// We use rune-based parsing here because:
+// 1. The hardblank might be a multi-byte UTF-8 character (e.g., '♠' = 3 bytes)
+// 2. Byte-based indexing would fail for non-ASCII hardblanks
+// 3. This ensures correct extraction of the 6th character regardless of encoding
 func parseSignature(headerLine string, font *Font) error {
 	// Get the hardblank as a rune (handles multi-byte UTF-8)
 	runes := []rune(headerLine)
@@ -400,7 +432,22 @@ func readCommentLines(scanner *bufio.Scanner, font *Font) error {
 	return nil
 }
 
-// parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223)
+// parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223).
+//
+// Parsing Strategy:
+// 1. Always parse ASCII space (32) first - it's required and special
+// 2. Parse printable ASCII (33-126) - the core character set
+// 3. Parse German umlauts if present - extended Latin-1 characters
+// 4. Parse additional code-tagged characters if specified
+//
+// The function is permissive about missing characters:
+// - If we hit EOF during ASCII parsing, we accept a partial font
+// - German characters are optional (many fonts omit them)
+// - Missing code-tagged characters are ignored
+//
+// This permissiveness ensures compatibility with the wide variety of
+// FIGfont files in the wild, many of which don't strictly follow the spec.
+// The only hard requirement is the space character (ASCII 32).
 func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	// Parse space character (ASCII 32)
 	spaceGlyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
@@ -446,13 +493,25 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	return nil
 }
 
-// stripTrailingRun strips the trailing run of the last character from a line
-// Returns the body (without trailing run), the endmark character, and the run length
+// stripTrailingRun strips the trailing run of the last character from a line.
+// Returns the body (without trailing run), the endmark character, and the run length.
 //
 // This implementation is intentionally permissive to handle real-world fonts:
 // - Strips any trailing run length (not just single/double as per spec)
 // - Doesn't enforce "last line has double endmark" convention
 // - Handles multi-byte UTF-8 endmarks correctly
+// - Gracefully handles invalid UTF-8 sequences
+//
+// Algorithm Overview:
+// 1. Special case: Strip Windows CR (\r) left by Scanner after removing LF
+// 2. Fast path: For ASCII endmarks (most common), use byte-wise operations
+// 3. UTF-8 path: Decode runes from the end, counting consecutive matches
+// 4. Error path: If invalid UTF-8, fall back to byte-wise stripping
+//
+// The fast-path optimization is crucial because 99% of FIGfonts use ASCII
+// endmarks like '@' or '#'. The UTF-8 path ensures correct handling of
+// creative fonts that use Unicode endmarks (rare but supported).
+//
 // This approach prioritizes compatibility over strict spec compliance.
 func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	// Trim only CR; bufio.Scanner already strips LF
@@ -503,7 +562,24 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	return line[:i], r, runLen
 }
 
-// parseGlyph parses a single character glyph
+// parseGlyph parses a single character glyph from the font data.
+//
+// Glyph Parsing Algorithm:
+// 1. Reads exactly 'height' lines from the scanner
+// 2. For each line, strips trailing endmark characters using stripTrailingRun
+// 3. Validates that all rows have consistent width (in runes, not bytes)
+// 4. Checks against MaxLength (advisory only - many fonts violate this)
+//
+// The function is permissive about MaxLength violations (only warns) because
+// real-world fonts often exceed their stated MaxLength. Width consistency
+// within a glyph is enforced strictly as it's essential for proper rendering.
+//
+// Note on width calculation: We use rune counts, not visual width. This means
+// combining marks count as separate runes. FIGfonts are primarily ASCII art,
+// so this limitation rarely affects real usage.
+//
+// Memory optimization: Uses pooled slices for glyphs and warnings to reduce
+// allocations in high-throughput scenarios.
 func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
 	glyph = acquireGlyphSlice(height)
 	warnings = acquireWarnings()

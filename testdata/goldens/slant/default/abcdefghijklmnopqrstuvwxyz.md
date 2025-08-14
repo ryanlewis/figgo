@@ -1,15 +1,15 @@
 ---
 font: slant
 layout: default
-sample: "abcdefghijklmnopqrstuvwxyz"
-figlet_version: flf2 tlf2
-font_info: "FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,"
+sample: abcdefghijklmnopqrstuvwxyz
+figlet_version: FIGlet Copyright
+font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
 layout_info: "20205"
 print_direction: 0
 generated: "2025-08-14"
-generator: generate-goldens.sh
+generator: generate-goldens
 figlet_args: ""
-checksum_sha256: "1821a7da7ce8ae580a7e93d1fc9bb169a40c3febabb1c22ac10d18e37947c0f7"
+checksum_sha256: 1821a7da7ce8ae580a7e93d1fc9bb169a40c3febabb1c22ac10d18e37947c0f7
 ---
 
 ```text

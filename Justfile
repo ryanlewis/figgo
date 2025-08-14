@@ -43,11 +43,7 @@ coverage:
 
 # Generate golden test files
 generate-goldens:
-    @if [ -f ./tools/generate-goldens.sh ]; then \
-        ./tools/generate-goldens.sh; \
-    else \
-        echo "Golden test generator not yet implemented"; \
-    fi
+    go run ./cmd/generate-goldens
 
 # Run CI checks locally (lint, test, build)
 ci: lint test build

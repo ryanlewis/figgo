@@ -2,12 +2,15 @@ package figgo
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // goldenMetadata represents the YAML front matter in golden files
@@ -58,43 +61,15 @@ func parseGoldenFile(path string) (*goldenMetadata, string, error) {
 		}
 	}
 
-	// Parse front matter manually (simple approach for our known format)
+	// Parse YAML front matter using proper YAML parser
+	var frontMatterBuf bytes.Buffer
 	for _, line := range frontMatterLines {
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
+		frontMatterBuf.WriteString(line)
+		frontMatterBuf.WriteByte('\n')
+	}
 
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		value = strings.Trim(value, `"`)
-
-		switch key {
-		case "font":
-			metadata.Font = value
-		case "layout":
-			metadata.Layout = value
-		case "sample":
-			metadata.Sample = value
-		case "figlet_version":
-			metadata.FigletVersion = value
-		case "font_info":
-			metadata.FontInfo = value
-		case "layout_info":
-			metadata.LayoutInfo = value
-		case "print_direction":
-			if value == "1" {
-				metadata.PrintDirection = 1
-			}
-		case "generated":
-			metadata.Generated = value
-		case "generator":
-			metadata.Generator = value
-		case "figlet_args":
-			metadata.FigletArgs = value
-		case "checksum_sha256":
-			metadata.ChecksumSHA256 = value
-		}
+	if err := yaml.Unmarshal(frontMatterBuf.Bytes(), metadata); err != nil {
+		return nil, "", fmt.Errorf("failed to parse YAML front matter: %w", err)
 	}
 
 	// Find and extract ASCII art from code block
@@ -150,7 +125,7 @@ func TestGoldenFiles(t *testing.T) {
 	// Check if golden files exist
 	goldenDir := "testdata/goldens"
 	if _, err := os.Stat(goldenDir); os.IsNotExist(err) {
-		t.Skip("Golden test files not found. Run ./tools/generate-goldens.sh to generate them.")
+		t.Skip("Golden test files not found. Run 'go run ./cmd/generate-goldens' to generate them.")
 	}
 
 	// Find all golden files

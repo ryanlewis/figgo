@@ -274,14 +274,15 @@ func (state *renderState) smushAmount() int {
 		} else {
 			// Left-to-right processing
 			// Find the rightmost non-space character in output line
-			// Use row-specific length
+			// Start at the position after the last character (like figlet.c's STRLEN)
 			lineBoundary = state.rowLengths[row]
 
 			// Find rightmost non-space in output line
+			// This matches figlet.c: for (linebd=STRLEN(outputline[row]); ...; linebd--)
 			for {
 				// Get character at linebd position
-				// Handle end of string as null terminator
-				if lineBoundary < len(state.outputLine[row]) {
+				// When linebd == rowLengths[row], we're at the "null terminator" position
+				if lineBoundary < state.rowLengths[row] {
 					ch1 = state.outputLine[row][lineBoundary]
 				} else {
 					ch1 = 0 // Treat as null terminator at end

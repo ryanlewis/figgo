@@ -77,11 +77,12 @@ go test -v -run TestSpecificFunction ./...
 just coverage
 
 # Generate golden test files
-./tools/generate-goldens.sh
-# or with specific fonts/layouts:
-FONTS="standard slant" LAYOUTS="full kern smush" ./tools/generate-goldens.sh
-# or in strict CI mode (fail on warnings):
-STRICT=1 ./tools/generate-goldens.sh
+just generate-goldens
+# or: go run ./cmd/generate-goldens
+# with specific options:
+go run ./cmd/generate-goldens -fonts "standard slant" -layouts "full kern smush"
+# in strict mode (fail on warnings):
+go run ./cmd/generate-goldens -strict
 
 # Run golden tests
 go test -run TestGoldenFiles

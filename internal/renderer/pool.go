@@ -11,7 +11,16 @@ const (
 	defaultMaxHeight    = 20 // Most fonts are under 20 lines tall
 )
 
-// renderStatePool manages a pool of renderState objects to reduce allocations
+// renderStatePool manages a pool of renderState objects to reduce allocations.
+//
+// Pool Design:
+// - Pre-allocates output line slices with reasonable default capacity
+// - Reuses expensive renderState objects across multiple render calls
+// - Prevents allocation churn in high-throughput rendering scenarios
+//
+// The renderState contains large rune slice buffers (defaultOutlineLimit = 10K runes)
+// that would be expensive to allocate/deallocate repeatedly. Pooling them provides
+// significant performance benefits for applications that render many strings.
 var renderStatePool = sync.Pool{
 	New: func() interface{} {
 		return &renderState{
@@ -46,7 +55,21 @@ var writeBufferPool = sync.Pool{
 	},
 }
 
-// acquireRenderState gets a renderState from the pool and initializes it
+// acquireRenderState gets a renderState from the pool and initializes it.
+//
+// State Initialization Strategy:
+// 1. Reuse existing renderState object from pool (avoid struct allocation)
+// 2. Resize internal slices only if current capacity is insufficient
+// 3. Pre-allocate output line buffers to avoid per-character allocations
+// 4. Zero-out existing data for clean state
+//
+// Buffer Management:
+// - outputLine: One rune slice per font height line
+// - rowLengths: Tracks actual content length per row (for trimming)
+// - Both are sized to defaultOutlineLimit (10,000 runes)
+//
+// This pooling is essential for rendering performance, as it eliminates
+// the major allocation overhead when rendering multiple strings.
 func acquireRenderState(height int, hardblank rune) *renderState {
 	state := renderStatePool.Get().(*renderState)
 
@@ -323,7 +346,21 @@ func getCachedRunes(s string) []rune {
 	return result
 }
 
-// getCachedRuneCount returns the rune count for a string, using cache if possible
+// getCachedRuneCount returns the rune count for a string, using cache if possible.
+//
+// Caching Strategy:
+// Frequently used glyph rows (like the same characters appearing multiple times)
+// benefit from caching their rune counts. This micro-optimization reduces the
+// overhead of UTF-8 scanning for repeated strings.
+//
+// Cache Characteristics:
+// - Small cache size (defaultMaxHeight = 20 entries)
+// - Only caches strings < 128 runes (avoid caching large strings)
+// - Simple linear search (fast for small cache)
+// - Falls back to utf8.RuneCountInString for cache misses
+//
+// This provides measurable performance benefits when rendering the same
+// character multiple times in a string.
 func getCachedRuneCount(s string) int {
 	// Check cache
 	for i := range runeConversionCache {

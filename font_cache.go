@@ -9,6 +9,22 @@ import (
 
 // FontCache provides thread-safe caching of parsed fonts for long-running applications.
 // The cache uses a simple LRU eviction policy when the maximum size is reached.
+//
+// Cache Implementation Details:
+// - Uses a hash map for O(1) lookups combined with a doubly-linked list for LRU tracking
+// - RWMutex allows concurrent reads while protecting writes
+// - Atomic counters for statistics avoid lock contention during metrics collection
+// - Memory size estimation helps with capacity planning but is approximate
+//
+// Key Generation Strategy:
+// - File paths: Used directly as keys (assumes paths uniquely identify font content)
+// - Byte data: SHA256 hash ensures identical content gets same cache entry
+// - Hash prefix "sha256:" distinguishes content-based keys from path-based keys
+//
+// LRU Policy:
+// - Every cache hit moves the entry to the front of the LRU list
+// - When cache is full, the tail (least recently used) entry is evicted
+// - This balances memory usage with performance for frequently used fonts
 type FontCache struct {
 	mu        sync.RWMutex
 	fonts     map[string]*cacheEntry
@@ -84,6 +100,15 @@ func ParseFontCached(data []byte) (*Font, error) {
 }
 
 // ParseFont parses a font from byte data with caching.
+//
+// Content-Based Caching:
+// Uses SHA256 hash of the font data as the cache key. This ensures:
+// - Identical font content gets cached once regardless of source
+// - Different versions of fonts with same filename are cached separately
+// - Hash collisions are astronomically unlikely (2^128 probability)
+//
+// The "sha256:" prefix distinguishes content keys from path keys,
+// preventing conflicts when both approaches are used.
 func (c *FontCache) ParseFont(data []byte) (*Font, error) {
 	// Generate cache key from content hash
 	hash := sha256.Sum256(data)
@@ -106,7 +131,17 @@ func (c *FontCache) ParseFont(data []byte) (*Font, error) {
 	return font, nil
 }
 
-// get retrieves a font from the cache
+// get retrieves a font from the cache using optimized locking.
+//
+// Locking Strategy:
+// 1. Fast path: RLock for existence check (allows concurrent reads)
+// 2. If found, acquire full Lock only to update LRU position
+// 3. This minimizes lock contention for cache hits
+//
+// The two-phase locking is crucial for performance:
+// - Multiple goroutines can check cache simultaneously
+// - Only LRU updates require exclusive access
+// - Cache misses don't block other readers
 func (c *FontCache) get(key string) *Font {
 	c.mu.RLock()
 	entry, exists := c.fonts[key]
@@ -126,7 +161,18 @@ func (c *FontCache) get(key string) *Font {
 	return entry.font
 }
 
-// put adds a font to the cache
+// put adds a font to the cache with automatic LRU eviction.
+//
+// Cache Insertion Process:
+// 1. Check if key already exists (avoid duplicates)
+// 2. Evict LRU entry if cache is at capacity
+// 3. Create new cache entry with size estimation
+// 4. Add to both hash map and LRU list atomically
+//
+// Memory Management:
+// - Size estimation helps with capacity planning
+// - LRU eviction prevents unbounded memory growth
+// - Entry size includes glyph data and map overhead
 func (c *FontCache) put(key string, font *Font) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -205,7 +251,24 @@ func (s CacheStats) HitRate() float64 {
 	return float64(s.Hits) * 100 / float64(total)
 }
 
-// estimateFontSize estimates the memory size of a font in bytes
+// estimateFontSize estimates the memory size of a font in bytes.
+//
+// Size Calculation Strategy:
+// The estimation includes several components but prioritizes speed over accuracy:
+//
+// 1. Base struct overhead (~100 bytes for Font struct fields)
+// 2. Glyph data: Sum of all string lengths in all glyphs
+// 3. Slice overhead: 8 bytes per slice header ([]string)
+// 4. Map overhead: ~40 bytes per map entry (key + value + bucket overhead)
+//
+// Trade-offs:
+// - Fast calculation (linear scan of glyph data)
+// - Underestimates pointer overhead and heap fragmentation
+// - Doesn't account for string header overhead (16 bytes per string)
+// - Good enough for capacity planning and cache size decisions
+//
+// For precise memory usage, consider using runtime.MemStats or pprof,
+// but this estimation is sufficient for LRU eviction decisions.
 func estimateFontSize(f *Font) int64 {
 	if f == nil {
 		return 0

@@ -182,9 +182,9 @@ func TestGoldenFiles(t *testing.T) {
 			// Special handling for "default" - don't pass any layout option to use font's default
 			if metadata.Layout != "default" {
 				layout := mapLayoutString(metadata.Layout)
-				if layout != 0 {
-					opts = append(opts, WithLayout(layout))
-				}
+				// Always add the layout option, even if it's 0 (FitFullWidth)
+				// This ensures we override the font's default layout
+				opts = append(opts, WithLayout(layout))
 			}
 
 			// Add print direction if RTL

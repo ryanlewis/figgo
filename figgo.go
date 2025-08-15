@@ -279,9 +279,22 @@ func LoadFontDir(dir, fontName string) (*Font, error) {
 // LoadFontFS loads a FIGfont from a filesystem at the specified path.
 // The returned Font is immutable and safe for concurrent use across goroutines.
 //
-// The path must be a valid path within the filesystem, and the file must be
-// a valid FIGfont v2 format file. Path traversal (e.g., "../") is not allowed
-// for security reasons.
+// Security Features:
+// - Validates paths using fs.ValidPath to prevent directory traversal
+// - Rejects absolute paths and paths containing ".." segments
+// - Uses path.Clean for normalization (not filepath.Clean)
+// - Checks that target is a file, not a directory
+//
+// Supported Filesystems:
+// - embed.FS (embedded fonts at compile time)
+// - os.DirFS (local filesystem directories)
+// - Any custom fs.FS implementation
+// - Supports both plain .flf and ZIP-compressed fonts
+//
+// Path Requirements:
+// - Must be a valid fs.ValidPath (no leading slash, no backslashes)
+// - Cannot contain ".", "..", or empty path segments
+// - Must point to a file, not a directory
 //
 // Example with embed.FS:
 //
@@ -387,7 +400,80 @@ func convertParserFont(pf *parser.Font) (*Font, error) {
 	}, nil
 }
 
+// RenderTo writes ASCII art directly to the provided writer using the specified font and options.
+// This is more efficient than Render as it avoids allocating a string for the result.
+//
+// Performance Benefits:
+// - Streams output directly to writer (no intermediate string allocation)
+// - Uses pooled buffers internally for UTF-8 encoding
+// - Ideal for writing to files, HTTP responses, or other streaming destinations
+// - Significantly reduces memory usage for large rendered output
+//
+// Default Behavior:
+// - Uses font's built-in layout and print direction if not overridden
+// - Replaces unknown runes with '?' (unless WithUnknownRune is used)
+// - Preserves trailing whitespace (unless WithTrimWhitespace is used)
+//
+// Error Conditions:
+// - ErrUnknownFont: if font is nil
+// - ErrUnsupportedRune: if text contains runes not in the font
+// - Layout conflicts: if conflicting layout options are specified
+//
+// Example:
+//
+//	var buf bytes.Buffer
+//	err := figgo.RenderTo(&buf, "Hello", font, figgo.WithLayout(figgo.LayoutKerning))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Print(buf.String())
+func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
+	if f == nil {
+		return ErrUnknownFont
+	}
+	options := defaultOptions()
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	// Default to font's layout and direction if not specified
+	if options.layout == nil {
+		l := f.Layout
+		options.layout = &l
+	}
+	if options.printDirection == nil {
+		d := f.PrintDirection
+		options.printDirection = &d
+	}
+
+	// Validate layout options
+	if err := validateLayout(options); err != nil {
+		return err
+	}
+	// Convert public Font back to internal parser.Font for renderer
+	pf := convertToParserFont(f)
+	return renderer.RenderTo(w, text, pf, options.toInternal())
+}
+
 // Render converts text to ASCII art using the specified font and options.
+// It returns the rendered text as a string.
+//
+// This is the most convenient function for simple use cases where you need
+// the result as a string. However, for better performance when writing to
+// files, HTTP responses, or other io.Writer destinations, use RenderTo instead.
+//
+// Memory Usage:
+// - Pre-sizes the internal string builder based on estimated output size
+// - For large text or tall fonts, consider using RenderTo to avoid large allocations
+// - Uses the same rendering engine as RenderTo (delegates to RenderTo internally)
+//
+// Example:
+//
+//	result, err := figgo.Render("Hello", font)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Println(result)
 func Render(text string, f *Font, opts ...Option) (string, error) {
 	if f == nil {
 		return "", ErrUnknownFont
@@ -461,6 +547,8 @@ type options struct {
 	layout         *Layout
 	printDirection *int
 	unknownRune    *rune
+	trimWhitespace bool
+	width          *int
 }
 
 func defaultOptions() *options {
@@ -477,6 +565,10 @@ func (o *options) toInternal() *renderer.Options {
 	}
 	if o.unknownRune != nil {
 		rendererOpts.UnknownRune = o.unknownRune
+	}
+	rendererOpts.TrimWhitespace = o.trimWhitespace
+	if o.width != nil {
+		rendererOpts.Width = o.width
 	}
 	return rendererOpts
 }

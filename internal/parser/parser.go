@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -67,14 +68,69 @@ func computeGlyphTrims(glyph []string) []GlyphTrim {
 	return trims
 }
 
+// GetCharacterTrims returns the precomputed trim data for a character,
+// computing it lazily if necessary. This is thread-safe.
+//
+// Lazy Trim Computation Pattern:
+// Trim data (leftmost/rightmost visible positions) is expensive to compute for
+// all glyphs upfront. Instead, we compute it on first access per glyph:
+//
+// 1. Fast path: Check with read lock if already computed
+// 2. Slow path: Acquire write lock, double-check (another thread may have
+//    computed it), then compute and cache
+//
+// This pattern optimizes for:
+// - Fast font loading (no upfront computation)
+// - Efficient rendering (computed once, reused many times)
+// - Thread safety (proper locking without contention on cached data)
+//
+// The double-check pattern prevents redundant computation in concurrent scenarios
+// where multiple goroutines request the same glyph simultaneously.
+func (f *Font) GetCharacterTrims(r rune) ([]GlyphTrim, bool) {
+	// Fast path: check if already computed (with read lock)
+	f.trimsMu.RLock()
+	if f.trimsComputed[r] {
+		trims := f.CharacterTrims[r]
+		f.trimsMu.RUnlock()
+		return trims, true
+	}
+	f.trimsMu.RUnlock()
+
+	// Slow path: compute the trims (with write lock)
+	f.trimsMu.Lock()
+	defer f.trimsMu.Unlock()
+
+	// Double-check in case another goroutine computed it
+	if f.trimsComputed[r] {
+		return f.CharacterTrims[r], true
+	}
+
+	// Check if the character exists
+	glyph, exists := f.Characters[r]
+	if !exists {
+		return nil, false
+	}
+
+	// Compute and cache the trims
+	trims := computeGlyphTrims(glyph)
+	f.CharacterTrims[r] = trims
+	f.trimsComputed[r] = true
+
+	return trims, true
+}
+
 // Font represents a parsed FIGfont with all its metadata and character glyphs.
 type Font struct {
 	// Characters maps ASCII codes to their glyph representations
 	Characters map[rune][]string
 
 	// CharacterTrims maps ASCII characters to their precomputed trim data per row
-	// This is computed during parsing for performance
+	// This is computed lazily on first access for better parse performance
 	CharacterTrims map[rune][]GlyphTrim
+
+	// trimsComputed tracks which glyphs have had their trims computed
+	trimsComputed map[rune]bool
+	trimsMu       sync.RWMutex // Protects trimsComputed and CharacterTrims for lazy computation
 
 	// Comments contains the font comments
 	Comments []string
@@ -118,9 +174,9 @@ type Font struct {
 
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
 func Parse(r io.Reader) (*Font, error) {
-	scanner := bufio.NewScanner(r)
-	// Increase buffer size for large fonts (default is 64KB, set max to 4MB)
-	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
+	// Use pooled scanner with pooled buffer
+	scanner, buf := createPooledScanner(r)
+	defer releaseScannerBuffer(buf)
 
 	// Parse header and comments first
 	font, err := parseHeaderWithScanner(scanner)
@@ -140,9 +196,9 @@ func Parse(r io.Reader) (*Font, error) {
 // It reads the signature line, validates all required fields, and reads
 // the specified number of comment lines.
 func ParseHeader(r io.Reader) (*Font, error) {
-	scanner := bufio.NewScanner(r)
-	// Increase buffer size for large fonts
-	scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
+	// Use pooled scanner with pooled buffer
+	scanner, buf := createPooledScanner(r)
+	defer releaseScannerBuffer(buf)
 	return parseHeaderWithScanner(scanner)
 }
 
@@ -164,6 +220,13 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 
 	// Parse numeric fields - need to skip past the hardblank character properly
 	// Convert to runes to handle multi-byte characters correctly
+	//
+	// Why rune-based parsing is critical here:
+	// The header format is: "flf2a<hardblank> <height> <baseline> ..."
+	// If hardblank is multi-byte (e.g., '♠' = 3 bytes in UTF-8), byte-based
+	// indexing would put us in the middle of the character, causing parsing
+	// failures or data corruption. Rune-based indexing ensures we skip exactly
+	// 6 characters regardless of their byte representation.
 	runes := []rune(headerLine)
 	if len(runes) < minSignatureRunes {
 		return nil, fmt.Errorf("header line too short")
@@ -193,6 +256,7 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 	// Initialize Characters map with capacity for ASCII (95) + German (7) + some extras
 	font.Characters = make(map[rune][]string, 128)
 	font.CharacterTrims = make(map[rune][]GlyphTrim, 128)
+	font.trimsComputed = make(map[rune]bool, 128)
 
 	return font, nil
 }
@@ -228,7 +292,16 @@ func readHeaderLine(scanner *bufio.Scanner) (string, error) {
 	return headerLine, nil
 }
 
-// parseSignature validates and extracts the signature and hardblank
+// parseSignature validates and extracts the signature and hardblank from the header.
+//
+// The FIGfont header starts with a 5-character signature "flf2a" followed immediately
+// by the hardblank character (no space between them). The hardblank can be any
+// non-whitespace character, including multi-byte UTF-8 characters.
+//
+// We use rune-based parsing here because:
+// 1. The hardblank might be a multi-byte UTF-8 character (e.g., '♠' = 3 bytes)
+// 2. Byte-based indexing would fail for non-ASCII hardblanks
+// 3. This ensures correct extraction of the 6th character regardless of encoding
 func parseSignature(headerLine string, font *Font) error {
 	// Get the hardblank as a rune (handles multi-byte UTF-8)
 	runes := []rune(headerLine)
@@ -359,7 +432,22 @@ func readCommentLines(scanner *bufio.Scanner, font *Font) error {
 	return nil
 }
 
-// parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223)
+// parseGlyphs parses the required FIGcharacters: ASCII (32-126) and German (196,214,220,228,246,252,223).
+//
+// Parsing Strategy:
+// 1. Always parse ASCII space (32) first - it's required and special
+// 2. Parse printable ASCII (33-126) - the core character set
+// 3. Parse German umlauts if present - extended Latin-1 characters
+// 4. Parse additional code-tagged characters if specified
+//
+// The function is permissive about missing characters:
+// - If we hit EOF during ASCII parsing, we accept a partial font
+// - German characters are optional (many fonts omit them)
+// - Missing code-tagged characters are ignored
+//
+// This permissiveness ensures compatibility with the wide variety of
+// FIGfont files in the wild, many of which don't strictly follow the spec.
+// The only hard requirement is the space character (ASCII 32).
 func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	// Parse space character (ASCII 32)
 	spaceGlyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
@@ -367,7 +455,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
-	font.CharacterTrims[' '] = computeGlyphTrims(spaceGlyph)
+	// Don't compute trims immediately - do it lazily
 	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
@@ -381,7 +469,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
+		// Don't compute trims immediately - do it lazily
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -398,20 +486,32 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		font.CharacterTrims[charCode] = computeGlyphTrims(glyph)
+		// Don't compute trims immediately - do it lazily
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
 	return nil
 }
 
-// stripTrailingRun strips the trailing run of the last character from a line
-// Returns the body (without trailing run), the endmark character, and the run length
+// stripTrailingRun strips the trailing run of the last character from a line.
+// Returns the body (without trailing run), the endmark character, and the run length.
 //
 // This implementation is intentionally permissive to handle real-world fonts:
 // - Strips any trailing run length (not just single/double as per spec)
 // - Doesn't enforce "last line has double endmark" convention
 // - Handles multi-byte UTF-8 endmarks correctly
+// - Gracefully handles invalid UTF-8 sequences
+//
+// Algorithm Overview:
+// 1. Special case: Strip Windows CR (\r) left by Scanner after removing LF
+// 2. Fast path: For ASCII endmarks (most common), use byte-wise operations
+// 3. UTF-8 path: Decode runes from the end, counting consecutive matches
+// 4. Error path: If invalid UTF-8, fall back to byte-wise stripping
+//
+// The fast-path optimization is crucial because 99% of FIGfonts use ASCII
+// endmarks like '@' or '#'. The UTF-8 path ensures correct handling of
+// creative fonts that use Unicode endmarks (rare but supported).
+//
 // This approach prioritizes compatibility over strict spec compliance.
 func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	// Trim only CR; bufio.Scanner already strips LF
@@ -462,10 +562,37 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	return line[:i], r, runLen
 }
 
-// parseGlyph parses a single character glyph
+// parseGlyph parses a single character glyph from the font data.
+//
+// Glyph Parsing Algorithm:
+// 1. Reads exactly 'height' lines from the scanner
+// 2. For each line, strips trailing endmark characters using stripTrailingRun
+// 3. Validates that all rows have consistent width (in runes, not bytes)
+// 4. Checks against MaxLength (advisory only - many fonts violate this)
+//
+// The function is permissive about MaxLength violations (only warns) because
+// real-world fonts often exceed their stated MaxLength. Width consistency
+// within a glyph is enforced strictly as it's essential for proper rendering.
+//
+// Note on width calculation: We use rune counts, not visual width. This means
+// combining marks count as separate runes. FIGfonts are primarily ASCII art,
+// so this limitation rarely affects real usage.
+//
+// Memory optimization: Uses pooled slices for glyphs and warnings to reduce
+// allocations in high-throughput scenarios.
 func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
-	glyph = make([]string, 0, height)
+	glyph = acquireGlyphSlice(height)
+	warnings = acquireWarnings()
 	width := -1 // -1 indicates width not yet set
+
+	// Ensure we release the warnings slice if we don't use it
+	needsWarnings := false
+	defer func() {
+		if !needsWarnings && len(warnings) == 0 {
+			releaseWarnings(warnings)
+			warnings = nil
+		}
+	}()
 
 	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
@@ -489,6 +616,7 @@ func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings 
 		bodyWidth := utf8.RuneCountInString(body)
 		if bodyWidth > maxLength {
 			// Advisory warning only - many real fonts exceed their stated MaxLength
+			needsWarnings = true
 			warnings = append(warnings,
 				fmt.Sprintf("line %d width (%d) exceeds MaxLength (%d)",
 					row+1, bodyWidth, maxLength))

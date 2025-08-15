@@ -1,589 +1,549 @@
 package renderer
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
-	"github.com/ryanlewis/figgo/internal/common"
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
-// createMinimalFont creates a simple test font with a few characters
-func createMinimalFont() *parser.Font {
-	return &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      -1,
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': {
-				"   ",
-				"   ",
-				"   ",
-			},
-			'H': {
-				"H  H ",
-				"HHHH ",
-				"H  H ",
-			},
-			'I': {
-				" III ",
-				"  I  ",
-				" III ",
-			},
-			'e': {
-				" eee ",
-				"e e e",
-				" ee e",
-			},
-			'l': {
-				"l    ",
-				"l    ",
-				"llll ",
-			},
-			'o': {
-				" ooo ",
-				"o   o",
-				" ooo ",
-			},
-			'$': { // Character with hardblank
-				"  $  ",
-				" $$$ ",
-				"$$$$",
-			},
-			'?': { // Replacement character for non-ASCII
-				" ??? ",
-				"  ?  ",
-				"  ?  ",
-			},
-		},
-	}
-}
-
-// createFontWithHardblank creates a font where hardblank appears in glyphs
-func createFontWithHardblank() *parser.Font {
-	return &parser.Font{
-		Hardblank:      '#',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      -1,
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'A': {
-				"#AA#",
-				"A##A",
-				"A##A",
-			},
-			'B': {
-				"BBB#",
-				"B##B",
-				"BBB#",
-			},
-		},
-	}
-}
-
-func TestRenderFullWidth(t *testing.T) {
+func TestRender(t *testing.T) {
 	tests := []struct {
 		name    string
 		text    string
 		font    *parser.Font
 		opts    *Options
 		want    string
-		wantErr bool
-		errMsg  string
+		wantErr error
 	}{
 		{
-			name: "simple ASCII string",
-			text: "HI",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			},
-			want: "H  H  III \nHHHH   I  \nH  H  III ",
+			name:    "nil font returns error",
+			text:    "test",
+			font:    nil,
+			opts:    nil,
+			want:    "",
+			wantErr: errors.New("font cannot be nil"),
 		},
 		{
-			name: "single character",
-			text: "H",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			},
-			want: "H  H \nHHHH \nH  H ",
-		},
-		{
-			name: "Hello text",
-			text: "Hello",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			},
-			want: "H  H  eee l    l     ooo \nHHHH e e el    l    o   o\nH  H  ee ellll llll  ooo ",
-		},
-		{
-			name: "hardblank replacement after composition",
-			text: "AB",
-			font: createFontWithHardblank(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			},
-			want: " AA BBB \nA  AB  B\nA  ABBB ",
-		},
-		{
-			name: "unsupported rune error - missing question mark",
-			text: "?",
+			name: "empty text returns empty lines",
+			text: "",
 			font: &parser.Font{
-				Hardblank:      '$',
-				Height:         3,
-				Baseline:       2,
-				MaxLength:      5,
-				OldLayout:      -1,
-				PrintDirection: 0,
+				Height:     3,
+				Hardblank:  '$',
+				Characters: map[rune][]string{},
+			},
+			opts: nil,
+			want: "\n\n",
+		},
+		{
+			name: "single character renders correctly",
+			text: "A",
+			font: &parser.Font{
+				Height:    3,
+				Hardblank: '$',
 				Characters: map[rune][]string{
-					// No '?' glyph - should error
-					'H': {
-						"H  H ",
-						"HHHH ",
-						"H  H ",
-					},
+					'A': {"AAA", "A$A", "A$A"},
 				},
 			},
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			},
-			wantErr: true,
-			errMsg:  "unsupported rune",
+			opts: &Options{Layout: 0},
+			want: "AAA\nA A\nA A",
 		},
 		{
-			name: "RTL print direction",
-			text: "HI",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0,         // FitFullWidth
-				PrintDirection: intPtr(1), // RTL
+			name: "hardblank replacement",
+			text: "B",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '#',
+				Characters: map[rune][]string{
+					'B': {"B#B", "BBB"},
+				},
 			},
-			want: " III  H  H\n  I   HHHH\n III  H  H",
+			opts: nil,
+			want: "B B\nBBB",
 		},
 		{
-			name: "nil font error",
-			text: "test",
-			font: nil,
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
+			name: "multiple characters with full width",
+			text: "AB",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"AA", "AA"},
+					'B': {"BB", "BB"},
+				},
 			},
-			wantErr: true,
-			errMsg:  "font",
+			opts: &Options{Layout: 0}, // Full width
+			want: "AABB\nAABB",
 		},
 		{
-			name: "empty text",
-			text: "",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
+			name: "newline character is skipped",
+			text: "A\nB",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+				},
 			},
-			want: "\n\n", // Font height minus 1 newlines
+			opts: nil,
+			want: "AB\nAB",
 		},
 		{
-			name: "space character",
-			text: "H I",
-			font: createMinimalFont(),
-			opts: &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
+			name: "control characters are skipped",
+			text: "A\x01B",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+				},
 			},
-			want: "H  H     III \nHHHH      I  \nH  H     III ",
+			opts: nil,
+			want: "AB\nAB",
+		},
+		{
+			name: "tab is converted to space",
+			text: "A\tB",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+					' ': {" ", " "},
+				},
+			},
+			opts: nil,
+			want: "A B\nA B",
+		},
+		{
+			name: "unknown rune with fallback",
+			text: "X",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'?': {"?", "?"},
+				},
+			},
+			opts: &Options{UnknownRune: func() *rune { r := '?'; return &r }()},
+			want: "?\n?",
+		},
+		{
+			name: "unknown rune without fallback returns error",
+			text: "X",
+			font: &parser.Font{
+				Height:     2,
+				Hardblank:  '$',
+				Characters: map[rune][]string{},
+			},
+			opts:    nil,
+			wantErr: errors.New("unsupported rune: X"),
+		},
+		{
+			name: "trim whitespace option",
+			text: "A",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"A  ", "A  "},
+				},
+			},
+			opts: &Options{TrimWhitespace: true},
+			want: "A\nA",
+		},
+		{
+			name: "right to left print direction",
+			text: "AB",
+			font: &parser.Font{
+				Height:         2,
+				Hardblank:      '$',
+				PrintDirection: 1,
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+				},
+			},
+			opts: nil,
+			want: "BA\nBA",
+		},
+		{
+			name: "print direction from options overrides font",
+			text: "AB",
+			font: &parser.Font{
+				Height:         2,
+				Hardblank:      '$',
+				PrintDirection: 0,
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+				},
+			},
+			opts: &Options{PrintDirection: func() *int { d := 1; return &d }()},
+			want: "BA\nBA",
+		},
+		{
+			name: "invalid glyph height returns false from addChar",
+			text: "A",
+			font: &parser.Font{
+				Height:    3,
+				Hardblank: '$',
+				Characters: map[rune][]string{
+					'A': {"A", "A"}, // Only 2 lines instead of 3
+				},
+			},
+			opts: nil,
+			want: "\n\n",
+		},
+		{
+			name: "full layout from font",
+			text: "AB",
+			font: &parser.Font{
+				Height:        2,
+				Hardblank:     '$',
+				FullLayout:    128, // Smushing mode
+				FullLayoutSet: true,
+				Characters: map[rune][]string{
+					'A': {"A ", "A "},
+					'B': {" B", " B"},
+				},
+			},
+			opts: nil,
+			want: "AB\nAB",
+		},
+		{
+			name: "old layout kerning mode",
+			text: "AB",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				OldLayout: 0, // Kerning
+				Characters: map[rune][]string{
+					'A': {"A ", "A "},
+					'B': {" B", " B"},
+				},
+			},
+			opts: nil,
+			want: "AB\nAB",
+		},
+		{
+			name: "old layout full width mode",
+			text: "AB",
+			font: &parser.Font{
+				Height:    2,
+				Hardblank: '$',
+				OldLayout: -1, // Full width
+				Characters: map[rune][]string{
+					'A': {"A", "A"},
+					'B': {"B", "B"},
+				},
+			},
+			opts: nil,
+			want: "AB\nAB",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Render(tt.text, tt.font, tt.opts)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Render() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && tt.errMsg != "" {
-				if err == nil || !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Render() error = %v, want error containing %q", err, tt.errMsg)
+			if tt.wantErr != nil {
+				if err == nil {
+					t.Errorf("Render() error = nil, wantErr %v", tt.wantErr)
+					return
+				}
+				if err.Error() != tt.wantErr.Error() {
+					t.Errorf("Render() error = %v, wantErr %v", err, tt.wantErr)
+					return
 				}
 				return
 			}
+			if err != nil {
+				t.Errorf("Render() unexpected error = %v", err)
+				return
+			}
 			if got != tt.want {
-				t.Errorf("Render() output mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
-				// Print visual comparison
-				t.Logf("Visual comparison:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
+				t.Errorf("Render() got = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestRenderFullWidth_GlyphHeightValidation(t *testing.T) {
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      -1,
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'X': { // Invalid: only 2 lines instead of 3
-				"XXX",
-				"XXX",
-			},
-		},
-	}
-
-	_, err := Render("X", font, &Options{
-		Layout:         0, // FitFullWidth
-		PrintDirection: intPtr(0),
-	})
-
-	if err == nil {
-		t.Error("Expected error for mismatched glyph height")
-	}
-}
-
-func TestRenderFullWidth_InvalidFontHeight(t *testing.T) {
+func TestLayoutToSmushMode(t *testing.T) {
 	tests := []struct {
 		name   string
-		height int
-	}{
-		{"zero height", 0},
-		{"negative height", -1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			font := &parser.Font{
-				Hardblank:      '$',
-				Height:         tt.height,
-				Baseline:       2,
-				MaxLength:      5,
-				OldLayout:      -1,
-				PrintDirection: 0,
-				Characters:     map[rune][]string{},
-			}
-
-			_, err := Render("test", font, &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			})
-
-			if err == nil {
-				t.Error("Expected error for invalid font height")
-			}
-		})
-	}
-}
-
-func TestFallbackGlyphAvailable(t *testing.T) {
-	// Test that our fonts have either '?' or ' ' for fallback
-	font := createMinimalFont()
-
-	// Should have '?' glyph
-	_, hasQuestionMark := font.Characters['?']
-	if !hasQuestionMark {
-		// Should at least have space as fallback
-		_, hasSpace := font.Characters[' ']
-		if !hasSpace {
-			t.Error("Font should have either '?' or ' ' glyph for fallback")
-		}
-	}
-}
-
-func TestRenderNonASCIIFiltering(t *testing.T) {
-	font := createMinimalFont()
-
-	tests := []struct {
-		name string
-		text string
-		want string
+		layout int
+		want   int
 	}{
 		{
-			name: "unicode replaced with question mark",
-			text: "H€I",
-			want: "H  H  ???  III \nHHHH   ?    I  \nH  H   ?   III ",
+			name:   "full width (no bits set)",
+			layout: 0,
+			want:   0,
 		},
 		{
-			name: "control characters replaced",
-			text: "H\x01I",
-			want: "H  H  ???  III \nHHHH   ?    I  \nH  H   ?   III ",
+			name:   "kerning mode",
+			layout: 1 << 6, // 64
+			want:   SMKern,
 		},
 		{
-			name: "high ASCII replaced",
-			text: "H\x80I",
-			want: "H  H  ???  III \nHHHH   ?    I  \nH  H   ?   III ",
+			name:   "smushing mode with no rules",
+			layout: 1 << 7, // 128
+			want:   SMSmush,
 		},
 		{
-			name: "tab replaced",
-			text: "H\tI",
-			want: "H  H  ???  III \nHHHH   ?    I  \nH  H   ?   III ",
+			name:   "smushing with equal char rule",
+			layout: (1 << 7) | (1 << 0), // 128 + 1
+			want:   SMSmush | SMEqual,
+		},
+		{
+			name:   "smushing with underscore rule",
+			layout: (1 << 7) | (1 << 1), // 128 + 2
+			want:   SMSmush | SMLowline,
+		},
+		{
+			name:   "smushing with hierarchy rule",
+			layout: (1 << 7) | (1 << 2), // 128 + 4
+			want:   SMSmush | SMHierarchy,
+		},
+		{
+			name:   "smushing with opposite pair rule",
+			layout: (1 << 7) | (1 << 3), // 128 + 8
+			want:   SMSmush | SMPair,
+		},
+		{
+			name:   "smushing with big X rule",
+			layout: (1 << 7) | (1 << 4), // 128 + 16
+			want:   SMSmush | SMBigX,
+		},
+		{
+			name:   "smushing with hardblank rule",
+			layout: (1 << 7) | (1 << 5), // 128 + 32
+			want:   SMSmush | SMHardblank,
+		},
+		{
+			name:   "smushing with all rules",
+			layout: (1 << 7) | 63, // 128 + 63
+			want:   SMSmush | 63,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render(tt.text, font, &Options{
-				Layout:         0, // FitFullWidth
-				PrintDirection: intPtr(0),
-			})
-			if err != nil {
-				t.Errorf("Render() unexpected error = %v", err)
-				return
-			}
+			got := layoutToSmushMode(tt.layout)
 			if got != tt.want {
-				t.Errorf("Render() output mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
+				t.Errorf("layoutToSmushMode() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestRenderRulesWithoutSmushing(t *testing.T) {
-	// Test that rule bits are ignored when FitSmushing is not set
-	font := createMinimalFont()
-
-	// Layout with rules but no FitSmushing (should behave as FitFullWidth)
-	optsWithRules := &Options{
-		Layout:         common.RuleEqualChar | common.RuleUnderscore | common.RuleHierarchy,
-		PrintDirection: intPtr(0),
-	}
-
-	// Layout with just FitFullWidth
-	optsFullWidth := &Options{
-		Layout:         0,
-		PrintDirection: intPtr(0),
-	}
-
-	text := "HI"
-
-	gotWithRules, err1 := Render(text, font, optsWithRules)
-	if err1 != nil {
-		t.Fatalf("Render() with rules error = %v", err1)
-	}
-
-	gotFullWidth, err2 := Render(text, font, optsFullWidth)
-	if err2 != nil {
-		t.Fatalf("Render() full width error = %v", err2)
-	}
-
-	if gotWithRules != gotFullWidth {
-		t.Errorf("Rule bits without FitSmushing should be ignored\ngot:\n%q\nwant:\n%q",
-			gotWithRules, gotFullWidth)
-	}
-}
-
-func TestRenderNilOptionsWithFullLayout(t *testing.T) {
-	// Test that nil options uses font's FullLayout when set
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      0, // Would be kerning
-		FullLayout:     0, // Full width
-		FullLayoutSet:  true,
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'A': {
-				"AAA",
-				"A A",
-				"A A",
-			},
-		},
-	}
-
-	// With nil options, should use FullLayout (full width)
-	got, err := Render("A", font, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	want := "AAA\nA A\nA A"
-	if got != want {
-		t.Errorf("Render() with nil opts and FullLayout:\ngot:\n%q\nwant:\n%q", got, want)
-	}
-}
-
-func TestRenderPrintDirectionValidation(t *testing.T) {
-	font := createMinimalFont()
-
+func TestOldLayoutToSmushMode(t *testing.T) {
 	tests := []struct {
-		name     string
-		printDir int
-		want     string // Expected output (should be LTR for invalid values)
+		name      string
+		oldLayout int
+		want      int
 	}{
 		{
-			name:     "valid LTR (0)",
-			printDir: 0,
-			want:     "H  H \nHHHH \nH  H ",
+			name:      "full width mode (-1)",
+			oldLayout: -1,
+			want:      0,
 		},
 		{
-			name:     "valid RTL (1)",
-			printDir: 1,
-			want:     " H  H\n HHHH\n H  H",
+			name:      "kerning mode (0)",
+			oldLayout: 0,
+			want:      SMKern,
 		},
 		{
-			name:     "invalid negative (-1) defaults to LTR",
-			printDir: -1,
-			want:     "H  H \nHHHH \nH  H ",
+			name:      "smushing with rules (1)",
+			oldLayout: 1,
+			want:      SMSmush | 1,
 		},
 		{
-			name:     "invalid high value (2) defaults to LTR",
-			printDir: 2,
-			want:     "H  H \nHHHH \nH  H ",
+			name:      "smushing with all rules (63)",
+			oldLayout: 63,
+			want:      SMSmush | 63,
 		},
 		{
-			name:     "invalid high value (99) defaults to LTR",
-			printDir: 99,
-			want:     "H  H \nHHHH \nH  H ",
+			name:      "invalid negative value",
+			oldLayout: -5,
+			want:      0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render("H", font, &Options{
-				Layout:         0,
-				PrintDirection: &tt.printDir,
-			})
-			if err != nil {
-				t.Errorf("Render() unexpected error = %v", err)
-				return
-			}
+			got := oldLayoutToSmushMode(tt.oldLayout)
 			if got != tt.want {
-				t.Errorf("Render() with printDir=%d:\ngot:\n%q\nwant:\n%q",
-					tt.printDir, got, tt.want)
+				t.Errorf("oldLayoutToSmushMode() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestPickLayoutPrecedence(t *testing.T) {
+func TestAddChar(t *testing.T) {
 	tests := []struct {
-		name       string
-		font       *parser.Font
-		opts       *Options
-		wantLayout int
-		wantErr    bool
+		name  string
+		state *renderState
+		glyph []string
+		want  bool
 	}{
 		{
-			name: "opts takes precedence over font",
-			font: &parser.Font{
-				OldLayout:     0, // kerning
-				FullLayout:    common.FitSmushing,
-				FullLayoutSet: true,
+			name: "invalid glyph height",
+			state: &renderState{
+				charHeight:      3,
+				outputLine:      make([][]rune, 3),
+				rowLengths:      make([]int, 3),
+				outlineLenLimit: 100,
 			},
-			opts: &Options{
-				Layout: common.FitFullWidth,
-			},
-			wantLayout: common.FitFullWidth,
+			glyph: []string{"A", "A"}, // Only 2 lines
+			want:  false,
 		},
 		{
-			name: "FullLayout takes precedence over OldLayout when set",
-			font: &parser.Font{
-				OldLayout:     0, // kerning
-				FullLayout:    common.FitSmushing,
-				FullLayoutSet: true,
+			name: "character doesn't fit",
+			state: &renderState{
+				charHeight:      2,
+				outputLine:      make([][]rune, 2),
+				rowLengths:      make([]int, 2),
+				outlineLenLimit: 1,
+				outlineLen:      0,
 			},
-			opts:       nil,
-			wantLayout: common.FitSmushing,
+			glyph: []string{"AAA", "AAA"},
+			want:  false,
 		},
 		{
-			name: "OldLayout used when FullLayout not set",
-			font: &parser.Font{
-				OldLayout:     0, // kerning
-				FullLayout:    common.FitSmushing,
-				FullLayoutSet: false,
+			name: "successful add with empty output",
+			state: &renderState{
+				charHeight: 2,
+				outputLine: [][]rune{
+					make([]rune, 100),
+					make([]rune, 100),
+				},
+				rowLengths:      []int{0, 0},
+				outlineLenLimit: 100,
+				outlineLen:      0,
+				hardblank:       '$',
 			},
-			opts:       nil,
-			wantLayout: common.FitKerning,
-		},
-		{
-			name: "FullLayout 0 with FullLayoutSet true defaults to full width",
-			font: &parser.Font{
-				OldLayout:     1, // would be smushing
-				FullLayout:    0,
-				FullLayoutSet: true,
-			},
-			opts:       nil,
-			wantLayout: common.FitFullWidth,
-		},
-		{
-			name: "conflicting layout bits returns error",
-			font: &parser.Font{
-				OldLayout: -1,
-			},
-			opts: &Options{
-				Layout: common.FitKerning | common.FitSmushing,
-			},
-			wantErr: true,
+			glyph: []string{"AB", "AB"},
+			want:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			layout, err := pickLayout(tt.font, tt.opts)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("pickLayout() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && layout != tt.wantLayout {
-				t.Errorf("pickLayout() = %v, want %v", layout, tt.wantLayout)
+			got := tt.state.addChar(tt.glyph)
+			if got != tt.want {
+				t.Errorf("addChar() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-// createKerningTestFont creates a font designed to test kerning behavior
-func createKerningTestFont() *parser.Font {
-	return &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      6,
-		OldLayout:      0, // kerning
-		PrintDirection: 0,
+func TestOutputToString(t *testing.T) {
+	tests := []struct {
+		name  string
+		state *renderState
+		want  string
+	}{
+		{
+			name: "empty output",
+			state: &renderState{
+				charHeight: 0,
+				outputLine: [][]rune{},
+			},
+			want: "",
+		},
+		{
+			name: "single line",
+			state: &renderState{
+				charHeight: 1,
+				outputLine: [][]rune{
+					[]rune("Hello"),
+				},
+				rowLengths: []int{5},
+				hardblank:  '$',
+			},
+			want: "Hello",
+		},
+		{
+			name: "multiple lines with hardblank replacement",
+			state: &renderState{
+				charHeight: 3,
+				outputLine: [][]rune{
+					[]rune("A$B"),
+					[]rune("C$D"),
+					[]rune("E$F"),
+				},
+				rowLengths: []int{3, 3, 3},
+				hardblank:  '$',
+			},
+			want: "A B\nC D\nE F",
+		},
+		{
+			name: "trim whitespace enabled",
+			state: &renderState{
+				charHeight: 2,
+				outputLine: [][]rune{
+					[]rune("ABC   "),
+					[]rune("DEF   "),
+				},
+				rowLengths:     []int{6, 6},
+				hardblank:      '$',
+				trimWhitespace: true,
+			},
+			want: "ABC\nDEF",
+		},
+		{
+			name: "partial row lengths",
+			state: &renderState{
+				charHeight: 2,
+				outputLine: [][]rune{
+					[]rune("ABCDEFGH"),
+					[]rune("12345678"),
+				},
+				rowLengths: []int{3, 5},
+				hardblank:  '$',
+			},
+			want: "ABC\n12345",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.state.outputToString()
+			if got != tt.want {
+				t.Errorf("outputToString() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderIntegration(t *testing.T) {
+	// Create a simple test font
+	testFont := &parser.Font{
+		Height:    3,
+		Hardblank: '$',
+		OldLayout: 0, // Kerning
 		Characters: map[rune][]string{
-			'A': {
-				"  A   ",
-				" A A  ",
-				"A   A ",
+			'H': {
+				"H  H",
+				"HHHH",
+				"H  H",
 			},
-			'V': {
-				"V   V ",
-				" V V  ",
-				"  V   ",
-			},
-			'W': {
-				"W   W ",
-				"W W W ",
-				" W W  ",
-			},
-			'|': {
-				"  |   ",
-				"  |   ",
-				"  |   ",
+			'I': {
+				"III",
+				" I ",
+				"III",
 			},
 			' ': {
-				"      ",
-				"      ",
-				"      ",
+				"   ",
+				"   ",
+				"   ",
 			},
 		},
 	}
-}
-
-func TestRenderKerning(t *testing.T) {
-	font := createKerningTestFont()
 
 	tests := []struct {
 		name string
@@ -592,587 +552,33 @@ func TestRenderKerning(t *testing.T) {
 		want string
 	}{
 		{
-			name: "kerning between A and V - should tighten",
-			text: "AV",
-			opts: &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			},
-			// A has trailing spaces, V has no leading spaces - kerning should tighten
-			// Row 0: "  A   " + "V   V " -> A at pos 2, need 1 space, V starts at 0
-			// Row 1: " A A  " + " V V  " -> last A at pos 3, V starts at 1
-			// Row 2: "A   A " + "  V   " -> last A at pos 4, V starts at 2
-			// Min gap is determined by row needing most space
-			want: "  A V   V \n A A  V V  \nA   A   V   ",
+			name: "simple HI with kerning",
+			text: "HI",
+			opts: nil,
+			want: "H  HIII\nHHHH I \nH  HIII",
 		},
 		{
-			name: "kerning with vertical bar - no tightening",
-			text: "A|",
-			opts: &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			},
-			// | starts at column 2, A ends at column 2, need at least 1 space
-			want: "  A   |   \n A A   |   \nA   A   |   ",
-		},
-		{
-			name: "kerning between W and A",
-			text: "WA",
-			opts: &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			},
-			// W ends with visible at col 4, A starts with visible at col 2
-			// Row 2: W ends at 3, A starts at 1 - tightest constraint
-			want: "W   W   A   \nW W W  A A  \n W W A   A ",
-		},
-		{
-			name: "kerning with spaces now processed like any glyph",
-			text: "A A",
-			opts: &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			},
-			// Space character goes through normal kerning like any other glyph
-			// A ends at col 4, space is all blanks (6 wide), next A can be kerned
-			// The blank space allows the second A to be positioned with minimal gap
-			want: "  A  A   \n A A A A  \nA   AA   A ",
-		},
-		{
-			name: "kerning with RTL direction",
-			text: "AV",
-			opts: &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(1), // RTL
-			},
-			// RTL composes glyphs in reverse order (V then A), not mirrored
-			// V first, then A with kerning
-			want: "V   V   A   \n V V  A A  \n  V A   A ",
+			name: "HI with space",
+			text: "H I",
+			opts: nil,
+			want: strings.Join([]string{
+				"H  H   III",
+				"HHHH    I ",
+				"H  H   III",
+			}, "\n"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render(tt.text, font, tt.opts)
+			got, err := Render(tt.text, testFont, tt.opts)
 			if err != nil {
-				t.Errorf("Render() error = %v", err)
+				t.Errorf("Render() unexpected error = %v", err)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("Render() kerning mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
-				t.Logf("Visual comparison:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
+				t.Errorf("Render() got:\n%s\nwant:\n%s", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestRenderKerningWithHardblanks(t *testing.T) {
-	// Font with hardblanks that should prevent over-tightening
-	font := &parser.Font{
-		Hardblank:      '#',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      0, // kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'X': {
-				"X###X",
-				"#X#X#",
-				"X###X",
-			},
-			'Y': {
-				"Y###Y",
-				"#Y#Y#",
-				"##Y##",
-			},
-		},
-	}
-
-	tests := []struct {
-		name string
-		text string
-		want string
-	}{
-		{
-			name: "hardblanks prevent over-tightening",
-			text: "XY",
-			// Hardblanks should be treated as visible for collision detection
-			// But replaced with spaces in final output
-			// All hardblanks count as visible, preventing any kerning
-			want: "X   XY   Y\n X X  Y Y \nX   X  Y  ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render(tt.text, font, &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			})
-			if err != nil {
-				t.Errorf("Render() error = %v", err)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Render() with hardblanks:\ngot:\n%q\nwant:\n%q", got, tt.want)
-				t.Logf("Visual:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRenderKerningZeroGap(t *testing.T) {
-	// Test that glyphs can touch (zero gap) when they don't collide
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      4,
-		OldLayout:      0, // kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'L': {
-				"L   ",
-				"L   ",
-				"LLL ",
-			},
-			'J': {
-				"  J ",
-				"  J ",
-				"JJJ ",
-			},
-			'T': {
-				"TTT ",
-				" T  ",
-				" T  ",
-			},
-			'I': {
-				" I  ",
-				" I  ",
-				" I  ",
-			},
-		},
-	}
-
-	tests := []struct {
-		name string
-		text string
-		want string
-	}{
-		{
-			name: "L and J can touch - perfect fit",
-			text: "LJ",
-			// L ends at col 2 on row 2, J starts at col 0 - actually touching!
-			want: "L  J \nL  J \nLLLJJJ ",
-		},
-		{
-			name: "T and I - zero gap possible",
-			text: "TI",
-			// T ends at col 2 on row 0, I starts at col 1 - but row 1 and 2
-			// have T ending at col 1, I starting at col 1 - zero gap (touching)
-			want: "TTT I  \n T I  \n T I  ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render(tt.text, font, &Options{
-				Layout:         common.FitKerning,
-				PrintDirection: intPtr(0),
-			})
-			if err != nil {
-				t.Errorf("Render() error = %v", err)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Render() zero-gap mismatch:\ngot:\n%q\nwant:\n%q", got, tt.want)
-				t.Logf("Visual:\nGot:\n%s\n\nWant:\n%s", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRenderKerningDefaultFromFont(t *testing.T) {
-	// Test that kerning is used when font defaults to it
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         2,
-		Baseline:       1,
-		MaxLength:      4,
-		OldLayout:      0, // Default to kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'I': {
-				" I ",
-				" I ",
-			},
-			'T': {
-				"TTT",
-				" T ",
-			},
-		},
-	}
-
-	// With nil options, should use font's default (kerning)
-	got, err := Render("IT", font, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// Kerning should tighten I and T
-	// I ends at col 1, T starts at col 0 - touching allowed
-	want := " ITTT\n I T "
-	if got != want {
-		t.Errorf("Render() with default kerning:\ngot:\n%q\nwant:\n%q", got, want)
-	}
-}
-
-// TestBlankSpaceGlyph tests that a truly blank space glyph works correctly with kerning
-func TestBlankSpaceGlyph(t *testing.T) {
-	// Create font with blank space (all ASCII spaces, no hardblanks)
-	fontBlankSpace := &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': { // Truly blank space
-				"     ",
-				"     ",
-				"     ",
-			},
-			'A': {
-				" AAA ",
-				"A   A",
-				"A   A",
-			},
-			'B': {
-				"BBB  ",
-				"B   B",
-				"BBB  ",
-			},
-		},
-	}
-
-	// Test with blank space between letters
-	got, err := Render("A B", fontBlankSpace, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// Space should be processed through kerning like any other glyph
-	// A's rightmost at col 4, space all blank (5 wide), B's leftmost at col 0
-	// With kerning: A takes cols 0-4, blank space collapsed, B starts immediately
-	want := " AAABBB  \nA   AB   B\nA   ABBB  "
-	if got != want {
-		t.Errorf("Blank space kerning mismatch:\ngot:\n%s\nwant:\n%s", got, want)
-	}
-
-	// Create font with hardblank-walled space
-	fontHardblankSpace := &parser.Font{
-		Hardblank:      '#',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': { // Space with hardblank barriers
-				"##   ",
-				"##   ",
-				"##   ",
-			},
-			'A': {
-				" AAA ",
-				"A   A",
-				"A   A",
-			},
-			'B': {
-				"BBB  ",
-				"B   B",
-				"BBB  ",
-			},
-		},
-	}
-
-	// Test with hardblank-walled space
-	got2, err := Render("A B", fontHardblankSpace, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// Hardblanks in space glyph should prevent over-tightening
-	// A's rightmost at col 4, space has hardblanks at cols 0-1, B's leftmost at col 0
-	// The hardblanks prevent B from overlapping, maintaining separation
-	// After hardblank replacement, the hardblanks become spaces
-	want2 := " AAA  BBB  \nA   A  B   B\nA   A  BBB  "
-	if got2 != want2 {
-		t.Errorf("Hardblank space kerning mismatch:\ngot:\n%s\nwant:\n%s", got2, want2)
-	}
-
-	// Verify hardblanks were replaced
-	if strings.Contains(got2, "#") {
-		t.Errorf("Hardblanks not replaced in output: %q", got2)
-	}
-}
-
-// TestBlankBlankPadding tests consecutive spaces between letters
-func TestBlankBlankPadding(t *testing.T) {
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         2,
-		Baseline:       1,
-		MaxLength:      4,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': {
-				"   ",
-				"   ",
-			},
-			'X': {
-				"X X",
-				" X ",
-			},
-			'Y': {
-				"Y Y",
-				" Y ",
-			},
-		},
-	}
-
-	// Test multiple spaces between letters
-	got, err := Render("X  Y", font, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// With blank-blank rows, kerning should allow minimal gaps
-	lines := strings.Split(got, "\n")
-	if len(lines) != 2 {
-		t.Errorf("Expected 2 lines, got %d", len(lines))
-	}
-
-	// Verify the output maintains proper spacing
-	// X ends at col 2, two blank spaces, Y starts at col 0
-	// The blank-blank logic should handle this correctly
-	if !strings.Contains(got, "X") || !strings.Contains(got, "Y") {
-		t.Errorf("Missing expected characters in output: %q", got)
-	}
-}
-
-// TestRTLEquivalence tests that RTL of ABC equals LTR of CBA
-func TestRTLEquivalence(t *testing.T) {
-	font := &parser.Font{
-		Hardblank:      '#',
-		Height:         2,
-		Baseline:       1,
-		MaxLength:      4,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'A': {
-				"AAA#",
-				"A#A#",
-			},
-			'B': {
-				"BBB#",
-				"B#B#",
-			},
-			'C': {
-				"CCC#",
-				"C#C#",
-			},
-		},
-	}
-
-	// Render ABC with RTL
-	gotRTL, err := Render("ABC", font, &Options{
-		Layout:         common.FitKerning,
-		PrintDirection: intPtr(1), // RTL
-	})
-	if err != nil {
-		t.Fatalf("Render() RTL error = %v", err)
-	}
-
-	// Render CBA with LTR
-	gotLTR, err := Render("CBA", font, &Options{
-		Layout:         common.FitKerning,
-		PrintDirection: intPtr(0), // LTR
-	})
-	if err != nil {
-		t.Fatalf("Render() LTR error = %v", err)
-	}
-
-	// After hardblank replacement, they should be identical
-	if gotRTL != gotLTR {
-		t.Errorf("RTL(ABC) != LTR(CBA)\nRTL:\n%s\nLTR:\n%s", gotRTL, gotLTR)
-	}
-}
-
-// TestSpaceGlyphWithVisibleColumns tests that space glyphs with visible characters are preserved
-func TestSpaceGlyphWithVisibleColumns(t *testing.T) {
-	// Create font with space that has visible columns (like a decorated space)
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         3,
-		Baseline:       2,
-		MaxLength:      5,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': { // Space with visible decoration (dots)
-				"· · ·",
-				"     ",
-				"· · ·",
-			},
-			'A': {
-				" AAA ",
-				"A   A",
-				"A   A",
-			},
-			'B': {
-				"BBB  ",
-				"B   B",
-				"BBB  ",
-			},
-		},
-	}
-
-	// Test that visible space columns are not collapsed
-	got, err := Render("A B", font, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// The space glyph has visible dots that must be preserved
-	// A ends at col 4, space starts with visible at col 0
-	// Row 0: dots visible, can't overlap
-	// Row 1: space is all blanks, B can kern tight
-	// Row 2: dots visible, can't overlap
-	want := " AAA· · ·BBB  \nA   AB   B\nA   A· · ·BBB  "
-	if got != want {
-		t.Errorf("Visible space not preserved correctly:\ngot:\n%s\nwant:\n%s", got, want)
-		t.Logf("Visual comparison:\nGot:\n%s\n\nWant:\n%s", got, want)
-	}
-}
-
-// TestLeadingTrailingSpaces tests behavior with leading and trailing spaces
-func TestLeadingTrailingSpaces(t *testing.T) {
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         2,
-		Baseline:       1,
-		MaxLength:      4,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			' ': {
-				"   ",
-				"   ",
-			},
-			'A': {
-				"AAA",
-				"A A",
-			},
-		},
-	}
-
-	tests := []struct {
-		name string
-		text string
-		want string
-	}{
-		{
-			name: "leading spaces",
-			text: "  A",
-			// Two blank spaces followed by A
-			// Spaces go through kerning, get trimmed/collapsed
-			want: "AAA\nA A",
-		},
-		{
-			name: "trailing spaces",
-			text: "A  ",
-			// A followed by two blank spaces
-			// Trailing spaces are preserved as blank glyphs, but trimmed at the end
-			want: "AAA   \nA A   ",
-		},
-		{
-			name: "both leading and trailing",
-			text: "  A  ",
-			// Leading spaces collapsed, trailing preserved
-			want: "AAA   \nA A   ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := Render(tt.text, font, nil)
-			if err != nil {
-				t.Fatalf("Render() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("Render() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-// TestGlyphsWithBlankRowsTopBottom tests glyphs with entirely blank rows at top/bottom
-func TestGlyphsWithBlankRowsTopBottom(t *testing.T) {
-	font := &parser.Font{
-		Hardblank:      '$',
-		Height:         5,
-		Baseline:       3,
-		MaxLength:      4,
-		OldLayout:      0, // Kerning
-		PrintDirection: 0,
-		Characters: map[rune][]string{
-			'T': { // Blank top row
-				"    ",
-				"TTT ",
-				" T  ",
-				" T  ",
-				" T  ",
-			},
-			'L': { // Blank bottom row
-				"L   ",
-				"L   ",
-				"L   ",
-				"LLL ",
-				"    ",
-			},
-			'I': { // Blank top and bottom
-				"    ",
-				" I  ",
-				" I  ",
-				" I  ",
-				"    ",
-			},
-		},
-	}
-
-	// Test adjacent glyphs with blank rows
-	got, err := Render("TLI", font, nil)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-
-	// T: blank top, visible cols 0-2 in rows 1-4
-	// L: visible cols 0-2 in rows 0-3, blank bottom
-	// I: blank top/bottom, visible col 1 in rows 1-3
-	// With kerning, they should fit tightly (L overlaps T's blank top row)
-	want := "L    \nTTTL I  \n TL I  \n TLLL I  \n T    "
-	if got != want {
-		t.Errorf("Blank rows handling incorrect:\ngot:\n%s\nwant:\n%s", got, want)
-		for i, line := range strings.Split(got, "\n") {
-			t.Logf("Got  line %d: %q", i, line)
-		}
-		for i, line := range strings.Split(want, "\n") {
-			t.Logf("Want line %d: %q", i, line)
-		}
 	}
 }

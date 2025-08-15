@@ -149,7 +149,7 @@ font, err := figgo.ParseFont(reader)
    ```
 4. Generate goldens for the new font:
    ```bash
-   FONTS="newfont" ./tools/generate-goldens.sh
+   go run ./cmd/generate-goldens -fonts "newfont"
    ```
 
 ---

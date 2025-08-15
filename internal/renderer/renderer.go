@@ -66,7 +66,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 			if state.outlineLen > 0 {
 				state.flushLine()
 			}
-			state.inchrlinelen = 0
+			state.inputCount = 0
 			state.lastWordBreak = -1
 			continue
 		}
@@ -82,18 +82,18 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		}
 
 		// Track input characters for word boundaries
-		if len(state.inchrline) <= state.inchrlinelen {
-			// Grow inchrline if needed
-			state.inchrline = append(state.inchrline, r)
+		if len(state.inputBuffer) <= state.inputCount {
+			// Grow inputBuffer if needed
+			state.inputBuffer = append(state.inputBuffer, r)
 		} else {
-			state.inchrline[state.inchrlinelen] = r
+			state.inputBuffer[state.inputCount] = r
 		}
 
 		// Track word boundaries (spaces)
 		if r == ' ' {
-			state.lastWordBreak = state.inchrlinelen
+			state.lastWordBreak = state.inputCount
 		}
-		state.inchrlinelen++
+		state.inputCount++
 
 		// Get character glyph
 		glyph, exists := font.Characters[r]
@@ -139,7 +139,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 				// No word boundary, just flush and continue
 				state.flushLine()
 				// Reset input tracking for new line
-				state.inchrlinelen = 0
+				state.inputCount = 0
 				state.lastWordBreak = -1
 				// Try adding character on new line
 				if !state.addChar(glyph) {
@@ -149,16 +149,16 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 					state.addChar(glyph)
 					state.outlineLenLimit = oldLimit
 				}
-				// Track this character in inchrline for new line
-				if len(state.inchrline) <= state.inchrlinelen {
-					state.inchrline = append(state.inchrline, r)
+				// Track this character in inputBuffer for new line
+				if len(state.inputBuffer) <= state.inputCount {
+					state.inputBuffer = append(state.inputBuffer, r)
 				} else {
-					state.inchrline[state.inchrlinelen] = r
+					state.inputBuffer[state.inputCount] = r
 				}
 				if r == ' ' {
-					state.lastWordBreak = state.inchrlinelen
+					state.lastWordBreak = state.inputCount
 				}
-				state.inchrlinelen++
+				state.inputCount++
 			}
 		}
 	}
@@ -619,21 +619,21 @@ func (state *renderState) resetLine() {
 	state.currentCharWidth = 0
 
 	// Reset input line tracking
-	state.inchrlinelen = 0
+	state.inputCount = 0
 	state.lastWordBreak = -1
 }
 
-// renderCharacterRange renders a specific range of characters from inchrline.
+// renderCharacterRange renders a specific range of characters from inputBuffer.
 // This is used during word wrapping to re-render specific portions of the input.
 func (state *renderState) renderCharacterRange(font *parser.Font, start, end int, opts *Options) error {
 	// Bounds check
-	if start < 0 || end > len(state.inchrline) || start >= end {
+	if start < 0 || end > len(state.inputBuffer) || start >= end {
 		return nil
 	}
 
 	// Render each character in the range
 	for i := start; i < end; i++ {
-		r := state.inchrline[i]
+		r := state.inputBuffer[i]
 
 		// Skip newlines during re-rendering
 		if r == '\n' {
@@ -655,7 +655,7 @@ func (state *renderState) renderCharacterRange(font *parser.Font, start, end int
 			}
 		}
 
-		// Add character to output (without updating inchrline)
+		// Add character to output (without updating inputBuffer)
 		if !state.addChar(glyph) {
 			// Character doesn't fit - this shouldn't happen during re-rendering
 			// as we're rendering a known-good range
@@ -669,7 +669,7 @@ func (state *renderState) renderCharacterRange(font *parser.Font, start, end int
 // splitLine splits the current line at the last word boundary.
 // Returns true if a split was performed and the current character was re-added, false otherwise.
 func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
-	if state.lastWordBreak <= 0 || state.lastWordBreak >= state.inchrlinelen {
+	if state.lastWordBreak <= 0 || state.lastWordBreak >= state.inputCount {
 		return false
 	}
 
@@ -678,15 +678,15 @@ func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 	gotSpace := false
 	lastSpace := state.lastWordBreak
 	
-	for i := state.inchrlinelen - 1; i >= 0; i-- {
-		if i >= len(state.inchrline) {
+	for i := state.inputCount - 1; i >= 0; i-- {
+		if i >= len(state.inputBuffer) {
 			continue
 		}
-		if !gotSpace && state.inchrline[i] == ' ' {
+		if !gotSpace && state.inputBuffer[i] == ' ' {
 			gotSpace = true
 			lastSpace = i
 		}
-		if gotSpace && state.inchrline[i] != ' ' {
+		if gotSpace && state.inputBuffer[i] != ' ' {
 			// Found non-space after spaces
 			// Split point is after this non-space character
 			break
@@ -696,19 +696,19 @@ func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 	// First part ends at the last non-space before the space group
 	// Second part starts after the space group
 	firstPartEnd := lastSpace
-	for firstPartEnd > 0 && state.inchrline[firstPartEnd-1] == ' ' {
+	for firstPartEnd > 0 && state.inputBuffer[firstPartEnd-1] == ' ' {
 		firstPartEnd--
 	}
 	
 	// Skip all spaces to find where the second part starts
 	secondPartStart := lastSpace
-	for secondPartStart < state.inchrlinelen && secondPartStart < len(state.inchrline) && state.inchrline[secondPartStart] == ' ' {
+	for secondPartStart < state.inputCount && secondPartStart < len(state.inputBuffer) && state.inputBuffer[secondPartStart] == ' ' {
 		secondPartStart++
 	}
 
 	// Save the characters that will go on the next line
 	nextLineStart := secondPartStart
-	nextLineEnd := state.inchrlinelen
+	nextLineEnd := state.inputCount
 
 	// Clear the current output line
 	state.clearOutputLine()
@@ -724,23 +724,23 @@ func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 	state.flushLine()
 
 	// Now render the second part on the new line
-	// Shift the remaining characters to the beginning of inchrline
+	// Shift the remaining characters to the beginning of inputBuffer
 	remainingLen := nextLineEnd - nextLineStart
 	for i := 0; i < remainingLen; i++ {
-		state.inchrline[i] = state.inchrline[nextLineStart+i]
+		state.inputBuffer[i] = state.inputBuffer[nextLineStart+i]
 	}
-	state.inchrlinelen = remainingLen
+	state.inputCount = remainingLen
 	state.lastWordBreak = -1
 
 	// Find new word boundaries in the shifted text
-	for i := 0; i < state.inchrlinelen; i++ {
-		if state.inchrline[i] == ' ' {
+	for i := 0; i < state.inputCount; i++ {
+		if state.inputBuffer[i] == ' ' {
 			state.lastWordBreak = i
 		}
 	}
 
-	// Render the remaining characters (now at the start of inchrline)
-	if err := state.renderCharacterRange(font, 0, state.inchrlinelen, opts); err != nil {
+	// Render the remaining characters (now at the start of inputBuffer)
+	if err := state.renderCharacterRange(font, 0, state.inputCount, opts); err != nil {
 		return false
 	}
 

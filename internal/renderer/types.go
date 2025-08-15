@@ -49,7 +49,7 @@ type renderState struct {
 	outputLine  [][]rune // Current output line being built (one per font height)
 	rowLengths  []int    // Length of each row
 	currentChar []string // Current character being processed
-	inchrline   []rune   // Input characters for word boundary tracking
+	inputBuffer []rune   // Buffer holding input characters for current line
 
 	// String builder for accumulated output
 	outputBuffer []byte // Accumulated output from completed lines
@@ -62,8 +62,8 @@ type renderState struct {
 	charHeight        int // Character height from font
 	right2left        int // Print direction (0=LTR, 1=RTL)
 	smushMode         int // Smushing mode calculated from layout
-	inchrlinelen      int // Length of input line
-	lastWordBreak     int // Position of last space/word boundary in inchrline
+	inputCount        int // Count of characters in input buffer
+	lastWordBreak     int // Position of last space/word boundary in inputBuffer
 	wordbreakmode     int // State machine for line breaking
 
 	// rune field (4 bytes)

@@ -86,7 +86,7 @@ func acquireRenderState(height int, hardblank rune) *renderState {
 	state.trimWhitespace = false
 
 	// Reset new line breaking fields
-	state.inchrlinelen = 0
+	state.inputCount = 0
 	state.lastWordBreak = -1
 	state.wordbreakmode = 0
 
@@ -102,11 +102,11 @@ func acquireRenderState(height int, hardblank rune) *renderState {
 		state.rowLengths = state.rowLengths[:height]
 	}
 
-	// Initialize inchrline buffer if needed
-	if cap(state.inchrline) < 1000 {
-		state.inchrline = make([]rune, 0, 1000)
+	// Initialize inputBuffer if needed
+	if cap(state.inputBuffer) < 1000 {
+		state.inputBuffer = make([]rune, 0, 1000)
 	} else {
-		state.inchrline = state.inchrline[:0]
+		state.inputBuffer = state.inputBuffer[:0]
 	}
 
 	// Initialize output lines with pre-allocated buffers

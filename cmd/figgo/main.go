@@ -31,6 +31,7 @@ func run() int {
 		showHelp       bool
 		trimWhitespace bool
 		width          int
+		fullWidth      bool
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
@@ -39,6 +40,7 @@ func run() int {
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show help message")
 	pflag.BoolVar(&trimWhitespace, "trim-whitespace", false, "Trim trailing whitespace from each line")
 	pflag.IntVarP(&width, "width", "w", 80, "Maximum output width in characters (1-1000, 0=default)")
+	pflag.BoolVarP(&fullWidth, "full-width", "W", false, "Use full-width mode (no kerning or smushing)")
 	pflag.Parse()
 
 	if showHelp {
@@ -86,7 +88,7 @@ func run() int {
 		return 1
 	}
 
-	// Render text with font's default layout (no override)
+	// Prepare text for rendering
 	text := strings.Join(args, " ")
 
 	// Build render options
@@ -96,6 +98,9 @@ func run() int {
 	}
 	if trimWhitespace {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))
+	}
+	if fullWidth {
+		renderOpts = append(renderOpts, figgo.WithLayout(figgo.FitFullWidth))
 	}
 
 	output, err := figgo.Render(text, font, renderOpts...)

@@ -17,7 +17,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	}
 
 	// Get render state from pool
-	state := acquireRenderState(font.Height, font.Hardblank)
+	state := acquireRenderState(font.Height, font.Hardblank, len(text))
 	defer releaseRenderState(state)
 
 	// Set trim whitespace option

@@ -70,7 +70,7 @@ var writeBufferPool = sync.Pool{
 //
 // This pooling is essential for rendering performance, as it eliminates
 // the major allocation overhead when rendering multiple strings.
-func acquireRenderState(height int, hardblank rune) *renderState {
+func acquireRenderState(height int, hardblank rune, textLen int) *renderState {
 	state := renderStatePool.Get().(*renderState)
 
 	// Reset and initialize the state
@@ -102,9 +102,14 @@ func acquireRenderState(height int, hardblank rune) *renderState {
 		state.rowLengths = state.rowLengths[:height]
 	}
 
-	// Initialize inputBuffer if needed
-	if cap(state.inputBuffer) < 1000 {
-		state.inputBuffer = make([]rune, 0, 1000)
+	// Initialize inputBuffer with appropriate capacity based on text length
+	// Use a minimum of 256 to avoid tiny allocations for short text
+	capacity := textLen
+	if capacity < 256 {
+		capacity = 256
+	}
+	if cap(state.inputBuffer) < capacity {
+		state.inputBuffer = make([]rune, 0, capacity)
 	} else {
 		state.inputBuffer = state.inputBuffer[:0]
 	}

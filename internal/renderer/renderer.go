@@ -122,14 +122,18 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 				state.outlineLenLimit = oldLimit
 			} else if state.lastWordBreak > 0 {
 				// Try to split at word boundary
-				state.splitLine()
-				// Try adding character again on new line
-				if !state.addChar(glyph) {
-					// Still doesn't fit, force it
-					oldLimit := state.outlineLenLimit
-					state.outlineLenLimit = 10000
-					state.addChar(glyph)
-					state.outlineLenLimit = oldLimit
+				if state.splitLine(font, opts) {
+					// Successfully split, character is already on new line
+					// No need to add it again
+				} else {
+					// Split failed, try adding character again
+					if !state.addChar(glyph) {
+						// Still doesn't fit, force it
+						oldLimit := state.outlineLenLimit
+						state.outlineLenLimit = 10000
+						state.addChar(glyph)
+						state.outlineLenLimit = oldLimit
+					}
 				}
 			} else {
 				// No word boundary, just flush and continue
@@ -580,6 +584,24 @@ func (state *renderState) flushLine() {
 	state.resetLine()
 }
 
+// clearOutputLine clears just the output line buffer without resetting other state.
+// This is used during word wrapping to re-render from a specific point.
+func (state *renderState) clearOutputLine() {
+	// Clear output line content
+	for i := 0; i < state.charHeight; i++ {
+		// Just reset the length, keep the allocated buffer
+		for j := 0; j < state.rowLengths[i]; j++ {
+			state.outputLine[i][j] = ' '
+		}
+		state.rowLengths[i] = 0
+	}
+
+	// Reset output tracking
+	state.outlineLen = 0
+	state.previousCharWidth = 0
+	state.currentCharWidth = 0
+}
+
 // resetLine clears the current output line for the next line of text.
 func (state *renderState) resetLine() {
 	// Clear output line content
@@ -601,20 +623,128 @@ func (state *renderState) resetLine() {
 	state.lastWordBreak = -1
 }
 
+// renderCharacterRange renders a specific range of characters from inchrline.
+// This is used during word wrapping to re-render specific portions of the input.
+func (state *renderState) renderCharacterRange(font *parser.Font, start, end int, opts *Options) error {
+	// Bounds check
+	if start < 0 || end > len(state.inchrline) || start >= end {
+		return nil
+	}
+
+	// Render each character in the range
+	for i := start; i < end; i++ {
+		r := state.inchrline[i]
+
+		// Skip newlines during re-rendering
+		if r == '\n' {
+			continue
+		}
+
+		// Get character glyph
+		glyph, exists := font.Characters[r]
+		if !exists {
+			// Handle unknown character
+			if opts != nil && opts.UnknownRune != nil {
+				r = *opts.UnknownRune
+				glyph, exists = font.Characters[r]
+				if !exists {
+					return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
+				}
+			} else {
+				return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
+			}
+		}
+
+		// Add character to output (without updating inchrline)
+		if !state.addChar(glyph) {
+			// Character doesn't fit - this shouldn't happen during re-rendering
+			// as we're rendering a known-good range
+			break
+		}
+	}
+
+	return nil
+}
+
 // splitLine splits the current line at the last word boundary.
-// Returns true if a split was performed, false if no word boundary exists.
-func (state *renderState) splitLine() bool {
+// Returns true if a split was performed and the current character was re-added, false otherwise.
+func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 	if state.lastWordBreak <= 0 || state.lastWordBreak >= state.inchrlinelen {
 		return false
 	}
 
-	// TODO: This is complex - we need to track which rendered characters
-	// correspond to which input characters. For now, we'll implement
-	// a simpler version that just flushes the current line.
-	// Full implementation would require maintaining a mapping between
-	// input positions and output positions.
+	// Find the last group of spaces (like figlet does)
+	// Scan backwards from the end to find where spaces start
+	gotSpace := false
+	lastSpace := state.lastWordBreak
+	
+	for i := state.inchrlinelen - 1; i >= 0; i-- {
+		if i >= len(state.inchrline) {
+			continue
+		}
+		if !gotSpace && state.inchrline[i] == ' ' {
+			gotSpace = true
+			lastSpace = i
+		}
+		if gotSpace && state.inchrline[i] != ' ' {
+			// Found non-space after spaces
+			// Split point is after this non-space character
+			break
+		}
+	}
 
-	// For now, just flush the current line when we can't fit more
+	// First part ends at the last non-space before the space group
+	// Second part starts after the space group
+	firstPartEnd := lastSpace
+	for firstPartEnd > 0 && state.inchrline[firstPartEnd-1] == ' ' {
+		firstPartEnd--
+	}
+	
+	// Skip all spaces to find where the second part starts
+	secondPartStart := lastSpace
+	for secondPartStart < state.inchrlinelen && secondPartStart < len(state.inchrline) && state.inchrline[secondPartStart] == ' ' {
+		secondPartStart++
+	}
+
+	// Save the characters that will go on the next line
+	nextLineStart := secondPartStart
+	nextLineEnd := state.inchrlinelen
+
+	// Clear the current output line
+	state.clearOutputLine()
+
+	// Re-render everything up to the first part end (before the spaces)
+	if err := state.renderCharacterRange(font, 0, firstPartEnd, opts); err != nil {
+		// If re-rendering fails, fall back to flushing
+		state.flushLine()
+		return false
+	}
+
+	// Flush the first part
 	state.flushLine()
+
+	// Now render the second part on the new line
+	// Shift the remaining characters to the beginning of inchrline
+	remainingLen := nextLineEnd - nextLineStart
+	for i := 0; i < remainingLen; i++ {
+		state.inchrline[i] = state.inchrline[nextLineStart+i]
+	}
+	state.inchrlinelen = remainingLen
+	state.lastWordBreak = -1
+
+	// Find new word boundaries in the shifted text
+	for i := 0; i < state.inchrlinelen; i++ {
+		if state.inchrline[i] == ' ' {
+			state.lastWordBreak = i
+		}
+	}
+
+	// Render the remaining characters (now at the start of inchrline)
+	if err := state.renderCharacterRange(font, 0, state.inchrlinelen, opts); err != nil {
+		return false
+	}
+
+	// The current character that didn't fit has already been re-rendered
+	// as part of renderCharacterRange. No need to add it again.
 	return true
 }

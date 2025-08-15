@@ -121,6 +121,10 @@ just mod
    - Race detection via `go test -race`
    - Concurrent rendering tests
 
+### Testing Tips
+
+- When comparing outputs between figgo and figlet, its easier and more insightful to compare column-by-column instead of row-by-row.
+
 ## Smushing Rules Implementation
 
 The renderer implements 6 horizontal controlled smushing rules with strict precedence:

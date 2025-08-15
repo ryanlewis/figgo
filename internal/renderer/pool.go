@@ -9,6 +9,12 @@ import (
 const (
 	defaultOutlineLimit = 10000
 	defaultMaxHeight    = 20 // Most fonts are under 20 lines tall
+
+	// Buffer retention thresholds - buffers larger than these are released
+	// to prevent memory bloat in the pool from occasional large renders
+	maxRetainInputBuffer  = 1024 // 4KB for rune slice
+	maxRetainOutputBuffer = 8192 // 8KB for byte slice  
+	maxRetainOutputLine   = 2000 // ~8KB per line for rune slice
 )
 
 // renderStatePool manages a pool of renderState objects to reduce allocations.
@@ -130,14 +136,32 @@ func acquireRenderState(height int, hardblank rune, textLen int) *renderState {
 	return state
 }
 
-// releaseRenderState returns a renderState to the pool
+// releaseRenderState returns a renderState to the pool.
+// It shrinks oversized buffers to prevent memory bloat from occasional large renders.
 func releaseRenderState(state *renderState) {
 	if state == nil {
 		return
 	}
 
-	// Clear references to help GC (but keep allocated slices)
+	// Clear references to help GC
 	state.currentChar = nil
+
+	// Shrink oversized buffers to prevent memory bloat
+	// These will be reallocated at appropriate size when needed
+	if cap(state.inputBuffer) > maxRetainInputBuffer {
+		state.inputBuffer = nil
+	}
+
+	if cap(state.outputBuffer) > maxRetainOutputBuffer {
+		state.outputBuffer = nil
+	}
+
+	// Check each output line
+	for i := range state.outputLine {
+		if state.outputLine[i] != nil && cap(state.outputLine[i]) > maxRetainOutputLine {
+			state.outputLine[i] = nil
+		}
+	}
 
 	// Return to pool
 	renderStatePool.Put(state)

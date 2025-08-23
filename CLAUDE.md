@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for code assistants when working with this repository.
 
 ## ⚠️ CRITICAL RULES - ALWAYS FOLLOW
 
@@ -14,8 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   ```
 
 ### Other Critical Rules
-- NEVER create files unless absolutely necessary - always prefer editing existing files
-- NEVER proactively create documentation files (*.md) unless explicitly requested
+- Prefer editing existing files; create new files only when the task requires it (e.g., adding a new package or test).
+- Do not proactively create documentation files (*.md) unless explicitly requested.
 - NEVER commit if `just ci` fails or reports warnings
 - When running potentially destructive commands, explain what they do first
 
@@ -34,17 +34,17 @@ The codebase follows a clean separation of concerns:
 - **`internal/parser/`**: FIGfont file parsing logic with lazy trim computation and memory pooling
 - **`internal/renderer/`**: Text rendering engine with smushing rules and render buffer pooling
 - **`cmd/figgo/`**: CLI application for command-line FIGlet rendering
-- **`golden_test.go`**: Comprehensive golden test harness for FIGlet compatibility verification
+- **`golden_test.go`**: Golden test harness for FIGlet compatibility verification
 
 The Font type is immutable and thread-safe, allowing concurrent use without locking. Layout handling uses a normalized bitmask system combining fitting modes with smushing rules.
 
-## Key documentation
+## Key Documentation
 
 - `docs/figfont-spec.txt`: Specification for FIGlet fonts
 - `docs/prd.md`: Product Requirements Document
 - `docs/spec-compliance.md`: Tracking of compliance with the spec
 
-- https://raw.githubusercontent.com/cmatsuoka/figlet/refs/heads/master/figlet.c: Reference C implementation
+- Reference C implementation: https://raw.githubusercontent.com/cmatsuoka/figlet/refs/heads/master/figlet.c
 ## Available Test Fonts
 
 The project includes 4 FIGlet fonts for testing:
@@ -76,12 +76,12 @@ go test -v -run TestSpecificFunction ./...
 # Generate test coverage
 just coverage
 
-# Generate golden test files
+# Generate golden test files (uses system figlet)
 just generate-goldens
 # or: go run ./cmd/generate-goldens
-# with specific options:
+# With specific options:
 go run ./cmd/generate-goldens -fonts "standard slant" -layouts "full kern smush"
-# in strict mode (fail on warnings):
+# Strict mode (fail on warnings):
 go run ./cmd/generate-goldens -strict
 
 # Run golden tests
@@ -102,22 +102,17 @@ just mod
 
 ## Testing Strategy
 
-1. **Golden Tests**: Compare output against C figlet reference implementation
-   - Located in `testdata/goldens/` (144 test files)
-   - Generated via `tools/generate-goldens.sh`
-   - Test matrix: 4 fonts × 3 layouts × 12 sample strings
-   - Current pass rate: 38% (56/144 tests passing)
-   - Breakdown by layout:
-     - Full-width: 4% passing (spacing issues)
-     - Kerning: 67% passing (best performance)
-     - Smushing: 46% passing (partial implementation)
+1. **Golden Tests**: Compare output against the reference `figlet` implementation
+   - Located in `testdata/goldens/`
+   - Generated with `cmd/generate-goldens` using `figlet -w 80` and, for smushing, `-s`
+   - Covers multiple fonts (`fonts/*.flf`), layouts (full/kern/smush), and representative samples
 
 2. **Unit Tests**: Test individual components and smushing rules
    - `layout_test.go`: Layout validation and normalization
    - `types_test.go`: Font type behavior
    - `internal/renderer/smushing_test.go`: Smushing rule tests
 
-3. **Property Tests**: Fuzz parser and ensure race-safety
+3. **Property/Correctness**: Parser validation and race-safety
    - Race detection via `go test -race`
    - Concurrent rendering tests
 
@@ -127,22 +122,23 @@ just mod
 
 ## Smushing Rules Implementation
 
-The renderer implements 6 horizontal controlled smushing rules with strict precedence:
+The renderer implements 6 horizontal controlled smushing rules with strict precedence (matching FIGlet):
 
-1. **Equal character**: Identical non-space, non-hardblank characters merge
-2. **Underscore**: `_` with border chars (`|/\[]{}()<>`) yields border
-3. **Hierarchy**: `|` > `/\` > `[]` > `{}` > `()` > `<>`
-4. **Opposite pairs**: `[]`, `{}`, `()` (and their reverses) become `|`
-5. **Big X**: `/\` → `|`, `\/` → `Y`, `><` → `X`
-6. **Hardblank**: Two hardblanks merge to one
+1. **Hardblank**: Two hardblanks merge to one (highest controlled precedence)
+2. **Equal**: Identical characters merge
+3. **Underscore**: `_` merges into border chars (`|/\[]{}()<>`)
+4. **Hierarchy**: Stronger replaces weaker: `|` > `/\` > `[]` > `{}` > `()` > `<>`
+5. **Opposite pair**: `[]`, `{}`, `()` (and their reverses) become `|`
+6. **Big X**: `/\` → `|`, `\/` → `Y`, `><` → `X`
 
-Universal smushing applies only when NO controlled rules are defined: later character overrides earlier at overlap position. When controlled rules ARE defined but no rule matches, fall back to kerning.
+- **Universal smushing**: When smushing is enabled but no rule bits are set, the overlap prefers the right character in LTR and left in RTL; hardblanks yield to visible characters.
+- **No matching rule**: When controlled rules are present but none matches, characters do not overlap (kerning fallback).
 
 ## Key Implementation Notes
 
-- **Layout Normalization**: Convert OldLayout (-1 or 0..63) to modern Layout bitmask on font parse
+- **Layout Normalization**: Font headers provide `OldLayout` and possibly `FullLayout`. The public `Font.Layout` is normalized from header values; rule selection for smushing follows FIGlet (`-s`) semantics.
 - **Hardblank Handling**: Replace with spaces only after final rendering
-- **Print Direction**: 0=LTR, 1=RTL - apply after smushing
+- **Print Direction**: 0=LTR, 1=RTL — affects smushing decisions and boundary calculations; the algorithm handles both directions.
 - **Error Policy**: Unknown runes → `?`, missing glyphs → `ErrUnsupportedRune`
 - **Performance Optimizations**:
   - Memory pooling for parser buffers (64KB-4MB) and render buffers
@@ -173,30 +169,13 @@ The project uses GitHub Actions for CI with the following jobs:
 <Closes #N if applicable>
 ```
 
-## Current Status
+## Debug Mode (Comprehensive, On/Off)
 
-Core library functionality is implemented with comprehensive testing infrastructure. The project is actively working toward full FIGlet compatibility.
+A single, comprehensive debug mode is available to trace parsing, layout decisions, and renderer internals.
 
-### Recent Updates
+- Enable: set `FIGGO_DEBUG=1` or use CLI flags `--debug`, `--debug-file`, `--debug-pretty`.
+- Format: JSON Lines by default; pretty human-readable output with `--debug-pretty`.
+- Scope: Per-render session with a unique ID; events cover parser (summary), API (layout merge), renderer (start/end, overlap calculations, smush decisions, flush/split), and output.
+- Library: pass a session via `figgo.WithDebug(session)`; see `internal/debug/` for event types and sinks.
 
-#### Issue #26 - Golden Test Suite (Completed)
-- ✅ Comprehensive golden test harness (`golden_test.go`)
-- ✅ 144 golden test files covering 4 fonts × 3 layouts × 12 samples
-- ✅ Enhanced `generate-goldens.sh` with CI support (STRICT mode)
-- ✅ YAML front matter with full metadata in markdown format
-- ✅ Current compliance: 38% overall (56/144 tests passing)
-
-#### Issue #6 - Glyph Parser (Completed)
-The glyph parser is **fully spec-compliant** with FIGfont v2:
-- ✅ Parses all 102 required characters: ASCII 32-126 (95) + German 196,214,220,228,246,252,223 (7)
-- ✅ Dynamic endmark detection from glyph data
-- ✅ Support for empty FIGcharacters (zero-width)
-- ✅ Handles single/double/multiple endmarks correctly
-- ✅ Unicode support for hardblank and endmark characters
-- ✅ Graceful handling of partial fonts (backward compatibility)
-
-### Performance Enhancements
-- Memory pooling for parser and renderer (reduces allocations)
-- LRU font caching with content-based keys
-- Lazy computation patterns for expensive operations
-- Thread-safe concurrent rendering support
+This mode is zero-cost when disabled and provides structured, machine-parsable traces when enabled.

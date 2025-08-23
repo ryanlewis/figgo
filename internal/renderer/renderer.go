@@ -110,7 +110,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	}
 
 	// Process each character in the input text
-	for _, r := range text {
+	for charIdx, r := range text {
 		// FIRST: Normalize whitespace
 		if r == '\t' {
 			r = ' '
@@ -120,6 +120,16 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		if r == '\n' {
 			// Flush current line and start new one
 			if state.outlineLen > 0 {
+				// Emit Split event for newline
+				if state.debug != nil {
+					state.debug.Emit("render", "Split", debug.SplitData{
+						Reason:     "newline",
+						FSMPrev:    state.wordbreakmode,
+						FSMNext:    0,
+						OutlineLen: state.outlineLen,
+						Position:   charIdx,
+					})
+				}
 				state.flushLine()
 			}
 			// Reset FSM and buffer state unconditionally
@@ -251,6 +261,16 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 						}
 					}
 					state.outlineLen = state.rowLengths[0]
+					// Emit Split event for width overflow
+					if state.debug != nil {
+						state.debug.Emit("render", "Split", debug.SplitData{
+							Reason:     "width",
+							FSMPrev:    state.wordbreakmode,
+							FSMNext:    -1,
+							OutlineLen: state.outlineLen,
+							Position:   charIdx,
+						})
+					}
 					state.flushLine()
 					state.wordbreakmode = -1 // Enter absorption mode
 					
@@ -294,6 +314,16 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 
 	// Flush any remaining line
 	if state.outlineLen > 0 {
+		// Emit a final Split event to mark end-of-input before the flush
+		if state.debug != nil {
+			state.debug.Emit("render", "Split", debug.SplitData{
+				Reason:     "end",
+				FSMPrev:    state.wordbreakmode,
+				FSMNext:    0,
+				OutlineLen: state.outlineLen,
+				Position:   state.inputCount,
+			})
+		}
 		state.flushLine()
 	}
 
@@ -566,22 +596,23 @@ func (state *renderState) addChar(glyph []string) bool {
 				}
 				
 				if k < len(rowRunes) && column >= 0 && column < len(tempLine) {
-					smushResult := state.smush(tempLine[column], existing)
+					// Capture original character before mutation
+					left := tempLine[column]
+					smushResult := state.smush(left, existing)
 					if smushResult != 0 {
-						// Write result 
-						tempLine[column] = smushResult
-						
-						// Emit debug event for smush decision
+						// Emit debug event for smush decision BEFORE mutation
 						if state.debug != nil {
 							state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
 								Row:    row,
-								Col:    k,
-								Lch:    tempLine[column],
-								Rch:    existing,
+								Col:    column,  // Use column for consistency with LTR
+								Lch:    left,     // Original left character
+								Rch:    existing, // Original right character
 								Result: smushResult,
-								Rule:   debug.ClassifySmushRule(tempLine[column], existing, smushResult, state.smushMode),
+								Rule:   debug.ClassifySmushRule(left, existing, smushResult, state.smushMode),
 							})
 						}
+						// Write result after emitting event
+						tempLine[column] = smushResult
 					} else {
 						// Emulate truncation for RTL
 						// For RTL, we need to track how this affects the merge
@@ -821,6 +852,17 @@ func (state *renderState) flushLine() {
 		return
 	}
 
+	// Capture row lengths before flush (capped at 32)
+	var rowLengthsBefore []int
+	if state.debug != nil {
+		limit := state.charHeight
+		if limit > 32 {
+			limit = 32
+		}
+		rowLengthsBefore = make([]int, limit)
+		copy(rowLengthsBefore, state.rowLengths[:limit])
+	}
+
 	// Get buffer from pool for UTF-8 encoding
 	buf := acquireWriteBuffer()
 	defer releaseWriteBuffer(buf)
@@ -860,6 +902,25 @@ func (state *renderState) flushLine() {
 
 		// Add newline after each row
 		state.outputBuffer = append(state.outputBuffer, '\n')
+	}
+
+	// Capture row lengths after reset (all zeros)
+	var rowLengthsAfter []int
+	if state.debug != nil {
+		limit := state.charHeight
+		if limit > 32 {
+			limit = 32
+		}
+		rowLengthsAfter = make([]int, limit)
+		// After reset, all row lengths will be 0
+		// rowLengthsAfter is already all zeros from make()
+		
+		// Emit Flush event
+		state.debug.Emit("render", "Flush", debug.FlushData{
+			LineNumber:       -1, // TODO: track line number if needed
+			RowLengthsBefore: rowLengthsBefore,
+			RowLengthsAfter:  rowLengthsAfter,
+		})
 	}
 
 	// Reset the line state for next line
@@ -1003,6 +1064,17 @@ func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 	
 	// Save inputCount before flush (flush resets it to 0)
 	savedInputCount := state.inputCount
+	
+	// Emit Split event for wordbreak
+	if state.debug != nil {
+		state.debug.Emit("render", "Split", debug.SplitData{
+			Reason:     "wordbreak",
+			FSMPrev:    state.wordbreakmode,
+			FSMNext:    0,
+			OutlineLen: state.outlineLen,
+			Position:   lastSpaceStart,
+		})
+	}
 	
 	// Flush the first part
 	state.flushLine()

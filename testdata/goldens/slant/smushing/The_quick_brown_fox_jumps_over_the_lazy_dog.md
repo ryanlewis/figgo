@@ -2,13 +2,14 @@
 font: slant
 layout: smush
 sample: The quick brown fox jumps over the lazy dog
+width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
 layout_info: "20205"
 print_direction: 0
-generated: "2025-08-14"
+generated: "2025-08-22"
 generator: generate-goldens
-figlet_args: -s
+figlet_args: -s -w 80
 checksum_sha256: 54213797d32151b121ad45a709f134486b0c4f06ab80c2e2a1670f5e2b7b343e
 ---
 

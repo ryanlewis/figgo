@@ -2,13 +2,14 @@
 font: standard
 layout: full
 sample: abcdefghijklmnopqrstuvwxyz
+width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
 layout_info: "20205"
 print_direction: 0
-generated: "2025-08-14"
+generated: "2025-08-22"
 generator: generate-goldens
-figlet_args: -W
+figlet_args: -W -w 80
 checksum_sha256: 7d54a53102a86c7b4d6bf7af6302aa1e8cf8d328ba5c832a2e2cece0ccfba6ec
 ---
 

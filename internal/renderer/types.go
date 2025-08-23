@@ -69,6 +69,7 @@ type renderState struct {
 	// rune field (4 bytes)
 	hardblank rune // Hardblank character from font
 
-	// bool field (1 byte)
-	trimWhitespace bool // Whether to trim trailing whitespace
+	// bool fields (1 byte each)
+	trimWhitespace       bool // Whether to trim trailing whitespace
+	processingSpaceGlyph bool // True when processing space character glyph
 }

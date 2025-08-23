@@ -32,6 +32,8 @@ func run() int {
 		trimWhitespace bool
 		width          int
 		fullWidth      bool
+		smushMode      bool
+		kernMode       bool
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
@@ -41,6 +43,8 @@ func run() int {
 	pflag.BoolVar(&trimWhitespace, "trim-whitespace", false, "Trim trailing whitespace from each line")
 	pflag.IntVarP(&width, "width", "w", 80, "Maximum output width in characters (1-1000, 0=default)")
 	pflag.BoolVarP(&fullWidth, "full-width", "W", false, "Use full-width mode (no kerning or smushing)")
+	pflag.BoolVarP(&smushMode, "smush", "s", false, "Use smushing mode (characters overlap)")
+	pflag.BoolVarP(&kernMode, "kern", "k", false, "Use kerning mode (characters touch but don't overlap)")
 	pflag.Parse()
 
 	if showHelp {
@@ -99,8 +103,15 @@ func run() int {
 	if trimWhitespace {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))
 	}
+	// Layout mode flags are mutually exclusive
 	if fullWidth {
 		renderOpts = append(renderOpts, figgo.WithLayout(figgo.FitFullWidth))
+	} else if kernMode {
+		renderOpts = append(renderOpts, figgo.WithLayout(figgo.FitKerning))
+	} else if smushMode {
+		// Use smushing mode - this tells figgo to use the font's default smushing rules
+		// Don't specify any rules - let the font's layout be used
+		// This matches figlet's behavior when -s is specified (no override)
 	}
 
 	output, err := figgo.Render(text, font, renderOpts...)

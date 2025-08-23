@@ -1,6 +1,10 @@
 package figgo
 
-import "errors"
+import (
+	"errors"
+	
+	"github.com/ryanlewis/figgo/internal/debug"
+)
 
 // Font represents an immutable FIGfont that can be safely shared across goroutines.
 //
@@ -183,5 +187,27 @@ func WithWidth(width int) Option {
 			width = 1000 // Maximum
 		}
 		opts.width = &width
+	}
+}
+
+// WithDebug enables debug tracing for this render operation.
+// The provided debug session will receive detailed events about the rendering
+// process including layout decisions, smushing calculations, and glyph lookups.
+//
+// Example:
+//
+//	// Create debug session
+//	sink := debug.NewJSONSink(os.Stderr)
+//	session := debug.NewSession(sink)
+//	defer session.Close()
+//
+//	// Render with debug tracing
+//	output, err := figgo.Render("Debug", font, figgo.WithDebug(session))
+func WithDebug(session interface{}) Option {
+	return func(opts *options) {
+		// Use interface{} to avoid exposing internal debug types
+		if s, ok := session.(*debug.Session); ok {
+			opts.debug = s
+		}
 	}
 }

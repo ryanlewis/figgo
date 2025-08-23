@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ryanlewis/figgo/internal/debug"
 	"github.com/ryanlewis/figgo/internal/parser"
 	"github.com/ryanlewis/figgo/internal/renderer"
 )
@@ -450,6 +451,64 @@ func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
 	if err := validateLayout(options); err != nil {
 		return err
 	}
+	
+	// Emit layout merge event if debug is enabled
+	if options.debug != nil {
+		requestedLayout := 0
+		if options.layout != nil {
+			requestedLayout = int(*options.layout)
+		}
+		
+		// Check for FitSmushing rule injection
+		injectedRules := 0
+		rationale := ""
+		finalLayout := requestedLayout
+		
+		// Check if FitSmushing is requested without specific rules
+		if options.layout != nil && (*options.layout & FitSmushing) != 0 {
+			// Extract rule bits (0-5)
+			ruleMask := RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank
+			requestedRules := *options.layout & ruleMask
+			
+			if requestedRules == 0 {
+				// No rules specified, use font defaults
+				fontRules := f.Layout & ruleMask
+				if fontRules == 0 {
+					// Font has no default rules, inject all
+					injectedRules = int(ruleMask)
+					rationale = "FitSmushing requested without rules; font has no defaults; injecting all rules"
+				} else {
+					// Use font's default rules
+					injectedRules = int(fontRules)
+					rationale = "FitSmushing requested without rules; using font's default rules"
+				}
+				finalLayout = int(*options.layout | Layout(injectedRules))
+			} else {
+				rationale = "FitSmushing with explicit rules specified"
+			}
+		} else if options.layout == nil {
+			rationale = "Using font's default layout"
+			finalLayout = int(f.Layout)
+		}
+		
+		// Calculate final smush mode
+		finalSmushMode := 0
+		if finalLayout&int(FitSmushing) != 0 {
+			finalSmushMode = 128 | (finalLayout & 63)
+		} else if finalLayout&int(FitKerning) != 0 {
+			finalSmushMode = 64
+		}
+		
+		options.debug.Emit("api", "LayoutMerge", debug.LayoutMergeData{
+			RequestedLayout: requestedLayout,
+			FontDefaults:    int(f.Layout),
+			InjectedRules:   injectedRules,
+			FinalLayout:     finalLayout,
+			FinalSmushMode:  finalSmushMode,
+			Rationale:       rationale,
+		})
+	}
+	
 	// Convert public Font back to internal parser.Font for renderer
 	pf := convertToParserFont(f)
 	return renderer.RenderTo(w, text, pf, options.toInternal())
@@ -549,6 +608,7 @@ type options struct {
 	unknownRune    *rune
 	trimWhitespace bool
 	width          *int
+	debug          *debug.Session // Debug session for tracing
 }
 
 func defaultOptions() *options {
@@ -570,5 +630,6 @@ func (o *options) toInternal() *renderer.Options {
 	if o.width != nil {
 		rendererOpts.Width = o.width
 	}
+	rendererOpts.Debug = o.debug
 	return rendererOpts
 }

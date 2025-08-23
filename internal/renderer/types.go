@@ -1,6 +1,10 @@
 package renderer
 
-import "errors"
+import (
+	"errors"
+	
+	"github.com/ryanlewis/figgo/internal/debug"
+)
 
 // Error definitions for the renderer package
 var (
@@ -40,6 +44,8 @@ type Options struct {
 	TrimWhitespace bool
 	// Width is the maximum output width in characters (default 80)
 	Width *int
+	// Debug is the debug session for tracing
+	Debug *debug.Session
 }
 
 // renderState holds the current rendering state.
@@ -72,4 +78,7 @@ type renderState struct {
 	// bool fields (1 byte each)
 	trimWhitespace       bool // Whether to trim trailing whitespace
 	processingSpaceGlyph bool // True when processing space character glyph
+	
+	// Debug session for tracing
+	debug *debug.Session
 }

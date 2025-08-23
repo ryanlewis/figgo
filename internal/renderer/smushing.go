@@ -1,5 +1,7 @@
 package renderer
 
+import "github.com/ryanlewis/figgo/internal/debug"
+
 // smush attempts to combine two characters into one according to the smush mode.
 // Returns the smushed character or 0 if no smushing can be done.
 //
@@ -102,42 +104,42 @@ func (state *renderState) smush(lch, rch rune) rune {
 	if (state.smushMode & SMHierarchy) != 0 {
 		// "|" replaces "/\", "[]", "{}", "()", "<>"
 		if lch == '|' && hierarchyLevel1[rch] {
-			return rch
+			return lch  // '|' is stronger, return it
 		}
 		if rch == '|' && hierarchyLevel1[lch] {
-			return lch
+			return rch  // '|' is stronger, return it
 		}
 
 		// "/\" replaces "[]", "{}", "()", "<>"
 		if (lch == '/' || lch == '\\') && hierarchyLevel2[rch] {
-			return rch
+			return lch  // '/\' is stronger, return it
 		}
 		if (rch == '/' || rch == '\\') && hierarchyLevel2[lch] {
-			return lch
+			return rch  // '/\' is stronger, return it
 		}
 
 		// "[]" replaces "{}", "()", "<>"
 		if (lch == '[' || lch == ']') && hierarchyLevel3[rch] {
-			return rch
+			return lch  // '[]' is stronger, return it
 		}
 		if (rch == '[' || rch == ']') && hierarchyLevel3[lch] {
-			return lch
+			return rch  // '[]' is stronger, return it
 		}
 
 		// "{}" replaces "()", "<>"
 		if (lch == '{' || lch == '}') && hierarchyLevel4[rch] {
-			return rch
+			return lch  // '{}' is stronger, return it
 		}
 		if (rch == '{' || rch == '}') && hierarchyLevel4[lch] {
-			return lch
+			return rch  // '{}' is stronger, return it
 		}
 
 		// "()" replaces "<>"
 		if (lch == '(' || lch == ')') && hierarchyLevel5[rch] {
-			return rch
+			return lch  // '()' is stronger, return it
 		}
 		if (rch == '(' || rch == ')') && hierarchyLevel5[lch] {
-			return lch
+			return rch  // '()' is stronger, return it
 		}
 	}
 
@@ -341,10 +343,30 @@ func (state *renderState) smushAmount() int {
 		// 1. If boundary character is null, safe to overlap (+1)
 		// 2. If both characters exist and can smush, safe to overlap (+1)
 		// 3. Otherwise, maintain current overlap amount (no adjustment)
+		amtBefore := amt
+		reason := "none"
 		if ch1 == 0 {
 			amt++
+			reason = "ch1_null"
 		} else if ch2 != 0 && state.smush(ch1, ch2) != 0 {
 			amt++
+			reason = "smushable"
+		}
+		
+		// Emit debug event for this row's calculation
+		if state.debug != nil {
+			state.debug.Emit("render", "SmushAmountRow", debug.SmushAmountRowData{
+				GlyphIdx:        state.inputCount,
+				Row:             row,
+				LineBoundaryIdx: lineBoundary,
+				CharBoundaryIdx: charBoundary,
+				Ch1:             ch1,
+				Ch2:             ch2,
+				AmountBefore:    amtBefore,
+				AmountAfter:     amt,
+				Reason:          reason,
+				RTL:             state.right2left != 0,
+			})
 		}
 
 		// Take minimum overlap across all rows

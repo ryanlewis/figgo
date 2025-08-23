@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ryanlewis/figgo"
+	"github.com/ryanlewis/figgo/internal/debug"
 	"github.com/spf13/pflag"
 )
 
@@ -34,6 +36,9 @@ func run() int {
 		fullWidth      bool
 		smushMode      bool
 		kernMode       bool
+		debugMode      bool
+		debugFile      string
+		debugPretty    bool
 	)
 
 	pflag.StringVarP(&fontPath, "font", "f", "standard", "Path to FIGfont file or font name")
@@ -45,6 +50,9 @@ func run() int {
 	pflag.BoolVarP(&fullWidth, "full-width", "W", false, "Use full-width mode (no kerning or smushing)")
 	pflag.BoolVarP(&smushMode, "smush", "s", false, "Use smushing mode (characters overlap)")
 	pflag.BoolVarP(&kernMode, "kern", "k", false, "Use kerning mode (characters touch but don't overlap)")
+	pflag.BoolVar(&debugMode, "debug", false, "Enable debug mode (outputs to stderr)")
+	pflag.StringVar(&debugFile, "debug-file", "", "Write debug output to file instead of stderr")
+	pflag.BoolVar(&debugPretty, "debug-pretty", false, "Use pretty format for debug output (default: JSON)")
 	pflag.Parse()
 
 	if showHelp {
@@ -94,11 +102,52 @@ func run() int {
 
 	// Prepare text for rendering
 	text := strings.Join(args, " ")
+	
+	// Setup debug if enabled
+	var debugSession interface{}
+	if debugMode || debugFile != "" || os.Getenv("FIGGO_DEBUG") == "1" {
+		// Enable debug mode
+		debug.SetEnabled(true)
+		// Initialize debug from environment
+		debug.InitFromEnv()
+		
+		// Create output sink
+		var output io.Writer = os.Stderr
+		if debugFile != "" {
+			file, err := os.Create(debugFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating debug file: %v\n", err)
+				return 1
+			}
+			defer file.Close()
+			output = file
+		}
+		
+		// Create sink based on format preference
+		var sink debug.Sink
+		if debugPretty || os.Getenv("FIGGO_DEBUG_PRETTY") == "1" {
+			sink = debug.NewPrettySink(output)
+		} else {
+			sink = debug.NewJSONSink(output)
+		}
+		
+		// Create session
+		session := debug.NewSession(sink)
+		if session != nil {
+			defer session.Close()
+			debugSession = session
+		}
+	}
 
 	// Build render options
 	renderOpts := []figgo.Option{
 		figgo.WithUnknownRune(unknownRuneValue),
 		figgo.WithWidth(width),
+	}
+	
+	// Add debug if enabled
+	if debugSession != nil {
+		renderOpts = append(renderOpts, figgo.WithDebug(debugSession))
 	}
 	if trimWhitespace {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))

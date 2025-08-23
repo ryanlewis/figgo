@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	"github.com/ryanlewis/figgo/internal/debug"
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
@@ -29,6 +31,11 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	// Get render state from pool
 	state := acquireRenderState(font.Height, font.Hardblank, len(text))
 	defer releaseRenderState(state)
+	
+	// Set debug session if provided
+	if opts != nil && opts.Debug != nil {
+		state.debug = opts.Debug
+	}
 
 	// Set trim whitespace option
 	if opts != nil {
@@ -85,6 +92,22 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 			state.smushMode = oldLayoutToSmushMode(font.OldLayout)
 		}
 	}
+	
+	// Log render start
+	var startTime time.Time
+	if state.debug != nil {
+		startTime = time.Now()
+		state.debug.Emit("render", "Start", debug.RenderStartData{
+			Text:        text,
+			TextLength:  len(text),
+			CharHeight:  state.charHeight,
+			Hardblank:   state.hardblank,
+			WidthLimit:  state.outlineLenLimit,
+			PrintDir:    state.right2left,
+			SmushMode:   state.smushMode,
+			SmushRules:  debug.FormatSmushRules(state.smushMode),
+		})
+	}
 
 	// Process each character in the input text
 	for _, r := range text {
@@ -123,13 +146,16 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 			
 			// Get character glyph
 			glyph, exists := font.Characters[r]
+			unknownSubstituted := false
 			if !exists {
 				// Handle unknown character
 				if opts != nil && opts.UnknownRune != nil {
+					originalRune := r
 					r = *opts.UnknownRune
 					glyph, exists = font.Characters[r]
+					unknownSubstituted = true
 					if !exists {
-						return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
+						return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(originalRune))
 					}
 				} else {
 					return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
@@ -142,6 +168,21 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 				state.processingSpaceGlyph = true
 			} else {
 				state.processingSpaceGlyph = false
+			}
+			
+			// Emit glyph event
+			if state.debug != nil {
+				glyphWidth := 0
+				if len(glyph) > 0 {
+					glyphWidth = getCachedRuneCount(glyph[0])
+				}
+				state.debug.Emit("render", "Glyph", debug.GlyphData{
+					Index:        state.inputCount,
+					Rune:         r,
+					Width:        glyphWidth,
+					SpaceGlyph:   state.processingSpaceGlyph,
+					UnknownSubst: unknownSubstituted,
+				})
 			}
 			
 			// Try to add character to output
@@ -257,12 +298,27 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 	}
 
 	// Write accumulated output to writer
+	bytesWritten := 0
 	if len(state.outputBuffer) > 0 {
 		// Remove the trailing newline from the last line
 		if state.outputBuffer[len(state.outputBuffer)-1] == '\n' {
 			state.outputBuffer = state.outputBuffer[:len(state.outputBuffer)-1]
 		}
+		bytesWritten = len(state.outputBuffer)
 		_, err := w.Write(state.outputBuffer)
+		
+		// Log render end
+		if state.debug != nil {
+			elapsed := time.Since(startTime)
+			state.debug.Emit("render", "End", debug.RenderEndData{
+				TotalLines:   strings.Count(string(state.outputBuffer), "\n") + 1,
+				TotalRunes:   len([]rune(text)),
+				TotalGlyphs:  state.inputCount,
+				ElapsedMs:    elapsed.Milliseconds(),
+				BytesWritten: bytesWritten,
+			})
+		}
+		
 		return err
 	}
 
@@ -273,8 +329,34 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		for i := 0; i < font.Height-1; i++ {
 			blankLines[i] = '\n'
 		}
+		bytesWritten = len(blankLines)
 		_, err := w.Write(blankLines)
+		
+		// Log render end for empty input
+		if state.debug != nil {
+			elapsed := time.Since(startTime)
+			state.debug.Emit("render", "End", debug.RenderEndData{
+				TotalLines:   font.Height - 1,
+				TotalRunes:   0,
+				TotalGlyphs:  0,
+				ElapsedMs:    elapsed.Milliseconds(),
+				BytesWritten: bytesWritten,
+			})
+		}
+		
 		return err
+	}
+	
+	// Log render end for zero output
+	if state.debug != nil {
+		elapsed := time.Since(startTime)
+		state.debug.Emit("render", "End", debug.RenderEndData{
+			TotalLines:   0,
+			TotalRunes:   len([]rune(text)),
+			TotalGlyphs:  state.inputCount,
+			ElapsedMs:    elapsed.Milliseconds(),
+			BytesWritten: 0,
+		})
 	}
 
 	return nil
@@ -488,6 +570,18 @@ func (state *renderState) addChar(glyph []string) bool {
 					if smushResult != 0 {
 						// Write result 
 						tempLine[column] = smushResult
+						
+						// Emit debug event for smush decision
+						if state.debug != nil {
+							state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
+								Row:    row,
+								Col:    k,
+								Lch:    tempLine[column],
+								Rch:    existing,
+								Result: smushResult,
+								Rule:   debug.ClassifySmushRule(tempLine[column], existing, smushResult, state.smushMode),
+							})
+						}
 					} else {
 						// Emulate truncation for RTL
 						// For RTL, we need to track how this affects the merge
@@ -515,8 +609,20 @@ func (state *renderState) addChar(glyph []string) bool {
 			if smushAmount < end && finalEnd == state.currentCharWidth {
 				// Copy the part of outputline after smush region
 				remaining := state.outputLine[row][smushAmount:end]
+				startPos := finalEnd
 				copy(state.outputLine[row][finalEnd:], remaining)
 				finalEnd += end - smushAmount
+				
+				// Emit debug event for row append
+				if state.debug != nil {
+					state.debug.Emit("render", "RowAppend", debug.RowAppendData{
+						Row:       row,
+						StartPos:  startPos,
+						CharCount: end - smushAmount,
+						EndBefore: startPos,
+						EndAfter:  finalEnd,
+					})
+				}
 			}
 
 			// Update row length
@@ -548,6 +654,18 @@ func (state *renderState) addChar(glyph []string) bool {
 						if column >= end {
 							end = column + 1
 						}
+						
+						// Emit debug event for smush decision
+						if state.debug != nil {
+							state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
+								Row:    row,
+								Col:    column,
+								Lch:    existing,
+								Rch:    rowRunes[k],
+								Result: smushResult,
+								Rule:   debug.ClassifySmushRule(existing, rowRunes[k], smushResult, state.smushMode),
+							})
+						}
 					} else {
 						// Emulate C string truncation - shrink end
 						// DO NOT write 0 rune
@@ -563,8 +681,20 @@ func (state *renderState) addChar(glyph []string) bool {
 			if smushAmount < len(rowRunes) {
 				remaining := rowRunes[smushAmount:]
 				dest := end  // Use per-row end, not outlineLen!
+				startPos := dest
 				copy(state.outputLine[row][dest:], remaining)
 				end += len(remaining)
+				
+				// Emit debug event for row append
+				if state.debug != nil {
+					state.debug.Emit("render", "RowAppend", debug.RowAppendData{
+						Row:       row,
+						StartPos:  startPos,
+						CharCount: len(remaining),
+						EndBefore: startPos,
+						EndAfter:  end,
+					})
+				}
 			}
 			
 			// Update row length with new end position

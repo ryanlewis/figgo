@@ -56,7 +56,22 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 
 	// Convert layout to smush mode
 	if opts != nil {
-		state.smushMode = layoutToSmushMode(opts.Layout)
+		// Check if FitSmushing (bit 7) is specified without rule bits (bits 0-5)
+		// This means "use font's default smushing rules"
+		if opts.Layout == (1<<7) {
+			// Use font's default smushing rules
+			if font.FullLayoutSet && font.FullLayout != 0 {
+				// Extract horizontal layout from FullLayout
+				state.smushMode = font.FullLayout & 0xFF
+			} else {
+				// Fall back to converting OldLayout
+				state.smushMode = oldLayoutToSmushMode(font.OldLayout)
+			}
+			// Ensure smushing mode is enabled
+			state.smushMode |= SMSmush
+		} else {
+			state.smushMode = layoutToSmushMode(opts.Layout)
+		}
 	} else {
 		// Use font's default layout
 		// Use FullLayout when available, fall back to OldLayout

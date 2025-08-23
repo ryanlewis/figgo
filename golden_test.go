@@ -115,8 +115,9 @@ func mapLayoutString(layout string) Layout {
 	case "kern":
 		return FitKerning
 	case "smush":
-		// Enable all horizontal smushing rules per PRD §6.2
-		return FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank
+		// Use FitSmushing only - let the font's default rules apply
+		// This matches figlet's -s flag behavior
+		return FitSmushing
 	default:
 		return 0 // Default layout
 	}

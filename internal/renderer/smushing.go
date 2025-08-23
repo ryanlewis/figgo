@@ -186,6 +186,141 @@ func (state *renderState) smush(lch, rch rune) rune {
 	return 0
 }
 
+// canSmushPreview checks if two characters can smush based on rules alone,
+// without considering width constraints. This is used to determine the +1
+// overlap decision in smushAmount.
+//
+// The function mirrors the exact rule precedence from smush() but removes
+// all width gates. This allows the +1 overlap decision to be based purely
+// on whether the characters would smush by rule, not on glyph widths.
+func (state *renderState) canSmushPreview(lch, rch rune) bool {
+	// Spaces always combine
+	if lch == ' ' || rch == ' ' {
+		return true
+	}
+	
+	// Do NOT check width constraints here - that's the key difference
+	
+	// Not in smushing mode? Then preview returns false
+	if (state.smushMode & SMSmush) == 0 {
+		return false
+	}
+	
+	// Universal smushing (no specific rules)
+	if (state.smushMode & 63) == 0 {
+		// Handle hardblanks - prefer visible characters
+		if lch == state.hardblank || rch == state.hardblank {
+			// Prefer visible char; preview smush is possible
+			return true
+		}
+		// Universal smushing always possible
+		return true
+	}
+	
+	// Controlled smushing rules - check in order of precedence
+	
+	// Rule 6: Hardblank smushing
+	if (state.smushMode & SMHardblank) != 0 {
+		if lch == state.hardblank && rch == state.hardblank {
+			return true
+		}
+	}
+	
+	// If either character is hardblank and we're not doing hardblank rule, no smushing
+	if lch == state.hardblank || rch == state.hardblank {
+		return false
+	}
+	
+	// Rule 1: Equal character smushing
+	if (state.smushMode & SMEqual) != 0 {
+		if lch == rch {
+			return true
+		}
+	}
+	
+	// Rule 2: Underscore smushing
+	if (state.smushMode & SMLowline) != 0 {
+		if lch == '_' && underscoreBorders[rch] {
+			return true
+		}
+		if rch == '_' && underscoreBorders[lch] {
+			return true
+		}
+	}
+	
+	// Rule 3: Hierarchy smushing
+	if (state.smushMode & SMHierarchy) != 0 {
+		// "|" replaces "/\", "[]", "{}", "()", "<>"
+		if lch == '|' && hierarchyLevel1[rch] {
+			return true
+		}
+		if rch == '|' && hierarchyLevel1[lch] {
+			return true
+		}
+		
+		// "/\" replaces "[]", "{}", "()", "<>"
+		if (lch == '/' || lch == '\\') && hierarchyLevel2[rch] {
+			return true
+		}
+		if (rch == '/' || rch == '\\') && hierarchyLevel2[lch] {
+			return true
+		}
+		
+		// "[]" replaces "{}", "()", "<>"
+		if (lch == '[' || lch == ']') && hierarchyLevel3[rch] {
+			return true
+		}
+		if (rch == '[' || rch == ']') && hierarchyLevel3[lch] {
+			return true
+		}
+		
+		// "{}" replaces "()", "<>"
+		if (lch == '{' || lch == '}') && hierarchyLevel4[rch] {
+			return true
+		}
+		if (rch == '{' || rch == '}') && hierarchyLevel4[lch] {
+			return true
+		}
+		
+		// "()" replaces "<>"
+		if (lch == '(' || lch == ')') && hierarchyLevel5[rch] {
+			return true
+		}
+		if (rch == '(' || rch == ')') && hierarchyLevel5[lch] {
+			return true
+		}
+	}
+	
+	// Rule 4: Opposite pair smushing
+	if (state.smushMode & SMPair) != 0 {
+		if (lch == '[' && rch == ']') || (lch == ']' && rch == '[') {
+			return true
+		}
+		if (lch == '{' && rch == '}') || (lch == '}' && rch == '{') {
+			return true
+		}
+		if (lch == '(' && rch == ')') || (lch == ')' && rch == '(') {
+			return true
+		}
+	}
+	
+	// Rule 5: Big X smushing
+	if (state.smushMode & SMBigX) != 0 {
+		if lch == '/' && rch == '\\' {
+			return true
+		}
+		if rch == '/' && lch == '\\' {
+			return true
+		}
+		if lch == '>' && rch == '<' {
+			return true
+		}
+	}
+	
+	// No smushing rule matched
+	return false
+}
+
 // smushAmount returns the maximum amount that the current character can overlap
 // with the current output line.
 //
@@ -211,6 +346,11 @@ func (state *renderState) smush(lch, rch rune) rune {
 // - Characters that can smush together allow additional overlap (+1)
 // - First character in a line gets special handling
 func (state *renderState) smushAmount() int {
+	// Early return for space input in smushing mode - no overlap for spaces
+	if state.processingSpaceGlyph && (state.smushMode & SMSmush) != 0 {
+		return 0
+	}
+	
 	// Get a pooled rune buffer for conversions
 	runeBuffer := acquireRuneSlice()
 	defer releaseRuneSlice(runeBuffer)
@@ -344,7 +484,8 @@ func (state *renderState) smushAmount() int {
 		if ch1 == 0 || ch1 == ' ' {
 			amt++
 		} else if ch2 != 0 {
-			if state.smush(ch1, ch2) != 0 {
+			// Use preview method that ignores width gates
+			if state.canSmushPreview(ch1, ch2) {
 				amt++
 			}
 		}

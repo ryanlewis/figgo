@@ -9,6 +9,16 @@ import (
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
+// singleSpaceGlyph creates a 1-column space glyph for the given height.
+// This is used in smushing mode to ensure input spaces contribute exactly 1 column.
+func singleSpaceGlyph(height int) []string {
+	rows := make([]string, height)
+	for i := 0; i < height; i++ {
+		rows[i] = " "
+	}
+	return rows
+}
+
 // RenderTo writes ASCII art directly to the provided writer using the font and options.
 // This is more efficient than Render as it avoids allocating a string for the result.
 func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error {
@@ -111,12 +121,17 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 				}
 			}
 
-			// Set flag if processing space
-			state.processingSpaceGlyph = (r == ' ')
+			// In smushing mode, use a normalized 1-column space glyph
+			if r == ' ' && (state.smushMode & SMSmush) != 0 {
+				glyph = singleSpaceGlyph(state.charHeight)
+				state.processingSpaceGlyph = true
+			} else {
+				state.processingSpaceGlyph = false
+			}
 			
 			// Try to add character to output
 			if state.addChar(glyph) {
-				// Clear flag after successful add
+				// Clear flag after add
 				state.processingSpaceGlyph = false
 				
 				// SUCCESS - NOW append to buffer
@@ -779,8 +794,13 @@ func (state *renderState) renderCharacterRange(font *parser.Font, start, end int
 			}
 		}
 
-		// Set flag if processing space
-		state.processingSpaceGlyph = (r == ' ')
+		// In smushing mode, use a normalized 1-column space glyph
+		if r == ' ' && (state.smushMode & SMSmush) != 0 {
+			glyph = singleSpaceGlyph(state.charHeight)
+			state.processingSpaceGlyph = true
+		} else {
+			state.processingSpaceGlyph = false
+		}
 		
 		// Add character to output (without updating inputBuffer)
 		if !state.addChar(glyph) {

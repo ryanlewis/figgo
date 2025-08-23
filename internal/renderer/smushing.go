@@ -338,16 +338,13 @@ func (state *renderState) smushAmount() int {
 
 		// Adjust amount based on character overlap rules
 		// These adjustments determine if characters can overlap by one more position:
-		// 1. If boundary character is space/null, safe to overlap (+1)
+		// 1. If boundary character is null, safe to overlap (+1)
 		// 2. If both characters exist and can smush, safe to overlap (+1)
 		// 3. Otherwise, maintain current overlap amount (no adjustment)
-		if ch1 == 0 || ch1 == ' ' {
+		if ch1 == 0 {
 			amt++
-		} else if ch2 != 0 {
-			// Check if characters can smush (now that width gate is removed)
-			if state.smush(ch1, ch2) != 0 {
-				amt++
-			}
+		} else if ch2 != 0 && state.smush(ch1, ch2) != 0 {
+			amt++
 		}
 
 		// Take minimum overlap across all rows

@@ -207,4 +207,3 @@ Font %d
 	stats := cache.Stats()
 	b.ReportMetric(float64(stats.Evictions), "evictions")
 }
-

@@ -18,6 +18,7 @@ type goldenMetadata struct {
 	Font           string `yaml:"font"`
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
+	Width          int    `yaml:"width"`           // Explicit width for deterministic wrapping
 	FigletVersion  string `yaml:"figlet_version"`
 	FontInfo       string `yaml:"font_info"`
 	LayoutInfo     string `yaml:"layout_info"`
@@ -191,6 +192,13 @@ func TestGoldenFiles(t *testing.T) {
 			if metadata.PrintDirection == 1 {
 				opts = append(opts, WithPrintDirection(1)) // 1 = RTL
 			}
+
+			// Add width if specified (default to 80 for backward compatibility)
+			width := metadata.Width
+			if width == 0 {
+				width = 80 // Default figlet width
+			}
+			opts = append(opts, WithWidth(width))
 
 			// Render the text
 			result, err := Render(metadata.Sample, font, opts...)

@@ -96,8 +96,6 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		for retry {
 			retry = false
 			
-			// fmt.Fprintf(os.Stderr, "Processing '%c' with inputCount=%d\n", r, state.inputCount)
-
 			// Get character glyph
 			glyph, exists := font.Characters[r]
 			if !exists {
@@ -197,16 +195,20 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 					
 				} else {
 					// Non-space failure
+					// Capture previous state BEFORE split/flush
+					prevState := state.wordbreakmode
+					
 					if state.wordbreakmode >= 2 {
-						if !state.splitLine(font, opts) {
+						split := state.splitLine(font, opts)
+						if !split {
 							state.flushLine()
 						}
 					} else {
 						state.flushLine()
 					}
 					
-					// Update FSM for retry
-					if state.wordbreakmode == 3 {
+					// Update FSM using PREVIOUS state for correct transition
+					if prevState == 3 {
 						state.wordbreakmode = 1
 					} else {
 						state.wordbreakmode = 0
@@ -834,13 +836,16 @@ func (state *renderState) splitLine(font *parser.Font, opts *Options) bool {
 		}
 	}
 	
+	// Save inputCount before flush (flush resets it to 0)
+	savedInputCount := state.inputCount
+	
 	// Flush the first part
 	state.flushLine()
 	
 	// Shift remainder to beginning of inputBuffer
-	if lastSpaceEnd < state.inputCount {
-		remainingCount := state.inputCount - lastSpaceEnd
-		copy(state.inputBuffer[0:], state.inputBuffer[lastSpaceEnd:state.inputCount])
+	if lastSpaceEnd < savedInputCount {
+		remainingCount := savedInputCount - lastSpaceEnd
+		copy(state.inputBuffer[0:], state.inputBuffer[lastSpaceEnd:savedInputCount])
 		
 		// Re-render the remainder on new line and get actual rendered count
 		renderedCount, err := state.renderCharacterRange(font, 0, remainingCount, opts)

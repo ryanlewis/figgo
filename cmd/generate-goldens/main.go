@@ -21,6 +21,7 @@ type GoldenMetadata struct {
 	Font           string `yaml:"font"`
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
+	Width          int    `yaml:"width"`           // Explicit width for deterministic wrapping
 	FigletVersion  string `yaml:"figlet_version"`
 	FontInfo       string `yaml:"font_info"`
 	LayoutInfo     string `yaml:"layout_info"`
@@ -47,7 +48,7 @@ var defaultSamples = []string{
 	"FIGgo 1.0",
 	`|/\[]{}()<>`,
 	"The quick brown fox jumps over the lazy dog",
-	" ",  // Single space
+	" ", // Single space
 	"a",
 	"   ", // Three spaces
 	"$$$$",
@@ -72,7 +73,7 @@ func main() {
 	for _, font := range fontList {
 		for _, layout := range layoutList {
 			layoutName := getLayoutName(layout)
-			
+
 			// Create output directory
 			dir := filepath.Join(*outDir, font, layoutName)
 			if err := os.MkdirAll(dir, 0755); err != nil {
@@ -99,7 +100,7 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 	// Generate filename slug
 	slug := slugify(sample)
 	outFile := filepath.Join(*outDir, font, layoutName, slug+".md")
-	
+
 	log.Printf("Generating %s/%s/%s.md", font, layoutName, slug)
 
 	// Get font info
@@ -108,9 +109,17 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 
 	// Get layout arguments
 	layoutArgs := getLayoutArgs(layout)
+	
+	// Use explicit width for deterministic output
+	width := 80
+	layoutArgsWithWidth := layoutArgs
+	if layoutArgsWithWidth != "" {
+		layoutArgsWithWidth += " "
+	}
+	layoutArgsWithWidth += fmt.Sprintf("-w %d", width)
 
 	// Generate ASCII art
-	art, err := generateArt(*figlet, font, sample, layoutArgs)
+	art, err := generateArt(*figlet, font, sample, layoutArgsWithWidth)
 	if err != nil {
 		return fmt.Errorf("failed to generate art for %s/%s/%s: %w", font, layoutName, slug, err)
 	}
@@ -123,13 +132,14 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 		Font:           font,
 		Layout:         layout,
 		Sample:         sample, // YAML marshaling will handle escaping
+		Width:          width,  // Explicit width for deterministic wrapping
 		FigletVersion:  figletVersion,
 		FontInfo:       fontInfo,
 		LayoutInfo:     layoutInfo,
 		PrintDirection: 0,
 		Generated:      time.Now().UTC().Format("2006-01-02"),
 		Generator:      "generate-goldens",
-		FigletArgs:     layoutArgs,
+		FigletArgs:     layoutArgsWithWidth,
 		ChecksumSHA256: checksum,
 	}
 
@@ -183,7 +193,7 @@ func getFigletInfo(figletPath, font string, args ...string) string {
 	}
 	cmdArgs = append(cmdArgs, "-f", font)
 	cmdArgs = append(cmdArgs, args...)
-	
+
 	cmd := exec.Command(figletPath, cmdArgs...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -285,7 +295,7 @@ func slugify(s string) string {
 
 	// Trim leading/trailing underscores
 	slug := strings.Trim(string(result), "_")
-	
+
 	// If empty after processing, use hash
 	if slug == "" {
 		hash := sha256.Sum256([]byte(s))

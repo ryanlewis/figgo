@@ -362,4 +362,3 @@ func ClearDefaultCache() {
 func DefaultCacheStats() CacheStats {
 	return defaultCache.Stats()
 }
-

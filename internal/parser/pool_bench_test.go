@@ -272,4 +272,3 @@ func BenchmarkRealWorldFont(b *testing.B) {
 		}
 	})
 }
-

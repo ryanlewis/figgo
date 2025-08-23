@@ -75,9 +75,9 @@ func computeGlyphTrims(glyph []string) []GlyphTrim {
 // Trim data (leftmost/rightmost visible positions) is expensive to compute for
 // all glyphs upfront. Instead, we compute it on first access per glyph:
 //
-// 1. Fast path: Check with read lock if already computed
-// 2. Slow path: Acquire write lock, double-check (another thread may have
-//    computed it), then compute and cache
+//  1. Fast path: Check with read lock if already computed
+//  2. Slow path: Acquire write lock, double-check (another thread may have
+//     computed it), then compute and cache
 //
 // This pattern optimizes for:
 // - Fast font loading (no upfront computation)

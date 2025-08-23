@@ -13,7 +13,7 @@ const (
 	// Buffer retention thresholds - buffers larger than these are released
 	// to prevent memory bloat in the pool from occasional large renders
 	maxRetainInputBuffer  = 1024 // 4KB for rune slice
-	maxRetainOutputBuffer = 8192 // 8KB for byte slice  
+	maxRetainOutputBuffer = 8192 // 8KB for byte slice
 	maxRetainOutputLine   = 2000 // ~8KB per line for rune slice
 )
 

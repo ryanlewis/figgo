@@ -217,4 +217,3 @@ func releaseWarnings(slice []string) {
 	slice = slice[:0]
 	warningsPool.Put(&slice)
 }
-

@@ -130,3 +130,124 @@ func BenchmarkPRDTarget_AllFonts(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkE2E_ParseAndRender measures the full pipeline without caching
+func BenchmarkE2E_ParseAndRender(b *testing.B) {
+	fontPath := filepath.Join("fonts", "standard.flf")
+	text := "Hello World"
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		f, err := os.Open(fontPath)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		font, err := ParseFont(f)
+		f.Close()
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		_, err = Render(text, font)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkE2E_CachedRender measures rendering with pre-parsed font
+func BenchmarkE2E_CachedRender(b *testing.B) {
+	fontPath := filepath.Join("fonts", "standard.flf")
+	f, err := os.Open(fontPath)
+	if err != nil {
+		b.Fatalf("failed to open font: %v", err)
+	}
+
+	font, err := ParseFont(f)
+	f.Close()
+	if err != nil {
+		b.Fatalf("failed to parse font: %v", err)
+	}
+
+	text := "Hello World"
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_, err = Render(text, font)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkE2E_FontCacheHit measures performance with font cache
+func BenchmarkE2E_FontCacheHit(b *testing.B) {
+	cache := NewFontCache(10)
+	fontPath := filepath.Join("fonts", "standard.flf")
+
+	// Pre-warm the cache
+	_, err := cache.LoadFont(fontPath)
+	if err != nil {
+		b.Fatalf("failed to load font: %v", err)
+	}
+
+	text := "Hello World"
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		font, err := cache.LoadFont(fontPath)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		_, err = Render(text, font)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkE2E_LayoutModes compares performance across layout modes
+func BenchmarkE2E_LayoutModes(b *testing.B) {
+	fontPath := filepath.Join("fonts", "standard.flf")
+	f, err := os.Open(fontPath)
+	if err != nil {
+		b.Fatalf("failed to open font: %v", err)
+	}
+
+	font, err := ParseFont(f)
+	f.Close()
+	if err != nil {
+		b.Fatalf("failed to parse font: %v", err)
+	}
+
+	text := "The quick brown fox"
+
+	b.Run("FullWidth", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Render(text, font, WithLayout(FitFullWidth))
+		}
+	})
+
+	b.Run("Kerning", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Render(text, font, WithLayout(FitKerning))
+		}
+	})
+
+	b.Run("Smushing", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Render(text, font, WithLayout(FitSmushing))
+		}
+	})
+}

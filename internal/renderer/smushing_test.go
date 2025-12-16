@@ -520,3 +520,130 @@ func BenchmarkSmushAmt(b *testing.B) {
 		_ = state.smushAmount()
 	}
 }
+
+// Benchmark smushing rules individually to identify performance characteristics
+
+func createSmushBenchState(smushMode int) *renderState {
+	state := &renderState{
+		smushMode:         smushMode,
+		hardblank:         '$',
+		previousCharWidth: 7,
+		currentCharWidth:  7,
+		right2left:        0,
+	}
+	return state
+}
+
+// BenchmarkSmush_Universal benchmarks universal smushing (no rules set)
+func BenchmarkSmush_Universal(b *testing.B) {
+	state := createSmushBenchState(SMSmush) // Smushing enabled, no rules
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('A', 'B')
+		_ = state.smush('|', '/')
+		_ = state.smush('[', ']')
+	}
+}
+
+// BenchmarkSmush_EqualChar benchmarks Rule 1: Equal character smushing
+func BenchmarkSmush_EqualChar(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMEqual)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('|', '|')
+		_ = state.smush('/', '/')
+		_ = state.smush('A', 'A')
+	}
+}
+
+// BenchmarkSmush_Underscore benchmarks Rule 2: Underscore smushing
+func BenchmarkSmush_Underscore(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMLowline)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('_', '|')
+		_ = state.smush('_', '/')
+		_ = state.smush('[', '_')
+	}
+}
+
+// BenchmarkSmush_Hierarchy benchmarks Rule 3: Hierarchy smushing
+// This is the most complex rule with multiple level checks
+func BenchmarkSmush_Hierarchy(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMHierarchy)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('|', '/')
+		_ = state.smush('[', '{')
+		_ = state.smush('(', '<')
+		_ = state.smush('/', '[')
+		_ = state.smush('{', '(')
+	}
+}
+
+// BenchmarkSmush_OppositePair benchmarks Rule 4: Opposite pair smushing
+func BenchmarkSmush_OppositePair(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMPair)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('[', ']')
+		_ = state.smush('{', '}')
+		_ = state.smush('(', ')')
+	}
+}
+
+// BenchmarkSmush_BigX benchmarks Rule 5: Big X smushing
+func BenchmarkSmush_BigX(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMBigX)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('/', '\\')
+		_ = state.smush('\\', '/')
+		_ = state.smush('>', '<')
+	}
+}
+
+// BenchmarkSmush_Hardblank benchmarks Rule 6: Hardblank smushing
+func BenchmarkSmush_Hardblank(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMHardblank)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('$', '$')
+		_ = state.smush('$', 'A')
+		_ = state.smush('A', '$')
+	}
+}
+
+// BenchmarkSmush_AllRules benchmarks all rules enabled together
+func BenchmarkSmush_AllRules(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMEqual | SMLowline | SMHierarchy | SMPair | SMBigX | SMHardblank)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('|', '|')  // Equal
+		_ = state.smush('_', '|')  // Underscore
+		_ = state.smush('|', '/')  // Hierarchy
+		_ = state.smush('[', ']')  // Pair
+		_ = state.smush('/', '\\') // BigX
+		_ = state.smush('$', '$')  // Hardblank
+	}
+}
+
+// BenchmarkSmush_NoMatch benchmarks the case where no rules match
+func BenchmarkSmush_NoMatch(b *testing.B) {
+	state := createSmushBenchState(SMSmush | SMEqual | SMLowline | SMHierarchy | SMPair | SMBigX | SMHardblank)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = state.smush('A', 'B') // No rule matches
+		_ = state.smush('X', 'Y')
+		_ = state.smush('1', '2')
+	}
+}

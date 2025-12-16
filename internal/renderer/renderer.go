@@ -233,6 +233,10 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 
 				// FAILURE - handle based on context without buffer contamination
 				if state.outlineLen == 0 {
+					// Skip if glyph height doesn't match font height (malformed font)
+					if len(glyph) != state.charHeight {
+						continue
+					}
 					// Oversized first char - print truncated version
 					for row := 0; row < state.charHeight; row++ {
 						glyphRow := glyph[row]
@@ -349,9 +353,10 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		return err
 	}
 
-	// Handle empty input - return height-1 blank lines
+	// Handle empty output - return height-1 blank lines
+	// This applies when input is empty OR when all characters were skipped (e.g., malformed glyphs)
 	// (Tests expect height-1 newlines since final trailing newline is trimmed)
-	if len(text) == 0 && font.Height > 1 {
+	if len(state.outputBuffer) == 0 && font.Height > 1 {
 		blankLines := make([]byte, font.Height-1)
 		for i := 0; i < font.Height-1; i++ {
 			blankLines[i] = '\n'

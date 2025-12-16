@@ -92,54 +92,55 @@ func (state *renderState) smush(lch, rch rune) rune {
 
 	// Rule 3: Hierarchy smushing
 	// Character hierarchy (strongest to weakest):
-	// Level 0: | (strongest, survives against all)
+	// Level 0: | (strongest)
 	// Level 1: /\
 	// Level 2: []
 	// Level 3: {}
 	// Level 4: ()
 	// Level 5: <> (weakest)
 	//
-	// The stronger character replaces the weaker one.
-	// This creates visually pleasing overlaps in ASCII art.
+	// When two characters from different hierarchy classes meet,
+	// the WEAKER character is returned (opposite of what the spec implies).
+	// This matches figlet.c's actual implementation.
 	if (state.smushMode & SMHierarchy) != 0 {
-		// "|" replaces "/\", "[]", "{}", "()", "<>"
+		// "|" with weaker class → return the weaker character
 		if lch == '|' && hierarchyLevel1[rch] {
-			return lch  // '|' is stronger, return it
+			return rch // return the weaker character
 		}
 		if rch == '|' && hierarchyLevel1[lch] {
-			return rch  // '|' is stronger, return it
+			return lch // return the weaker character
 		}
 
-		// "/\" replaces "[]", "{}", "()", "<>"
+		// "/\" with weaker class → return the weaker character
 		if (lch == '/' || lch == '\\') && hierarchyLevel2[rch] {
-			return lch  // '/\' is stronger, return it
+			return rch // return the weaker character
 		}
 		if (rch == '/' || rch == '\\') && hierarchyLevel2[lch] {
-			return rch  // '/\' is stronger, return it
+			return lch // return the weaker character
 		}
 
-		// "[]" replaces "{}", "()", "<>"
+		// "[]" with weaker class → return the weaker character
 		if (lch == '[' || lch == ']') && hierarchyLevel3[rch] {
-			return lch  // '[]' is stronger, return it
+			return rch // return the weaker character
 		}
 		if (rch == '[' || rch == ']') && hierarchyLevel3[lch] {
-			return rch  // '[]' is stronger, return it
+			return lch // return the weaker character
 		}
 
-		// "{}" replaces "()", "<>"
+		// "{}" with weaker class → return the weaker character
 		if (lch == '{' || lch == '}') && hierarchyLevel4[rch] {
-			return lch  // '{}' is stronger, return it
+			return rch // return the weaker character
 		}
 		if (rch == '{' || rch == '}') && hierarchyLevel4[lch] {
-			return rch  // '{}' is stronger, return it
+			return lch // return the weaker character
 		}
 
-		// "()" replaces "<>"
+		// "()" with weaker class → return the weaker character
 		if (lch == '(' || lch == ')') && hierarchyLevel5[rch] {
-			return lch  // '()' is stronger, return it
+			return rch // return the weaker character
 		}
 		if (rch == '(' || rch == ')') && hierarchyLevel5[lch] {
-			return rch  // '()' is stronger, return it
+			return lch // return the weaker character
 		}
 	}
 
@@ -208,11 +209,6 @@ func (state *renderState) smush(lch, rch rune) rune {
 // - Characters that can smush together allow additional overlap (+1)
 // - First character in a line gets special handling
 func (state *renderState) smushAmount() int {
-	// Early return for space input in smushing mode - no overlap for spaces
-	if state.processingSpaceGlyph && (state.smushMode & SMSmush) != 0 {
-		return 0
-	}
-	
 	// Get a pooled rune buffer for conversions
 	runeBuffer := acquireRuneSlice()
 	defer releaseRuneSlice(runeBuffer)
@@ -352,7 +348,7 @@ func (state *renderState) smushAmount() int {
 			amt++
 			reason = "smushable"
 		}
-		
+
 		// Emit debug event for this row's calculation
 		if state.debug != nil {
 			state.debug.Emit("render", "SmushAmountRow", debug.SmushAmountRowData{

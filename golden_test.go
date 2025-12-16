@@ -18,7 +18,7 @@ type goldenMetadata struct {
 	Font           string `yaml:"font"`
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
-	Width          int    `yaml:"width"`           // Explicit width for deterministic wrapping
+	Width          int    `yaml:"width"` // Explicit width for deterministic wrapping
 	FigletVersion  string `yaml:"figlet_version"`
 	FontInfo       string `yaml:"font_info"`
 	LayoutInfo     string `yaml:"layout_info"`
@@ -309,10 +309,14 @@ func TestGoldenFilesSubset(t *testing.T) {
 
 			// Set up render options
 			opts := []Option{}
-			layout := mapLayoutString(tc.layout)
-			if layout != 0 {
+			// Always add layout option unless it's "default"
+			// Note: FitFullWidth == 0, so we can't check layout != 0
+			if tc.layout != "default" {
+				layout := mapLayoutString(tc.layout)
 				opts = append(opts, WithLayout(layout))
 			}
+			// Add default width of 80 (matches figlet default and TestGoldenFiles)
+			opts = append(opts, WithWidth(80))
 
 			// Render the text
 			result, err := Render(tc.sample, font, opts...)

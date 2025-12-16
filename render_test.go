@@ -2,6 +2,7 @@ package figgo
 
 import (
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -189,4 +190,85 @@ H@@
 	if output != expected {
 		t.Errorf("Default layout rendering mismatch:\ngot:\n%q\nwant:\n%q", output, expected)
 	}
+}
+
+// TestRender_ConcurrentSameFont verifies concurrent Render calls with the same
+// Font instance produce consistent, correct outputs without race conditions.
+func TestRender_ConcurrentSameFont(t *testing.T) {
+	font, err := createTestFontForRender()
+	if err != nil {
+		t.Fatalf("Failed to create test font: %v", err)
+	}
+
+	// Test cases to render concurrently
+	testCases := []struct {
+		text     string
+		expected string
+	}{
+		{"H", "H\nH\nH\nH"},
+		{"I", "I\nI\nI\nI"},
+		{"HI", "HI\nHI\nHI\nHI"},
+		{"H I", "H I\nH I\nH I\nH I"},
+	}
+
+	const goroutines = 50
+	const iterations = 20
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, goroutines*len(testCases)*iterations)
+
+	// Spawn many goroutines all rendering with the same font
+	for g := 0; g < goroutines; g++ {
+		for _, tc := range testCases {
+			wg.Add(1)
+			go func(text, expected string) {
+				defer wg.Done()
+				for i := 0; i < iterations; i++ {
+					output, err := Render(text, font, WithLayout(FitFullWidth))
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if output != expected {
+						errCh <- &concurrentRenderError{
+							text:     text,
+							expected: expected,
+							got:      output,
+						}
+						return
+					}
+				}
+			}(tc.text, tc.expected)
+		}
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	// Check for errors
+	var errors []error
+	for err := range errCh {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		t.Errorf("concurrent rendering produced %d errors", len(errors))
+		for i, err := range errors {
+			if i >= 5 {
+				t.Errorf("  ... and %d more errors", len(errors)-5)
+				break
+			}
+			t.Errorf("  error %d: %v", i+1, err)
+		}
+	}
+}
+
+type concurrentRenderError struct {
+	text     string
+	expected string
+	got      string
+}
+
+func (e *concurrentRenderError) Error() string {
+	return "output mismatch for " + e.text + ": got " + e.got + ", want " + e.expected
 }

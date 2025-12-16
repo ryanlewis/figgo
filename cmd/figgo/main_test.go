@@ -1,6 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sync"
 	"testing"
 )
 
@@ -71,5 +76,110 @@ func TestParseUnknownRune(t *testing.T) {
 					tt.input, got, got, tt.want, tt.want)
 			}
 		})
+	}
+}
+
+// projectRoot returns the absolute path to the project root directory.
+func projectRoot() string {
+	_, file, _, _ := runtime.Caller(0)
+	// cmd/figgo/main_test.go -> project root
+	return filepath.Dir(filepath.Dir(filepath.Dir(file)))
+}
+
+// TestCLIConcurrentSubprocesses verifies the CLI can be invoked concurrently
+// without race conditions or interference between processes.
+func TestCLIConcurrentSubprocesses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping subprocess test in short mode")
+	}
+
+	root := projectRoot()
+	fontsDir := filepath.Join(root, "fonts")
+
+	// Build the binary once for all concurrent invocations
+	binPath := t.TempDir() + "/figgo-test"
+	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to build binary: %v\n%s", err, out)
+	}
+
+	// Test cases with different inputs (using absolute font paths)
+	inputs := []struct {
+		text string
+		font string
+	}{
+		{"Hello", filepath.Join(fontsDir, "standard.flf")},
+		{"World", filepath.Join(fontsDir, "standard.flf")},
+		{"Test", filepath.Join(fontsDir, "small.flf")},
+		{"FIGlet", filepath.Join(fontsDir, "slant.flf")},
+		{"Go", filepath.Join(fontsDir, "big.flf")},
+		{"123", filepath.Join(fontsDir, "standard.flf")},
+		{"ABC", filepath.Join(fontsDir, "small.flf")},
+		{"XYZ", filepath.Join(fontsDir, "slant.flf")},
+	}
+
+	const concurrency = 10 // Number of concurrent invocations per input
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(inputs)*concurrency)
+	results := make(chan struct {
+		input  string
+		output string
+	}, len(inputs)*concurrency)
+
+	// Spawn multiple concurrent processes
+	for _, tc := range inputs {
+		for i := 0; i < concurrency; i++ {
+			wg.Add(1)
+			go func(text, font string) {
+				defer wg.Done()
+
+				cmd := exec.Command(binPath, "-f", font, text)
+				var stdout, stderr bytes.Buffer
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+
+				if err := cmd.Run(); err != nil {
+					errCh <- err
+					return
+				}
+
+				results <- struct {
+					input  string
+					output string
+				}{text, stdout.String()}
+			}(tc.text, tc.font)
+		}
+	}
+
+	wg.Wait()
+	close(errCh)
+	close(results)
+
+	// Check for errors
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		t.Errorf("got %d errors during concurrent execution: %v", len(errs), errs[:min(5, len(errs))])
+	}
+
+	// Verify outputs are consistent (same input produces same output)
+	outputsByInput := make(map[string]string)
+	for r := range results {
+		if existing, ok := outputsByInput[r.input]; ok {
+			if existing != r.output {
+				t.Errorf("inconsistent output for input %q:\nfirst:\n%s\nlater:\n%s",
+					r.input, existing, r.output)
+			}
+		} else {
+			outputsByInput[r.input] = r.output
+		}
+	}
+
+	// Verify we got results for all inputs
+	if len(outputsByInput) != len(inputs) {
+		t.Errorf("expected results for %d inputs, got %d", len(inputs), len(outputsByInput))
 	}
 }

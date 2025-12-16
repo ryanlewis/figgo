@@ -75,6 +75,7 @@ func LoadFontCached(path string) (*Font, error) {
 }
 
 // LoadFont loads a font from the filesystem with caching.
+// This method is safe for concurrent use.
 func (c *FontCache) LoadFont(path string) (*Font, error) {
 	// Check cache first
 	if font := c.get(path); font != nil {
@@ -95,11 +96,13 @@ func (c *FontCache) LoadFont(path string) (*Font, error) {
 
 // ParseFontCached parses a font from byte data with caching.
 // The cache key is derived from the SHA256 hash of the data.
+// This function is safe for concurrent use.
 func ParseFontCached(data []byte) (*Font, error) {
 	return defaultCache.ParseFont(data)
 }
 
 // ParseFont parses a font from byte data with caching.
+// This method is safe for concurrent use.
 //
 // Content-Based Caching:
 // Uses SHA256 hash of the font data as the cache key. This ensures:
@@ -209,7 +212,8 @@ func (c *FontCache) evictLRU() {
 	c.evictions.Add(1)
 }
 
-// Clear removes all fonts from the cache
+// Clear removes all fonts from the cache.
+// This method is safe for concurrent use.
 func (c *FontCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -218,7 +222,8 @@ func (c *FontCache) Clear() {
 	c.lru = &lruList{}
 }
 
-// Stats returns cache statistics
+// Stats returns cache statistics.
+// This method is safe for concurrent use.
 func (c *FontCache) Stats() CacheStats {
 	c.mu.RLock()
 	size := len(c.fonts)

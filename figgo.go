@@ -4,8 +4,25 @@
 // offering compatibility with the original C figlet while providing modern Go APIs
 // and performance optimizations.
 //
+// # Concurrency
+//
 // All Font instances are immutable after creation and safe for concurrent use
-// across goroutines without additional synchronization.
+// across goroutines without additional synchronisation. Multiple goroutines may
+// call [Render] or [RenderTo] with the same Font instance simultaneously.
+//
+// The default font cache ([LoadFontCached], [ParseFontCached]) is thread-safe and
+// uses an LRU eviction policy. Cache statistics are collected using atomic counters
+// to minimise lock contention.
+//
+// Internal memory pools ([sync.Pool]) are used for performance optimisation and
+// are inherently thread-safe.
+//
+// # Thread Safety Summary
+//
+//   - Font: Immutable, safe for concurrent reads
+//   - FontCache: Thread-safe with RWMutex
+//   - Render/RenderTo: Safe to call concurrently with same Font
+//   - Global state: Uses atomic operations or is immutable
 package figgo
 
 import (
@@ -451,25 +468,25 @@ func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
 	if err := validateLayout(options); err != nil {
 		return err
 	}
-	
+
 	// Emit layout merge event if debug is enabled
 	if options.debug != nil {
 		requestedLayout := 0
 		if options.layout != nil {
 			requestedLayout = int(*options.layout)
 		}
-		
+
 		// Check for FitSmushing rule injection
 		injectedRules := 0
 		rationale := ""
 		finalLayout := requestedLayout
-		
+
 		// Check if FitSmushing is requested without specific rules
-		if options.layout != nil && (*options.layout & FitSmushing) != 0 {
+		if options.layout != nil && (*options.layout&FitSmushing) != 0 {
 			// Extract rule bits (0-5)
 			ruleMask := RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank
 			requestedRules := *options.layout & ruleMask
-			
+
 			if requestedRules == 0 {
 				// No rules specified, use font defaults
 				fontRules := f.Layout & ruleMask
@@ -490,7 +507,7 @@ func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
 			rationale = "Using font's default layout"
 			finalLayout = int(f.Layout)
 		}
-		
+
 		// Calculate final smush mode
 		finalSmushMode := 0
 		if finalLayout&int(FitSmushing) != 0 {
@@ -498,7 +515,7 @@ func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
 		} else if finalLayout&int(FitKerning) != 0 {
 			finalSmushMode = 64
 		}
-		
+
 		options.debug.Emit("api", "LayoutMerge", debug.LayoutMergeData{
 			RequestedLayout: requestedLayout,
 			FontDefaults:    int(f.Layout),
@@ -508,7 +525,7 @@ func RenderTo(w io.Writer, text string, f *Font, opts ...Option) error {
 			Rationale:       rationale,
 		})
 	}
-	
+
 	// Convert public Font back to internal parser.Font for renderer
 	pf := convertToParserFont(f)
 	return renderer.RenderTo(w, text, pf, options.toInternal())

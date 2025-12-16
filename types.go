@@ -2,7 +2,7 @@ package figgo
 
 import (
 	"errors"
-	
+
 	"github.com/ryanlewis/figgo/internal/debug"
 )
 
@@ -46,7 +46,8 @@ type Font struct {
 }
 
 // Glyph returns the ASCII art representation for a rune, or false if not found.
-// The returned slice should not be modified by the caller.
+// This method is safe for concurrent use. The returned slice is immutable and
+// must not be modified by the caller.
 func (f *Font) Glyph(r rune) ([]string, bool) {
 	if f == nil || f.glyphs == nil {
 		return nil, false

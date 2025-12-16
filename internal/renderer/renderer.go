@@ -624,42 +624,48 @@ func (state *renderState) addChar(glyph []string) bool {
 				}
 			}
 
-			// Build final output considering truncation
-			finalEnd := 0
+			// Build final output in tempLine following FIGlet's algorithm:
+			// 1. tempLine already has the new character (with smushing applied)
+			// 2. Append existing output (after smush region) to tempLine
+			// 3. Copy complete tempLine back to outputLine
 
-			// Copy tempLine handling truncation
+			// First, find where the new character content ends (handling truncation)
+			tempEnd := 0
 			for i := 0; i < state.currentCharWidth; i++ {
 				if tempLine[i] != 0 {
-					state.outputLine[row][finalEnd] = tempLine[i]
-					finalEnd++
+					tempEnd = i + 1
 				} else {
 					// Hit truncation point
 					break
 				}
 			}
 
-			// Append remaining output line after smush region if no truncation
-			if smushAmount < end && finalEnd == state.currentCharWidth {
-				// Copy the part of outputline after smush region
-				remaining := state.outputLine[row][smushAmount:end]
-				startPos := finalEnd
-				copy(state.outputLine[row][finalEnd:], remaining)
-				finalEnd += end - smushAmount
+			// Append remaining output line content to tempLine (after smush region)
+			appendStart := tempEnd
+			if smushAmount < end && tempEnd == state.currentCharWidth {
+				// STRCAT equivalent: append outputLine[row][smushAmount:end] to tempLine
+				for i := smushAmount; i < end; i++ {
+					tempLine[tempEnd] = state.outputLine[row][i]
+					tempEnd++
+				}
 
 				// Emit debug event for row append
 				if state.debug != nil {
 					state.debug.Emit("render", "RowAppend", debug.RowAppendData{
 						Row:       row,
-						StartPos:  startPos,
+						StartPos:  appendStart,
 						CharCount: end - smushAmount,
-						EndBefore: startPos,
-						EndAfter:  finalEnd,
+						EndBefore: appendStart,
+						EndAfter:  tempEnd,
 					})
 				}
 			}
 
+			// STRCPY equivalent: copy complete tempLine back to outputLine
+			copy(state.outputLine[row][:tempEnd], tempLine[:tempEnd])
+
 			// Update row length
-			state.rowLengths[row] = finalEnd
+			state.rowLengths[row] = tempEnd
 		} else {
 			// Left-to-right processing
 			// Track per-row end position to emulate C string truncation

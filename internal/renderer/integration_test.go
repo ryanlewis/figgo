@@ -249,10 +249,13 @@ func TestIntegrationRTL(t *testing.T) {
 		{
 			name: "HELLO in RTL",
 			text: "HELLO",
+			// Note: Row 2 has 8 consecutive L's because the 'L' glyph row 2 is "LLLL"
+			// (no trailing spaces). In kerning mode, smushAmount is the MINIMUM across
+			// all rows, and row 2 constrains it to 0, so L's appear adjacent.
 			want: strings.Join([]string{
 				" OOO L   L   EEEEH  H",
 				"O   OL   L   EE  HHHH",
-				" OOO L   LLLLEEEEH  H",
+				" OOO LLLLLLLLEEEEH  H",
 			}, "\n"),
 		},
 		{

@@ -233,7 +233,6 @@ func (state *renderState) smushAmount() int {
 			}
 
 			// Find rightmost non-space in current character
-			charBoundary = len(state.currentChar[row])
 			// Use pooled buffer for rune conversion
 			rowStr := state.currentChar[row]
 			needed := len(rowStr)
@@ -246,21 +245,28 @@ func (state *renderState) smushAmount() int {
 				runeBuffer = append(runeBuffer, r)
 			}
 			currRunes := runeBuffer
-			for charBoundary > 0 {
-				if charBoundary-1 < len(currRunes) {
-					ch1 = currRunes[charBoundary-1]
+
+			// Match figlet.c: charbd is the INDEX of the rightmost non-space
+			// for (charbd=STRLEN(currchar[row]); ch1=currchar[row][charbd],(charbd>0&&(!ch1||ch1==' ')); charbd--);
+			charBoundary = len(currRunes)
+			for {
+				// Get character at current position (like figlet.c accessing currchar[charbd])
+				if charBoundary < len(currRunes) {
+					ch1 = currRunes[charBoundary]
 				} else {
-					ch1 = 0
+					ch1 = 0 // Null terminator equivalent
 				}
-				if ch1 != 0 && ch1 != ' ' {
+				// Continue while: charbd > 0 && (!ch1 || ch1 == ' ')
+				if !(charBoundary > 0 && (ch1 == 0 || ch1 == ' ')) {
 					break
 				}
 				charBoundary--
 			}
 
 			// Find leftmost non-space in output line
+			// Use rowLengths[row] for actual content length, not buffer size
 			lineBoundary = 0
-			for lineBoundary < len(state.outputLine[row]) {
+			for lineBoundary < state.rowLengths[row] {
 				ch2 = state.outputLine[row][lineBoundary]
 				if ch2 != ' ' {
 					break

@@ -401,7 +401,9 @@ func TestSmushAmt(t *testing.T) {
 				rowLengths:  []int{5, 5},
 				currentChar: []string{"XY ", "12 "},
 			},
-			want: 2,
+			// Corrected: figlet.c charBoundary = 1 (index of 'Y'), so
+			// amt = lineBoundary(2) + width(3) - 1 - charBoundary(1) = 3
+			want: 3,
 		},
 		{
 			name: "minimum across rows",

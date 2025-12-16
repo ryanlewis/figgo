@@ -4,11 +4,11 @@ These targets are defined in the PRD (§10) and measured on Go 1.22, 8-core dev 
 
 ## Primary Targets
 
-| Metric                 | Target  | Benchmark                          | Status  |
-| ---------------------- | ------- | ---------------------------------- | ------- |
-| p50 render latency     | < 50µs  | `BenchmarkPRDTarget_QuickBrownFox` | TBD     |
-| Allocations per op     | < 4     | `BenchmarkPRDTarget_Allocations`   | TBD     |
-| Glyph merge throughput | ~1M/sec | `BenchmarkPRDTarget_MergeThruput`  | Stretch |
+| Metric                 | Target  | Benchmark                          | Status               |
+| ---------------------- | ------- | ---------------------------------- | -------------------- |
+| p50 render latency     | < 50µs  | `BenchmarkPRDTarget_QuickBrownFox` | ✓ PASS (29.7µs)      |
+| Allocations per op     | < 4     | `BenchmarkPRDTarget_Allocations`   | ✗ 48 allocs          |
+| Glyph merge throughput | ~1M/sec | `BenchmarkPRDTarget_MergeThruput`  | 1,080,610 merges/sec |
 
 ## Test Case
 

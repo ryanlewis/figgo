@@ -45,8 +45,7 @@ temp/
 *.tmp
 *.temp
 
-# Debug files
-debug
+# Debug files (Delve debugger output)
 __debug_bin*
 
 # Profiling data

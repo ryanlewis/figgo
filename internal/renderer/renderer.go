@@ -564,7 +564,7 @@ func (state *renderState) addChar(glyph []string) bool {
 		// Ensure buffer is large enough
 		needed := len(rowStr) // Worst case: all ASCII
 		if cap(runeBuffer) < needed {
-			runeBuffer = make([]rune, needed)
+			runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
 		} else {
 			runeBuffer = runeBuffer[:0] // Reset length
 		}

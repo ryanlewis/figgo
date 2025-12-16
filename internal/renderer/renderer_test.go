@@ -77,7 +77,7 @@ func TestRender(t *testing.T) {
 			want: "AABB\nAABB",
 		},
 		{
-			name: "newline character is skipped",
+			name: "newline character creates new output block",
 			text: "A\nB",
 			font: &parser.Font{
 				Height:    2,
@@ -88,7 +88,7 @@ func TestRender(t *testing.T) {
 				},
 			},
 			opts: nil,
-			want: "AB\nAB",
+			want: "A\nA\nB\nB",
 		},
 		{
 			name: "control characters are skipped",
@@ -113,7 +113,7 @@ func TestRender(t *testing.T) {
 				Characters: map[rune][]string{
 					'A': {"A", "A"},
 					'B': {"B", "B"},
-					' ': {" ", " "},
+					' ': {"$", "$"}, // Use hardblanks to preserve spacing (like real fonts)
 				},
 			},
 			opts: nil,
@@ -538,9 +538,9 @@ func TestRenderIntegration(t *testing.T) {
 				"III",
 			},
 			' ': {
-				"   ",
-				"   ",
-				"   ",
+				"$$$", // Use hardblanks to prevent space absorption (like real fonts)
+				"$$$",
+				"$$$",
 			},
 		},
 	}

@@ -16,6 +16,7 @@ func createTestFont() *parser.Font {
 		PrintDirection: 0, // LTR
 		Characters: map[rune][]string{
 			' ': {"   ", "   ", "   "},
+			'$': {" ", " ", " "}, // Hardblank renders as space
 			'H': {
 				"H  H",
 				"HHHH",
@@ -52,14 +53,14 @@ func createTestFont() *parser.Font {
 				"DDDD ",
 			},
 			'!': {
-				"!",
-				"!",
-				"!",
+				"! ",
+				"! ",
+				"! ",
 			},
 			'|': {
-				"|",
-				"|",
-				"|",
+				"| ",
+				"| ",
+				"| ",
 			},
 			'/': {
 				"  /",
@@ -77,14 +78,14 @@ func createTestFont() *parser.Font {
 				"___",
 			},
 			'[': {
-				"[",
-				"[",
-				"[",
+				" [",
+				" [",
+				" [",
 			},
 			']': {
-				"]",
-				"]",
-				"]",
+				"] ",
+				"] ",
+				"] ",
 			},
 		},
 	}
@@ -107,9 +108,9 @@ func TestIntegrationFullWidth(t *testing.T) {
 			name: "word HELLO",
 			text: "HELLO",
 			want: strings.Join([]string{
-				"H  HEEEEL    L    OOO ",
-				"HHHHHEE  L    L   O   O",
-				"H  HEEEEL   LLLL  OOO ",
+				"H  HEEEEL   L    OOO ",
+				"HHHHEE  L   L   O   O",
+				"H  HEEEELLLLLLLL OOO ",
 			}, "\n"),
 		},
 		{
@@ -152,7 +153,7 @@ func TestIntegrationKerning(t *testing.T) {
 			text: "HE",
 			want: strings.Join([]string{
 				"H  HEEEE",
-				"HHHHHEE  ",
+				"HHHHEE  ",
 				"H  HEEEE",
 			}, "\n"),
 		},
@@ -162,7 +163,7 @@ func TestIntegrationKerning(t *testing.T) {
 			want: strings.Join([]string{
 				"W   W OOO RRRR L   DDDD ",
 				"W W WO   ORR  RL   D   D",
-				" W W  OOO R  R L   DDDD ",
+				" W W  OOO R  R LLLLDDDD ",
 			}, "\n"),
 		},
 	}
@@ -194,31 +195,31 @@ func TestIntegrationSmushing(t *testing.T) {
 			name:   "smushing with equal rule",
 			text:   "||",
 			layout: (1 << 7) | SMEqual, // Smushing with equal rule
-			want:   "|\n|\n|",
+			want:   "| \n| \n| ",
 		},
 		{
 			name:   "smushing with underscore rule",
 			text:   "_|",
 			layout: (1 << 7) | SMLowline, // Smushing with underscore rule
-			want:   " |\n |\n_|",
+			want:   "  | \n  | \n__| ",
 		},
 		{
 			name:   "smushing with hierarchy rule",
 			text:   "|/",
 			layout: (1 << 7) | SMHierarchy, // Smushing with hierarchy rule
-			want:   " /\n/ \n/ ",
+			want:   "| /\n|/ \n/  ",
 		},
 		{
 			name:   "smushing with pair rule",
 			text:   "[]",
 			layout: (1 << 7) | SMPair, // Smushing with pair rule
-			want:   "|\n|\n|",
+			want:   "| \n| \n| ",
 		},
 		{
 			name:   "smushing with big X rule",
 			text:   "/\\",
 			layout: (1 << 7) | SMBigX, // Smushing with big X rule
-			want:   " |\n | \n| ",
+			want:   "  |  \n / \\ \n/   \\",
 		},
 	}
 
@@ -309,9 +310,9 @@ func TestIntegrationComplexScenarios(t *testing.T) {
 				UnknownRune: func() *rune { r := '!'; return &r }(),
 			},
 			want: strings.Join([]string{
-				"H  H!",
-				"HHHH!",
-				"H  H!",
+				"H  H! ",
+				"HHHH! ",
+				"H  H! ",
 			}, "\n"),
 		},
 		{

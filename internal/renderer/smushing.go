@@ -38,6 +38,12 @@ func (state *renderState) smush(lch, rch rune) rune {
 		return 0
 	}
 
+	// Width check: characters must be at least 2 wide to smush
+	// (matches FIGlet's smushem function behavior)
+	if state.previousCharWidth < 2 || state.currentCharWidth < 2 {
+		return 0
+	}
+
 	// Universal smushing mode (no specific rules set)
 	if (state.smushMode & 63) == 0 {
 		// This is smushing by universal overlapping
@@ -237,7 +243,7 @@ func (state *renderState) smushAmount() int {
 			rowStr := state.currentChar[row]
 			needed := len(rowStr)
 			if cap(runeBuffer) < needed {
-				runeBuffer = make([]rune, needed)
+				runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
 			} else {
 				runeBuffer = runeBuffer[:0]
 			}
@@ -308,7 +314,7 @@ func (state *renderState) smushAmount() int {
 			rowStr := state.currentChar[row]
 			needed := len(rowStr)
 			if cap(runeBuffer) < needed {
-				runeBuffer = make([]rune, needed)
+				runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
 			} else {
 				runeBuffer = runeBuffer[:0]
 			}

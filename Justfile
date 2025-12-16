@@ -35,6 +35,21 @@ fmt:
 bench:
     go test -bench=. -benchmem ./...
 
+# Compare benchmarks against baseline
+bench-compare:
+    ./scripts/bench-compare.sh
+
+# Update benchmark baseline (run after intentional performance changes)
+bench-update:
+    go test -bench=. -benchmem -count=3 ./... 2>/dev/null > benchmarks/baseline.txt
+    @echo "Baseline updated: benchmarks/baseline.txt"
+
+# Run benchmarks with CPU profiling
+bench-profile:
+    go test -bench=BenchmarkPRDTarget -cpuprofile=cpu.prof .
+    @echo "CPU profile written to cpu.prof"
+    @echo "View with: go tool pprof -http=:8080 cpu.prof"
+
 # Generate test coverage report
 coverage:
     go test -coverprofile=coverage.out ./...

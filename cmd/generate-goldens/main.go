@@ -37,9 +37,8 @@ var (
 	fonts     = flag.String("fonts", "standard slant small big", "Space-separated list of fonts")
 	layouts   = flag.String("layouts", "default full kern smush", "Space-separated list of layouts")
 	figlet    = flag.String("figlet", "figlet", "Path to figlet binary")
-	fontDir   = flag.String("fontdir", "", "Font directory for figlet")
-	strict    = flag.Bool("strict", false, "Exit on any warning")
-	indexFile = flag.String("index", "", "Path to index file (empty to skip)")
+	fontDir = flag.String("fontdir", "", "Font directory for figlet")
+	strict  = flag.Bool("strict", false, "Exit on any warning")
 )
 
 // Default samples including edge cases
@@ -76,7 +75,7 @@ func main() {
 
 			// Create output directory
 			dir := filepath.Join(*outDir, font, layoutName)
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				log.Fatalf("Failed to create directory %s: %v", dir, err)
 			}
 
@@ -85,9 +84,8 @@ func main() {
 				if err := generateGoldenFile(font, layout, layoutName, sample, figletVersion); err != nil {
 					if *strict {
 						log.Fatalf("Failed to generate golden file: %v", err)
-					} else {
-						log.Printf("Warning: %v", err)
 					}
+					log.Printf("Warning: %v", err)
 				}
 			}
 		}
@@ -159,7 +157,7 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 	buf.WriteString("\n```\n")
 
 	// Write to file
-	if err := os.WriteFile(outFile, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outFile, buf.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("failed to write file %s: %w", outFile, err)
 	}
 
@@ -216,6 +214,7 @@ func getLayoutArgs(layout string) string {
 		return "-k"
 	case "smush":
 		// Check if figlet supports -s
+		//nolint:gosec // figlet path is from trusted flag, not user input
 		cmd := exec.Command(*figlet, "-s", "-f", "standard")
 		cmd.Stdin = strings.NewReader("test")
 		if err := cmd.Run(); err == nil {

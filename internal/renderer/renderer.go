@@ -849,7 +849,11 @@ func (state *renderState) outputToString() string {
 	sb.Grow(calculateBuilderCapacity(state.charHeight, maxWidth))
 
 	// Use writeTo to avoid duplication
-	_ = state.writeTo(&sb) // strings.Builder's Write never returns an error
+	// strings.Builder's Write never returns an error, but check to satisfy linter
+	if err := state.writeTo(&sb); err != nil {
+		// This should never happen with strings.Builder, but handle gracefully
+		return ""
+	}
 	return sb.String()
 }
 

@@ -77,7 +77,15 @@ var writeBufferPool = sync.Pool{
 // This pooling is essential for rendering performance, as it eliminates
 // the major allocation overhead when rendering multiple strings.
 func acquireRenderState(height int, hardblank rune, textLen int) *renderState {
-	state := renderStatePool.Get().(*renderState)
+	stateInterface := renderStatePool.Get()
+	state, ok := stateInterface.(*renderState)
+	if !ok {
+		// Fallback: allocate new render state
+		state = &renderState{
+			outputLine: make([][]rune, 0, defaultMaxHeight),
+			rowLengths: make([]int, 0, defaultMaxHeight),
+		}
+	}
 
 	// Reset and initialize the state
 	state.charHeight = height
@@ -169,7 +177,13 @@ func releaseRenderState(state *renderState) {
 
 // acquireTempLine gets a temporary line buffer from the pool
 func acquireTempLine() []rune {
-	bufPtr := tempLinePool.Get().(*[]rune)
+	bufPtrInterface := tempLinePool.Get()
+	bufPtr, ok := bufPtrInterface.(*[]rune)
+	if !ok {
+		// Fallback: allocate new buffer
+		buf := make([]rune, defaultOutlineLimit)
+		return buf
+	}
 	buf := *bufPtr
 
 	// Clear the buffer
@@ -190,7 +204,13 @@ func releaseTempLine(buf []rune) {
 
 // acquireRuneSlice gets a rune slice from the pool
 func acquireRuneSlice() []rune {
-	bufPtr := runeSlicePool.Get().(*[]rune)
+	bufPtrInterface := runeSlicePool.Get()
+	bufPtr, ok := bufPtrInterface.(*[]rune)
+	if !ok {
+		// Fallback: allocate new buffer
+		buf := make([]rune, 0, 64)
+		return buf
+	}
 	buf := *bufPtr
 	return buf[:0] // Reset length but keep capacity
 }
@@ -209,7 +229,13 @@ func releaseRuneSlice(buf []rune) {
 
 // acquireWriteBuffer gets a write buffer from the pool
 func acquireWriteBuffer() []byte {
-	bufPtr := writeBufferPool.Get().(*[]byte)
+	bufPtrInterface := writeBufferPool.Get()
+	bufPtr, ok := bufPtrInterface.(*[]byte)
+	if !ok {
+		// Fallback: allocate new buffer
+		buf := make([]byte, 0, 256)
+		return buf
+	}
 	buf := *bufPtr
 	return buf[:0] // Reset length but keep capacity
 }

@@ -99,8 +99,10 @@ func (s *Session) Emit(phase, event string, data interface{}) {
 		Data:      data,
 	}
 
-	// Ignore write errors - debug should not affect normal operation
-	_ = s.sink.Write(evt)
+	// Write errors are logged but don't affect normal operation
+	if err := s.sink.Write(evt); err != nil {
+		// Continue execution - debug failures should not break the program
+	}
 }
 
 // Close flushes and closes the debug session.

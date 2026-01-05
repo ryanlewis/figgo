@@ -64,7 +64,12 @@ var warningsPool = sync.Pool{
 
 // acquireScannerBuffer gets a buffer for the scanner from the pool
 func acquireScannerBuffer() []byte {
-	buf := scannerPool.Get().([]byte)
+	bufInterface := scannerPool.Get()
+	buf, ok := bufInterface.([]byte)
+	if !ok {
+		// Fallback: allocate new buffer if type assertion fails
+		buf = make([]byte, 0, scannerBufferSize)
+	}
 	return buf[:0] // Reset length but keep capacity
 }
 
@@ -109,7 +114,13 @@ func createPooledScanner(r io.Reader) (*bufio.Scanner, []byte) {
 // This reduces allocations during glyph parsing, where each character
 // needs a string slice to hold its multi-line representation.
 func acquireGlyphSlice(capacity int) []string {
-	slicePtr := glyphSlicePool.Get().(*[]string)
+	slicePtrInterface := glyphSlicePool.Get()
+	slicePtr, ok := slicePtrInterface.(*[]string)
+	if !ok {
+		// Fallback: allocate new slice
+		slice := make([]string, 0, capacity)
+		return slice
+	}
 	slice := *slicePtr
 
 	// Ensure capacity
@@ -140,7 +151,13 @@ func releaseGlyphSlice(slice []string) {
 
 // acquireGlyphTrimSlice gets a GlyphTrim slice from the pool
 func acquireGlyphTrimSlice(capacity int) []GlyphTrim {
-	slicePtr := glyphTrimPool.Get().(*[]GlyphTrim)
+	slicePtrInterface := glyphTrimPool.Get()
+	slicePtr, ok := slicePtrInterface.(*[]GlyphTrim)
+	if !ok {
+		// Fallback: allocate new slice
+		slice := make([]GlyphTrim, 0, capacity)
+		return slice
+	}
 	slice := *slicePtr
 
 	// Ensure capacity
@@ -166,7 +183,13 @@ func releaseGlyphTrimSlice(slice []GlyphTrim) {
 
 // acquireStringSlice gets a string slice from the pool
 func acquireStringSlice(capacity int) []string {
-	slicePtr := stringSlicePool.Get().(*[]string)
+	slicePtrInterface := stringSlicePool.Get()
+	slicePtr, ok := slicePtrInterface.(*[]string)
+	if !ok {
+		// Fallback: allocate new slice
+		slice := make([]string, 0, capacity)
+		return slice
+	}
 	slice := *slicePtr
 
 	// Ensure capacity
@@ -197,7 +220,12 @@ func releaseStringSlice(slice []string) {
 
 // acquireWarnings gets a warnings slice from the pool
 func acquireWarnings() []string {
-	slicePtr := warningsPool.Get().(*[]string)
+	slicePtrInterface := warningsPool.Get()
+	slicePtr, ok := slicePtrInterface.(*[]string)
+	if !ok {
+		// Fallback: allocate new slice
+		return make([]string, 0, 5)
+	}
 	slice := *slicePtr
 	return slice[:0]
 }

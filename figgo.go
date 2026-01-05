@@ -7,12 +7,12 @@
 // # Concurrency
 //
 // All Font instances are immutable after creation and safe for concurrent use
-// across goroutines without additional synchronisation. Multiple goroutines may
+// across goroutines without additional synchronization. Multiple goroutines may
 // call [Render] or [RenderTo] with the same Font instance simultaneously.
 //
 // The default font cache ([LoadFontCached], [ParseFontCached]) is thread-safe and
 // uses an LRU eviction policy. Cache statistics are collected using atomic counters
-// to minimise lock contention.
+// to minimize lock contention.
 //
 // Internal memory pools ([sync.Pool]) are used for performance optimisation and
 // are inherently thread-safe.

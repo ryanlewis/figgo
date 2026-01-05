@@ -2,7 +2,7 @@ package renderer
 
 import (
 	"errors"
-	
+
 	"github.com/ryanlewis/figgo/internal/debug"
 )
 

@@ -33,8 +33,8 @@ func Enabled() bool {
 	return atomic.LoadUint32(&enabled) == 1
 }
 
-// InitFromEnv initialises debug settings from environment variables.
-// Recognised variables:
+// InitFromEnv initializes debug settings from environment variables.
+// Recognized variables:
 //   - FIGGO_DEBUG=1: Enable debug mode
 //   - FIGGO_DEBUG_PRETTY=1: Use pretty output format
 func InitFromEnv() {

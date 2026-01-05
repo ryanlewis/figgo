@@ -48,7 +48,7 @@ func FormatSmushRules(smushMode int) []string {
 }
 
 // ClassifySmushRule returns the name of the rule that produced the given result.
-// This analyses the input characters and result to determine which rule was applied.
+// This analyzes the input characters and result to determine which rule was applied.
 func ClassifySmushRule(lch, rch, result rune, smushMode int) string {
 	// Handle spaces first (always combine)
 	if lch == ' ' || rch == ' ' {

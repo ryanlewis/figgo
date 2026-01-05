@@ -298,123 +298,14 @@ func calculateBuilderCapacity(height int, maxWidth int) int {
 	return capacity
 }
 
-// optimizedHardblankReplace replaces hardblanks with spaces more efficiently
-func optimizedHardblankReplace(s string, hardblank rune) string {
-	if hardblank == ' ' {
-		return s // No replacement needed
-	}
-
-	// Check if hardblank exists first
-	found := false
-	for _, r := range s {
-		if r == hardblank {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return s // No replacement needed
-	}
-
-	// Only allocate if we need to replace
-	runes := []rune(s)
-	for i, r := range runes {
-		if r == hardblank {
-			runes[i] = ' '
-		}
-	}
-	return string(runes)
-}
-
 // cachedRuneCount caches the rune count for frequently converted strings
 type runeCache struct {
 	str   string
-	runes []rune
 	count int
 }
 
 // Small cache for current character rows (usually just a few rows)
 var runeConversionCache = make([]runeCache, 0, defaultMaxHeight)
-
-// getCachedRunesInto converts string to runes using a provided buffer.
-// Returns the number of runes written. Caller must ensure buffer is large enough.
-func getCachedRunesInto(s string, buf []rune) int {
-	// Check cache first
-	for i := range runeConversionCache {
-		if runeConversionCache[i].str == s {
-			cached := runeConversionCache[i].runes
-			copy(buf, cached)
-			return len(cached)
-		}
-	}
-
-	// Convert to runes into buffer
-	count := 0
-	for _, r := range s {
-		if count < len(buf) {
-			buf[count] = r
-			count++
-		} else {
-			break // Buffer full
-		}
-	}
-
-	// Cache the result if it's reasonable size
-	if count < 128 && len(runeConversionCache) < cap(runeConversionCache) {
-		// Make a copy for cache
-		cachedRunes := make([]rune, count)
-		copy(cachedRunes, buf[:count])
-
-		runeConversionCache = append(runeConversionCache, runeCache{
-			str:   s,
-			runes: cachedRunes,
-			count: count,
-		})
-	}
-
-	return count
-}
-
-// getCachedRunes converts string to runes, using pool for allocation
-func getCachedRunes(s string) []rune {
-	// Check cache first
-	for i := range runeConversionCache {
-		if runeConversionCache[i].str == s {
-			return runeConversionCache[i].runes
-		}
-	}
-
-	// Use pooled buffer for conversion
-	buf := acquireRuneSlice()
-	defer releaseRuneSlice(buf)
-
-	// Ensure buffer is large enough
-	needed := len(s) // Worst case: all ASCII
-	if cap(buf) < needed {
-		buf = make([]rune, 0, needed)
-	}
-
-	// Convert to runes
-	for _, r := range s {
-		buf = append(buf, r)
-	}
-
-	// Make a copy to return (since we'll release the buffer)
-	result := make([]rune, len(buf))
-	copy(result, buf)
-
-	// Cache if reasonable size
-	if len(result) < 128 && len(runeConversionCache) < cap(runeConversionCache) {
-		runeConversionCache = append(runeConversionCache, runeCache{
-			str:   s,
-			runes: result,
-			count: len(result),
-		})
-	}
-
-	return result
-}
 
 // getCachedRuneCount returns the rune count for a string, using cache if possible.
 //

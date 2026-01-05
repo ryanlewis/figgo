@@ -201,7 +201,7 @@ func BenchmarkGlyphSlicePooling(b *testing.B) {
 
 			// Simulate usage
 			for j := 0; j < 20; j++ {
-				slice = append(slice, "test line")
+				_ = append(slice, "test line")
 			}
 
 			releaseGlyphSlice(slice)
@@ -216,7 +216,7 @@ func BenchmarkGlyphSlicePooling(b *testing.B) {
 
 			// Simulate usage
 			for j := 0; j < 20; j++ {
-				slice = append(slice, "test line")
+				_ = append(slice, "test line")
 			}
 		}
 	})

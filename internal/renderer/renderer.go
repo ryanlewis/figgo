@@ -11,16 +11,6 @@ import (
 	"github.com/ryanlewis/figgo/internal/parser"
 )
 
-// singleSpaceGlyph creates a 1-column space glyph for the given height.
-// This is used in smushing mode to ensure input spaces contribute exactly 1 column.
-func singleSpaceGlyph(height int) []string {
-	rows := make([]string, height)
-	for i := 0; i < height; i++ {
-		rows[i] = " "
-	}
-	return rows
-}
-
 // RenderTo writes ASCII art directly to the provided writer using the font and options.
 // This is more efficient than Render as it avoids allocating a string for the result.
 func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error {

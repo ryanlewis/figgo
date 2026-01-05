@@ -102,7 +102,7 @@ func run() int {
 
 	// Prepare text for rendering
 	text := strings.Join(args, " ")
-	
+
 	// Setup debug if enabled
 	var debugSession interface{}
 	if debugMode || debugFile != "" || os.Getenv("FIGGO_DEBUG") == "1" {
@@ -110,7 +110,7 @@ func run() int {
 		debug.SetEnabled(true)
 		// Initialize debug from environment
 		debug.InitFromEnv()
-		
+
 		// Create output sink
 		var output io.Writer = os.Stderr
 		if debugFile != "" {

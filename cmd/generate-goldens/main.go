@@ -21,7 +21,7 @@ type GoldenMetadata struct {
 	Font           string `yaml:"font"`
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
-	Width          int    `yaml:"width"`           // Explicit width for deterministic wrapping
+	Width          int    `yaml:"width"` // Explicit width for deterministic wrapping
 	FigletVersion  string `yaml:"figlet_version"`
 	FontInfo       string `yaml:"font_info"`
 	LayoutInfo     string `yaml:"layout_info"`

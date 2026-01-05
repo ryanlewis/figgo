@@ -23,7 +23,8 @@ const (
 // as it avoids repeated large buffer allocations during scanning.
 var scannerPool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 0, scannerBufferSize)
+		buf := make([]byte, 0, scannerBufferSize)
+		return &buf
 	},
 }
 
@@ -46,12 +47,14 @@ var warningsPool = sync.Pool{
 
 // acquireScannerBuffer gets a buffer for the scanner from the pool
 func acquireScannerBuffer() []byte {
-	bufInterface := scannerPool.Get()
-	buf, ok := bufInterface.([]byte)
+	bufPtrInterface := scannerPool.Get()
+	bufPtr, ok := bufPtrInterface.(*[]byte)
 	if !ok {
 		// Fallback: allocate new buffer if type assertion fails
-		buf = make([]byte, 0, scannerBufferSize)
+		buf := make([]byte, 0, scannerBufferSize)
+		return buf
 	}
+	buf := *bufPtr
 	return buf[:0] // Reset length but keep capacity
 }
 
@@ -71,7 +74,8 @@ func releaseScannerBuffer(buf []byte) {
 	}
 	// Only pool if not too large (prevent memory bloat)
 	if cap(buf) <= maxScannerBufferSize {
-		scannerPool.Put(buf[:0])
+		buf = buf[:0]
+		scannerPool.Put(&buf)
 	}
 }
 

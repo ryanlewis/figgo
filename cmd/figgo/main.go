@@ -122,7 +122,7 @@ func run() int {
 			defer file.Close()
 			output = file
 		}
-		
+
 		// Create sink based on format preference
 		var sink debug.Sink
 		if debugPretty || os.Getenv("FIGGO_DEBUG_PRETTY") == "1" {

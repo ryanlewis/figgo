@@ -78,7 +78,7 @@ type renderState struct {
 	// bool fields (1 byte each)
 	trimWhitespace       bool // Whether to trim trailing whitespace
 	processingSpaceGlyph bool // True when processing space character glyph
-	
+
 	// Debug session for tracing
 	debug *debug.Session
 }

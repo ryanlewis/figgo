@@ -33,10 +33,10 @@ type GoldenMetadata struct {
 }
 
 var (
-	outDir    = flag.String("out", "testdata/goldens", "Output directory")
-	fonts     = flag.String("fonts", "standard slant small big", "Space-separated list of fonts")
-	layouts   = flag.String("layouts", "default full kern smush", "Space-separated list of layouts")
-	figlet    = flag.String("figlet", "figlet", "Path to figlet binary")
+	outDir  = flag.String("out", "testdata/goldens", "Output directory")
+	fonts   = flag.String("fonts", "standard slant small big", "Space-separated list of fonts")
+	layouts = flag.String("layouts", "default full kern smush", "Space-separated list of layouts")
+	figlet  = flag.String("figlet", "figlet", "Path to figlet binary")
 	fontDir = flag.String("fontdir", "", "Font directory for figlet")
 	strict  = flag.Bool("strict", false, "Exit on any warning")
 )

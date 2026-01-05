@@ -36,24 +36,6 @@ var glyphSlicePool = sync.Pool{
 	},
 }
 
-// glyphTrimPool manages GlyphTrim slices
-var glyphTrimPool = sync.Pool{
-	New: func() interface{} {
-		// Most fonts have height < 20
-		s := make([]GlyphTrim, 0, 20)
-		return &s
-	},
-}
-
-// stringSlicePool for comment lines
-var stringSlicePool = sync.Pool{
-	New: func() interface{} {
-		// Most fonts have < 10 comment lines
-		s := make([]string, 0, 10)
-		return &s
-	},
-}
-
 // warningsPool for warning messages
 var warningsPool = sync.Pool{
 	New: func() interface{} {
@@ -147,75 +129,6 @@ func releaseGlyphSlice(slice []string) {
 	// Reset and return to pool
 	slice = slice[:0]
 	glyphSlicePool.Put(&slice)
-}
-
-// acquireGlyphTrimSlice gets a GlyphTrim slice from the pool
-func acquireGlyphTrimSlice(capacity int) []GlyphTrim {
-	slicePtrInterface := glyphTrimPool.Get()
-	slicePtr, ok := slicePtrInterface.(*[]GlyphTrim)
-	if !ok {
-		// Fallback: allocate new slice
-		slice := make([]GlyphTrim, 0, capacity)
-		return slice
-	}
-	slice := *slicePtr
-
-	// Ensure capacity
-	if cap(slice) < capacity {
-		slice = make([]GlyphTrim, 0, capacity)
-	} else {
-		slice = slice[:0]
-	}
-
-	return slice
-}
-
-// releaseGlyphTrimSlice returns a GlyphTrim slice to the pool
-func releaseGlyphTrimSlice(slice []GlyphTrim) {
-	if slice == nil || cap(slice) < 10 {
-		return // Don't pool small slices
-	}
-
-	// Reset and return to pool
-	slice = slice[:0]
-	glyphTrimPool.Put(&slice)
-}
-
-// acquireStringSlice gets a string slice from the pool
-func acquireStringSlice(capacity int) []string {
-	slicePtrInterface := stringSlicePool.Get()
-	slicePtr, ok := slicePtrInterface.(*[]string)
-	if !ok {
-		// Fallback: allocate new slice
-		slice := make([]string, 0, capacity)
-		return slice
-	}
-	slice := *slicePtr
-
-	// Ensure capacity
-	if cap(slice) < capacity {
-		slice = make([]string, 0, capacity)
-	} else {
-		slice = slice[:0]
-	}
-
-	return slice
-}
-
-// releaseStringSlice returns a string slice to the pool
-func releaseStringSlice(slice []string) {
-	if slice == nil || cap(slice) < 5 {
-		return // Don't pool small slices
-	}
-
-	// Clear references to help GC
-	for i := range slice {
-		slice[i] = ""
-	}
-
-	// Reset and return to pool
-	slice = slice[:0]
-	stringSlicePool.Put(&slice)
 }
 
 // acquireWarnings gets a warnings slice from the pool

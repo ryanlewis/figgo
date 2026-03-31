@@ -9,9 +9,15 @@ set shell := ["bash", "-uc"]
 default:
     @just --list
 
+# Version info for ldflags
+version := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
+commit := `git rev-parse --short HEAD 2>/dev/null || echo "none"`
+date := `date -u +"%Y-%m-%dT%H:%M:%SZ"`
+ldflags := "-X main.version=" + version + " -X main.commit=" + commit + " -X main.date=" + date
+
 # Build the figgo binary
 build:
-    go build -v -o figgo ./cmd/figgo
+    go build -v -ldflags '{{ldflags}}' -o figgo ./cmd/figgo
 
 # Run all tests
 test:
@@ -63,7 +69,7 @@ clean:
 
 # Install the figgo binary to GOPATH/bin
 install:
-    go install ./cmd/figgo
+    go install -ldflags '{{ldflags}}' ./cmd/figgo
 
 # Run the figgo binary with example text
 run text="Hello, World!":

@@ -73,6 +73,12 @@ jobs:
 
       - name: Build all binaries
         run: |
+          # Version info from git
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          LDFLAGS="-X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}"
+
           # Build all target platforms
           platforms=(
             "linux/amd64"
@@ -81,17 +87,17 @@ jobs:
             "darwin/arm64"
             "windows/amd64"
           )
-          
+
           for platform in "${platforms[@]}"; do
             IFS='/' read -r goos goarch <<< "$platform"
             output="figgo-${goos}-${goarch}"
-            
+
             if [ "$goos" = "windows" ]; then
               output="${output}.exe"
             fi
-            
+
             echo "Building ${output}..."
-            GOOS=$goos GOARCH=$goarch go build -v -o "$output" ./cmd/figgo
+            GOOS=$goos GOARCH=$goarch go build -v -ldflags "$LDFLAGS" -o "$output" ./cmd/figgo
             ls -la "$output"
           done
 

@@ -30,12 +30,15 @@ import (
 )
 
 func main() {
-    font, err := figgo.ParseFont("path/to/font.flf")
+    font, err := figgo.LoadFont("fonts/standard.flf")
     if err != nil {
         panic(err)
     }
-    
-    output := figgo.Render(font, "Hello World")
+
+    output, err := figgo.Render("Hello World", font)
+    if err != nil {
+        panic(err)
+    }
     fmt.Println(output)
 }
 ```

@@ -264,7 +264,6 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 					}
 					state.flushLine()
 					state.wordbreakmode = -1 // Enter absorption mode
-
 				} else if r == ' ' {
 					// Space failure
 					if state.wordbreakmode == 2 {
@@ -274,7 +273,6 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 					}
 					state.wordbreakmode = -1 // Enter absorption mode
 					// NO RETRY - space is consumed
-
 				} else {
 					// Non-space failure
 					// Capture previous state BEFORE split/flush

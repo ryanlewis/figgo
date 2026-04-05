@@ -191,10 +191,10 @@ func NormalizeOldLayout(oldLayout int) (Layout, error) {
 	if oldLayout < -1 || oldLayout > 63 {
 		return 0, ErrInvalidOldLayout
 	}
-	switch {
-	case oldLayout == -1:
+	switch oldLayout {
+	case -1:
 		return FitFullWidth, nil
-	case oldLayout == 0:
+	case 0:
 		return FitKerning, nil
 	default:
 		// oldLayout > 0: smushing with rules from bits 0-5
@@ -401,10 +401,10 @@ func parseOldLayout(oldLayout int) NormalizedLayout {
 		VertMode: ModeFull, // OldLayout doesn't specify vertical, default to full
 	}
 
-	switch {
-	case oldLayout == -1:
+	switch oldLayout {
+	case -1:
 		result.HorzMode = ModeFull
-	case oldLayout == 0:
+	case 0:
 		result.HorzMode = ModeFitting
 	default:
 		// oldLayout > 0: smushing with rules (1..63 are valid)

@@ -1,6 +1,7 @@
 package figgo
 
 import (
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -152,7 +153,7 @@ func TestRender_NilFont(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for nil font")
 	}
-	if err != ErrUnknownFont {
+	if !errors.Is(err, ErrUnknownFont) {
 		t.Errorf("Expected ErrUnknownFont, got %v", err)
 	}
 }

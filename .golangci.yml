@@ -1,126 +1,100 @@
 version: "2"
-run:
-  tests: true
-output:
-  formats:
-    text:
-      path: stdout
-      print-linter-name: true
-      print-issued-lines: true
-linters:
+
+formatters:
   enable:
-    - bodyclose
-    - copyloopvar
-    - dogsled
-    - dupl
-    - gochecknoinits
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - goprintffuncname
-    - gosec
-    - lll
-    - misspell
-    - mnd
-    - nakedret
-    - noctx
-    - nolintlint
-    - prealloc
-    - revive
-    - rowserrcheck
-    - staticcheck
-    - unconvert
-    - unparam
-    - whitespace
+    - gofmt
+    - goimports
+
+linters:
+  default: all
   disable:
-    - err113
+    # Style preferences — too noisy for this codebase
+    - cyclop
+    - depguard
+    - dupword
     - exhaustive
+    - exhaustruct
+    - forbidigo
+    - funcorder
+    - funlen
     - gochecknoglobals
+    - godot
     - godox
+    - gosmopolitan
+    - ireturn
+    - lll
+    - maintidx
+    - mnd
+    - musttag
+    - nakedret
     - nestif
+    - nlreturn
+    - nonamedreturns
+    - paralleltest
+    - prealloc
+    - protogetter
+    - recvcheck
+    - tagalign
+    - tagliatelle
     - testpackage
+    - thelper
+    - tparallel
+    - varnamelen
+    - wrapcheck
     - wsl
+    - wsl_v5
+
+    # Covered by other linters or not applicable
+    - err113           # too strict for internal errors
+    - canonicalheader  # no HTTP headers
+    - fatcontext       # no nested contexts
+    - gochecksumtype   # no sum types
+    - noinlineerr      # too pedantic
+    - intrange         # style preference
+    - mirror           # style preference
+    - modernize        # style preference
+    - perfsprint       # micro-optimization
+
   settings:
-    dupl:
-      threshold: 100
     errcheck:
       check-type-assertions: true
-      check-blank: false
     gocognit:
+      min-complexity: 30
+    gocyclo:
       min-complexity: 20
     goconst:
       min-len: 3
-      min-occurrences: 3
+      min-occurrences: 4
     gocritic:
       enabled-tags:
         - diagnostic
-        - experimental
-        - opinionated
         - performance
-        - style
-    gocyclo:
-      min-complexity: 15
     govet:
+      enable-all: true
       disable:
         - fieldalignment
-      enable-all: true
-    lll:
-      line-length: 120
-      tab-width: 4
     misspell:
       locale: US
-    mnd:
-      checks:
-        - argument
-        - case
-        - condition
-        - operation
-        - return
-        - assign
-      ignored-numbers:
-        - "0"
-        - "1"
-        - "2"
-        - "8"
-        - "10"
-        - "32"
-        - "40"
-        - "64"
-        - "100"
-        - "128"
-        - "256"
-        - "0o750"
-    prealloc:
-      simple: true
-      range-loops: true
-      for-loops: true
+    dupl:
+      threshold: 150
     revive:
       rules:
         - name: blank-imports
         - name: context-as-argument
-        - name: context-keys-type
         - name: dot-imports
         - name: error-return
         - name: error-strings
         - name: error-naming
         - name: exported
-        - name: if-return
         - name: increment-decrement
         - name: var-naming
         - name: var-declaration
-        - name: package-comments
         - name: range
         - name: receiver-naming
-        - name: time-naming
-        - name: unexported-return
         - name: indent-error-flow
-        - name: errorf
-        - name: empty-block
         - name: superfluous-else
-        - name: unused-parameter
         - name: unreachable-code
-        - name: redefines-builtin-id
+
   exclusions:
     generated: lax
     presets:
@@ -130,46 +104,9 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - dupl
           - errcheck
-          - fieldalignment
+          - dupl
+          - gosec
           - gocognit
           - gocyclo
-          - gosec
-          - lll
-          - mnd
         path: _test\.go
-      - linters:
-          - dupl
-          - errcheck
-          - gocyclo
-          - gosec
-          - mnd
-        path: \.generated\.go
-      - linters:
-          - lll
-        path: cmd/figgo/main\.go
-    paths:
-      - .*\.generated\.go$
-      - vendor
-      - testdata
-      - third_party$
-      - builtin$
-      - examples$
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  new: false
-formatters:
-  enable:
-    - gofmt
-    - goimports
-  exclusions:
-    generated: lax
-    paths:
-      - .*\.generated\.go$
-      - vendor
-      - testdata
-      - third_party$
-      - builtin$
-      - examples$

@@ -83,7 +83,7 @@ func ParseFont(r io.Reader) (*Font, error) {
 	const zipMagicLen = 4
 	magic := make([]byte, zipMagicLen)
 	n, err := io.ReadFull(tee, magic)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, fmt.Errorf("failed to read font data: %w", err)
 	}
 

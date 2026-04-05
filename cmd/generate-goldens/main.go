@@ -107,7 +107,7 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 
 	// Get layout arguments
 	layoutArgs := getLayoutArgs(layout)
-	
+
 	// Use explicit width for deterministic output
 	width := 80
 	layoutArgsWithWidth := layoutArgs

@@ -1,6 +1,7 @@
 package figgo
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -342,7 +343,7 @@ func TestRenderDefaulting(t *testing.T) {
 		if err == nil {
 			t.Error("Render() should return error for nil font")
 		}
-		if err != ErrUnknownFont {
+		if !errors.Is(err, ErrUnknownFont) {
 			t.Errorf("Render() error = %v, want ErrUnknownFont", err)
 		}
 		if output != "" {

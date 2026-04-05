@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestNormalizeLayoutFromOldLayout(t *testing.T) { //nolint:gocognit // Test function with many test cases
+func TestNormalizeLayoutFromOldLayout(t *testing.T) {
 	tests := []struct {
 		name          string
 		oldLayout     int

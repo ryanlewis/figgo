@@ -130,7 +130,7 @@ func run() int {
 		} else {
 			sink = debug.NewJSONSink(output)
 		}
-		
+
 		// Create session
 		session := debug.NewSession(sink)
 		if session != nil {
@@ -144,7 +144,7 @@ func run() int {
 		figgo.WithUnknownRune(unknownRuneValue),
 		figgo.WithWidth(width),
 	}
-	
+
 	// Add debug if enabled
 	if debugSession != nil {
 		renderOpts = append(renderOpts, figgo.WithDebug(debugSession))

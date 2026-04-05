@@ -163,7 +163,7 @@ func generateFontWithNumberedGlyphs() string {
 
 	// Generate glyphs with their position number
 	for i := 1; i <= 102; i++ {
-		sb.WriteString(fmt.Sprintf("%d@@\n", i))
+		fmt.Fprintf(&sb, "%d@@\n", i)
 	}
 
 	return sb.String()

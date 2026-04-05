@@ -7,7 +7,7 @@ import (
 
 const testSignature = "flf2a"
 
-func TestParseHeader(t *testing.T) { //nolint:gocognit // Test function with many test cases
+func TestParseHeader(t *testing.T) {
 	tests := []struct {
 		validate    func(t *testing.T, f *Font)
 		name        string

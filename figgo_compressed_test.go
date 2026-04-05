@@ -21,7 +21,7 @@ Test font
 `
 
 // TestParseFontCompressed tests ParseFont with ZIP-compressed font files
-func TestParseFontCompressed(t *testing.T) { //nolint:gocognit // Test function with many test cases
+func TestParseFontCompressed(t *testing.T) {
 	tests := []struct {
 		name        string
 		createZip   func() ([]byte, error)

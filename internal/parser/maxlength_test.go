@@ -6,7 +6,7 @@ import (
 )
 
 // TestParseGlyph_MaxLengthValidation tests that MaxLength generates warnings (not errors)
-func TestParseGlyph_MaxLengthValidation(t *testing.T) { //nolint:gocognit // Test function with many test cases
+func TestParseGlyph_MaxLengthValidation(t *testing.T) {
 	tests := []struct {
 		expectWarning bool
 		name          string

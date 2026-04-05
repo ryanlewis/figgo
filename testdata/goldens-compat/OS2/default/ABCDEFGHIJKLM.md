@@ -1,0 +1,32 @@
+---
+font: OS2
+font_dir: testdata/figlet-fonts
+layout: default
+sample: ABCDEFGHIJKLM
+width: 80
+figlet_version: FIGlet Copyright
+font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
+layout_info: "20205"
+print_direction: 0
+generated: "2026-04-05"
+generator: generate-goldens
+figlet_args: -w 80
+checksum_sha256: 585635e5629049cfe7ce6e3d8ce17df40a7442e2bf13b9fcb8bfb74d3e14eef5
+---
+
+```text
+___ooo____ooooooo_____oooo___oooooo____ooooooo_ooooooo____oooo___oo____oo_oooo_
+_oo___oo__oo____oo__oo____oo_oo____oo__oo______oo_______oo____oo_oo____oo__oo__
+oo_____oo_oooooooo_oo________oo_____oo_oooo____oooo____oo________oo____oo__oo__
+ooooooooo_oo____oo_oo________oo_____oo_oo______oo______oo____ooo_oooooooo__oo__
+oo_____oo_oo____oo__oo____oo_oo____oo__oo______oo_______oo____oo_oo____oo__oo__
+oo_____oo_ooooooo_____oooo___oooooo____ooooooo_oo_________oooo___oo____oo_oooo_
+_______________________________________________________________________________
+_____ooo_oo____oo_oo______ooo_____ooo_
+______oo_oo___oo__oo______oooo___oooo_
+______oo_oo__oo___oo______oo_oo_oo_oo_
+oo____oo_oooooo___oo______oo__ooo__oo_
+oo____oo_oo___oo__oo______oo_______oo_
+_ooooo___oo____oo_ooooooo_oo_______oo_
+______________________________________
+```

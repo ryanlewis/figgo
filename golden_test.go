@@ -16,6 +16,7 @@ import (
 // goldenMetadata represents the YAML front matter in golden files
 type goldenMetadata struct {
 	Font           string `yaml:"font"`
+	FontDir        string `yaml:"font_dir,omitempty"` // Optional: directory containing the font (default: "fonts")
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
 	Width          int    `yaml:"width"` // Explicit width for deterministic wrapping
@@ -173,7 +174,14 @@ func TestGoldenFiles(t *testing.T) {
 			}
 
 			// Load font
-			fontPath := filepath.Join("fonts", metadata.Font+".flf")
+			fontBaseDir := "fonts"
+			if metadata.FontDir != "" {
+				fontBaseDir = metadata.FontDir
+			}
+			fontPath := filepath.Join(fontBaseDir, metadata.Font+".flf")
+			if _, statErr := os.Stat(fontPath); os.IsNotExist(statErr) {
+				t.Skipf("Font file not found: %s", fontPath)
+			}
 			font, err := LoadFont(fontPath)
 			if err != nil {
 				t.Fatalf("Failed to load font %s: %v", metadata.Font, err)

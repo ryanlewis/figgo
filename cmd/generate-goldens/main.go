@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 // This should match the struct in golden_test.go
 type GoldenMetadata struct {
 	Font           string `yaml:"font"`
+	FontDir        string `yaml:"font_dir,omitempty"` // Directory containing the font (omitted for default "fonts")
 	Layout         string `yaml:"layout"`
 	Sample         string `yaml:"sample"`
 	Width          int    `yaml:"width"` // Explicit width for deterministic wrapping
@@ -38,7 +40,9 @@ var (
 	fonts   = flag.String("fonts", "standard slant small big", "Space-separated list of fonts")
 	layouts = flag.String("layouts", "default full kern smush", "Space-separated list of layouts")
 	figlet  = flag.String("figlet", "figlet", "Path to figlet binary")
-	fontDir = flag.String("fontdir", "", "Font directory for figlet")
+	fontDir = flag.String("fontdir", "", "Font directory for figlet (-d flag)")
+	scanDir = flag.String("scan-dir", "", "Scan directory for all .flf fonts (overrides -fonts)")
+	samples = flag.String("samples", "", "Space-separated samples (overrides defaults; use _ for space)")
 	strict  = flag.Bool("strict", false, "Exit on any warning")
 )
 
@@ -58,6 +62,13 @@ var defaultSamples = []string{
 	"0123456789",
 }
 
+// Smaller sample set for bulk font scanning
+var scanSamples = []string{
+	"Hello, World!",
+	"Testing 123",
+	"ABCDEFGHIJKLM",
+}
+
 func main() {
 	flag.Parse()
 
@@ -65,9 +76,40 @@ func main() {
 	figletVersion := getFigletVersion(*figlet)
 	log.Printf("Using figlet version: %s", figletVersion)
 
-	// Parse font and layout lists
+	// Determine font list
 	fontList := strings.Fields(*fonts)
+	// Track the font_dir value to embed in metadata (empty = default "fonts" dir)
+	metadataFontDir := ""
+
+	if *scanDir != "" {
+		// Scan directory for all .flf files
+		discovered, err := discoverFonts(*scanDir)
+		if err != nil {
+			log.Fatalf("Failed to scan directory %s: %v", *scanDir, err)
+		}
+		fontList = discovered
+		metadataFontDir = *scanDir
+		if *fontDir == "" {
+			*fontDir = *scanDir
+		}
+		log.Printf("Discovered %d fonts in %s", len(fontList), *scanDir)
+	}
+
+	// Determine sample list
+	sampleList := defaultSamples
+	if *scanDir != "" && *samples == "" {
+		sampleList = scanSamples
+	}
+	if *samples != "" {
+		sampleList = strings.Fields(*samples)
+	}
+
+	// Parse layout list
 	layoutList := strings.Fields(*layouts)
+
+	// Track stats
+	generated := 0
+	skipped := 0
 
 	// Process each combination
 	for _, font := range fontList {
@@ -81,30 +123,49 @@ func main() {
 			}
 
 			// Process each sample
-			for _, sample := range defaultSamples {
-				if err := generateGoldenFile(font, layout, layoutName, sample, figletVersion); err != nil {
+			for _, sample := range sampleList {
+				err := generateGoldenFile(font, layout, layoutName, sample, figletVersion, metadataFontDir)
+				if err != nil {
 					if *strict {
 						log.Fatalf("Failed to generate golden file: %v", err)
 					}
+					skipped++
 					log.Printf("Warning: %v", err)
+				} else {
+					generated++
 				}
 			}
 		}
 	}
 
-	log.Println("Golden file generation complete")
+	log.Printf("Golden file generation complete: %d generated, %d skipped", generated, skipped)
 }
 
-func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) error {
+// discoverFonts walks a directory and returns sorted font names (without .flf extension)
+func discoverFonts(dir string) ([]string, error) {
+	var fonts []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".flf") {
+			return nil
+		}
+		name := strings.TrimSuffix(filepath.Base(path), ".flf")
+		fonts = append(fonts, name)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(fonts)
+	return fonts, nil
+}
+
+func generateGoldenFile(font, layout, layoutName, sample, figletVersion, metadataFontDir string) error {
 	// Generate filename slug
 	slug := slugify(sample)
 	outFile := filepath.Join(*outDir, font, layoutName, slug+".md")
-
-	log.Printf("Generating %s/%s/%s.md", font, layoutName, slug)
-
-	// Get font info
-	fontInfo := getFigletInfo(*figlet, font, "-I", "0")
-	layoutInfo := getFigletInfo(*figlet, font, "-I", "1")
 
 	// Get layout arguments
 	layoutArgs := getLayoutArgs(layout)
@@ -123,12 +184,19 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 		return fmt.Errorf("failed to generate art for %s/%s/%s: %w", font, layoutName, slug, err)
 	}
 
+	log.Printf("Generating %s/%s/%s.md", font, layoutName, slug)
+
+	// Get font info
+	fontInfo := getFigletInfo(*figlet, font, "-I", "0")
+	layoutInfo := getFigletInfo(*figlet, font, "-I", "1")
+
 	// Calculate checksum
 	checksum := calculateChecksum(art)
 
 	// Create metadata
 	metadata := GoldenMetadata{
 		Font:           font,
+		FontDir:        metadataFontDir,
 		Layout:         layout,
 		Sample:         sample, // YAML marshaling will handle escaping
 		Width:          width,  // Explicit width for deterministic wrapping

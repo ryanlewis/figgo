@@ -2,7 +2,7 @@
 font: terminus
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,14 +11,14 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 3ab17ebd38ae6ec53cf83e150046d282964d852e1b84ff334be5e2df892a441c
+checksum_sha256: 7b0233fd0bea624d074ae9e7b40242f4a9edd9e19285859ee0159f072215fc16
 ---
 
-```text
-                                                                               
-█   █        ▀█    ▀█                      █   █              ▀█       █   █   
-█▄▄▄█ ▄▀▀▀▄   █     █   ▄▀▀▀▄              █   █ ▄▀▀▀▄ █▄▀▀▀   █   ▄▀▀▀█   █   
-█   █ █▀▀▀▀   █     █   █   █              █ █ █ █   █ █       █   █   █   ▀   
-█   █ ▀▄▄▄▄   ▀▄▄   ▀▄▄ ▀▄▄▄▀   █          █▀ ▀█ ▀▄▄▄▀ █       ▀▄▄ ▀▄▄▄█   █   
-                               ▀                                               
-```
+````text
+                                                                              
+█   █        ▀█    ▀█                     █   █              ▀█       █   █   
+█▄▄▄█ ▄▀▀▀▄   █     █   ▄▀▀▀▄             █   █ ▄▀▀▀▄ █▄▀▀▀   █   ▄▀▀▀█   █   
+█   █ █▀▀▀▀   █     █   █   █             █ █ █ █   █ █       █   █   █   ▀   
+█   █ ▀▄▄▄▄   ▀▄▄   ▀▄▄ ▀▄▄▄▀   █         █▀ ▀█ ▀▄▄▄▀ █       ▀▄▄ ▀▄▄▄█   █   
+                               ▀    ▀▀▀▀▀                                     
+````

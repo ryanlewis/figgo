@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 7eba7ed8ed60d68de6d039a6e22a345e5035d15813de56a1f0437e6824291ac0
 ---
 
-```text
+````text
   AAA   BBBBB    CCCCC  DDDDD   EEEEEEE FFFFFFF   GGGG  HH   HH IIIII     JJJ 
  AAAAA  BB   B  CC    C DD  DD  EE      FF       GG  GG HH   HH  III      JJJ 
 AA   AA BBBBBB  CC      DD   DD EEEEE   FFFF    GG      HHHHHHH  III      JJJ 
@@ -27,4 +27,4 @@ KKKK   LL      MM MM MM
 KK KK  LL      MM    MM 
 KK  KK LLLLLLL MM    MM 
                         
-```
+````

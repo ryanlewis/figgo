@@ -2,7 +2,7 @@
 font: Stampatello
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,14 +11,14 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: ed879a699ecae03861a32dfd83b8c04bee9e166c0c9d52be7283b056946a6f5d
+checksum_sha256: 7fbcaecc882a04c2762af3406c0fb64555cfa77a518cfad431178e4d40d3539e
 ---
 
-```text
+````text
 ,-_/,.     .  .           ,.   ,   ,.       .    . /\ 
 ' |_|/ ,-. |  |  ,-.      `|  /|  / ,-. ,-. |  ,-| )( 
  /| |  |-' |  |  | |       | / | /  | | |   |  | | \/ 
  `' `' `-' `' `' `-' :;    `'  `'   `-' '   `' `-^ :; 
-                     '                                
+                     '  ~~                            
                                                       
-```
+````

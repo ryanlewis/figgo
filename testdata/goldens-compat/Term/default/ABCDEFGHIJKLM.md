@@ -14,6 +14,6 @@ figlet_args: -w 80
 checksum_sha256: 170f5660fece35db218fece184b25e99771ddb3e8852850aba6f237624341ff4
 ---
 
-```text
+````text
 ABCDEFGHIJKLM
-```
+````

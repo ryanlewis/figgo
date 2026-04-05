@@ -2,7 +2,7 @@
 font: Coinstak
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,24 +11,24 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: f29721145983b6269a4719691f6bde2ba91905869bd1de8c9d072794a3f2fa49
+checksum_sha256: 41df82dc421df4483784079dc8cd5dd1427056f8d32ca9ea941a7b9b740883a6
 ---
 
-```text
-O))     O))           O)) O))             
-O))     O))           O)) O))             
-O))     O))   O))     O)) O))   O))       
-O)))))) O)) O)   O))  O)) O)) O))  O))    
-O))     O))O))))) O)) O)) O))O))    O))   
-O))     O))O)         O)) O)) O))  O))    
-O))     O))  O))))   O)))O)))   O))    O))
-                                        O)
-O))        O))                  O))     O))O))
-O))        O))                  O))     O))O))
-O))   O)   O))   O))    O) O))) O))     O))O))
-O))  O))   O)) O))  O))  O))    O)) O)) O))O) 
-O)) O) O)) O))O))    O)) O))    O))O)   O))O) 
-O) O)    O)))) O))  O))  O))    O))O)   O))   
-O))        O))   O))    O)))   O))) O)) O))O))
-                                              
-```
+````text
+O))     O))           O)) O))                   O))        O))                 
+O))     O))           O)) O))                   O))        O))                 
+O))     O))   O))     O)) O))   O))             O))   O)   O))   O))    O) O)))
+O)))))) O)) O)   O))  O)) O)) O))  O))          O))  O))   O)) O))  O))  O))   
+O))     O))O))))) O)) O)) O))O))    O))         O)) O) O)) O))O))    O)) O))   
+O))     O))O)         O)) O)) O))  O))          O) O)    O)))) O))  O))  O))   
+O))     O))  O))))   O)))O)))   O))    O))      O))        O))   O))    O)))   
+                                        O)O)))))                               
+ O))     O))O))
+ O))     O))O))
+ O))     O))O))
+ O)) O)) O))O) 
+ O))O)   O))O) 
+ O))O)   O))   
+O))) O)) O))O))
+               
+````

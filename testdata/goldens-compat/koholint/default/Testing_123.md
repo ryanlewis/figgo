@@ -2,7 +2,7 @@
 font: koholint
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,13 +11,13 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 9be21d4986d1b393fce9cd7fa319da4fab39cbaa207fa35ead272e5efcee4d41
+checksum_sha256: 61aea7e284bc53f693d12ad206c8dde3cf3e6110cee327b9d2fa09839a750f6b
 ---
 
-```text
-▄▄▄▄▄▄                        ▄▄                                            
-  █       ▄▄     ▄▄   ▄▄█▄         ▄ ▄    ▄▀▀▄        █      ▄▀▀█▄   ▄▀▀█▄  
- █      ▄█▄▄█   ▀▄ ▀   █     █     █▀ █   ▀▄▄█       █         ▄▀      ▀█   
-█       ▀▄▄▄   ▀▄▄▀   █     █     █  █   █▄▄▀       █       ▄▄█▄▄   ▀▄▄▄▀   
-                                                                            
-```
+````text
+▄▄▄▄▄▄                        ▄▄                                               
+  █       ▄▄     ▄▄   ▄▄█▄         ▄ ▄    ▄▀▀▄           █      ▄▀▀█▄   ▄▀▀█▄  
+ █      ▄█▄▄█   ▀▄ ▀   █     █     █▀ █   ▀▄▄█          █         ▄▀      ▀█   
+█       ▀▄▄▄   ▀▄▄▀   █     █     █  █   █▄▄▀   ▄▄▄▄▄  █       ▄▄█▄▄   ▀▄▄▄▀   
+                                                                               
+````

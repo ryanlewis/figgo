@@ -2,7 +2,7 @@
 font: defleppard
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,26 +11,26 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: c94d5d6b8b441896c5f9d73e2673e2b18387815e1ecd36b017fb60db3f6848e9
+checksum_sha256: d38d00c72df04ce524411df8735c97c7f1aa0f7bd1d87f56c1055865e8acf44a
 ---
 
-```text
-                                                             
-                                                       :     
-                     ,;                               t#,    
- .    .            f#i            i              i   ;##W.   
- Di   Dt         .E#t            LE             LE  :#L:WE   
- E#i  E#i       i#W,            L#E            L#E .KG  ,#D  
- E#t  E#t      L#D.            G#W.           G#W. EE    ;#f 
- E#t  E#t    :K#Wfff;         D#K.           D#K. f#.     t#i
- E########f. i##WLLLLt       E#K.           E#K.  :#G     GK 
- E#j..K#j...  .E#L         .E#E.          .E#E.    ;#L   LW. 
- E#t  E#t       f#E:      .K#E           .K#E       t#f f#:  
- E#t  E#t        ,WW;    .K#D           .K#D         f#D#; ; 
- f#t  f#t         .D#;  .W#G           .W#G           G#t t#i
-  ii   ii           tt :W##########Wt :W##########Wt   t  .W.
-                       :,,,,,,,,,,,,,.:,,,,,,,,,,,,,.      : 
-                                                             
+````text
+                                                                          
+                                                       :                  
+                     ,;                               t#,                 
+ .    .            f#i            i              i   ;##W.                
+ Di   Dt         .E#t            LE             LE  :#L:WE                
+ E#i  E#i       i#W,            L#E            L#E .KG  ,#D               
+ E#t  E#t      L#D.            G#W.           G#W. EE    ;#f              
+ E#t  E#t    :K#Wfff;         D#K.           D#K. f#.     t#i             
+ E########f. i##WLLLLt       E#K.           E#K.  :#G     GK              
+ E#j..K#j...  .E#L         .E#E.          .E#E.    ;#L   LW.              
+ E#t  E#t       f#E:      .K#E           .K#E       t#f f#:               
+ E#t  E#t        ,WW;    .K#D           .K#D         f#D#; ;              
+ f#t  f#t         .D#;  .W#G           .W#G           G#t t#i ,;;;;;;;;;. 
+  ii   ii           tt :W##########Wt :W##########Wt   t  .W. jLLLLLLLLLL,
+                       :,,,,,,,,,,,,,.:,,,,,,,,,,,,,.      :              
+                                                                          
                                                          ;                
                          :                               ED.              
                         t#,                              E#Wi             
@@ -47,4 +47,4 @@ checksum_sha256: c94d5d6b8b441896c5f9d73e2673e2b18387815e1ecd36b017fb60db3f6848e
  EG      LE.             t     DWi   ,KK: :W##########Wt E##D.        :G#:
  ;       ;@                               :,,,,,,,,,,,,,.E#t          iKt 
                                                          L:               
-```
+````

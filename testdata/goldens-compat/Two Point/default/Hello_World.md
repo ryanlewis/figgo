@@ -2,7 +2,7 @@
 font: Two Point
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: cc0a9aea11be43f6ca8e537bc66d30a0844fac90bcddf581f4d589b76cf3c9af
+checksum_sha256: 1205e2b999adb4bdbaf8023559dfd19aea94c1ef8fcc8cc9949221241936fcb6
 ---
 
-```text
+````text
 |_| _|| _    |    | _ ._| _||
-| |}_||(_))   \/\/ (_)| |(_|o
-```
+| |}_||(_))__ \/\/ (_)| |(_|o
+````

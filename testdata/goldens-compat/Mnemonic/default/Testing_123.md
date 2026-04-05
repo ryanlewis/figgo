@@ -2,7 +2,7 @@
 font: Mnemonic
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,9 +11,9 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: e2d9f1d0f417d2f6c3be09d855ab54d45b88e0f9f939f3c9fca731e989d78756
+checksum_sha256: 213b8a94128a1f7448cb3f1e8a24f69a3ca4c41bbc89fcb6a807904546a788c0
 ---
 
-```text
-Testing&SP123
-```
+````text
+Testing_123
+````

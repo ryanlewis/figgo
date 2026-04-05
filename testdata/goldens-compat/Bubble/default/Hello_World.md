@@ -2,7 +2,7 @@
 font: Bubble
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 7f876de27a5a79170b63d78b6ce09651f442172ee529ec2e20ba5559ab409b6e
+checksum_sha256: b06dae4c5c13998460aca295259fbc7f06b4fbe27bbbbad39609ef586df7487f
 ---
 
-```text
-  _   _   _   _   _   _     _   _   _   _   _   _  
- / \ / \ / \ / \ / \ / \   / \ / \ / \ / \ / \ / \ 
-( H | e | l | l | o | , ) ( W | o | r | l | d | ! )
- \_/ \_/ \_/ \_/ \_/ \_/   \_/ \_/ \_/ \_/ \_/ \_/ 
-```
+````text
+  _   _   _   _   _   _   _   _   _   _   _   _   _  
+ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ 
+( H | e | l | l | o | , | _ | W | o | r | l | d | ! )
+ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ 
+````

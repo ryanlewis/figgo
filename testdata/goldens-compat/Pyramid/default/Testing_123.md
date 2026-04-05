@@ -2,7 +2,7 @@
 font: Pyramid
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,11 +11,11 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 10b0adb0af6ee9624de6d259a9ba0a6c075dff5e09c0de4f8d811e618bb6a2cf
+checksum_sha256: 494cb4cd9e8e8e7c8fc48aa7a9805e162fcced52003c3cece9ce68de3dd43676
 ---
 
-```text
-  ^    ^    ^    ^    ^    ^    ^  ý¯«¸ª ý¯«¸®ý¯«¸« ý¯«¸«°ý¯«¹†°  ^    ^    ^  
- /T\  /e\  /s\  /t\  /i\  /n\  /g\ ý¯«¸ª ý¯«¸®ý¯«¸« ý¯«¸«°ý¯«¹†° /1\  /2\  /3\ 
-<___><___><___><___><___><___><___>ý¯«¸ª ý¯«¸®ý¯«¸« ý¯«¸«°ý¯«¹†°<___><___><___>
-```
+````text
+  ^    ^    ^    ^    ^    ^    ^    ^    ^    ^    ^  
+ /T\  /e\  /s\  /t\  /i\  /n\  /g\  /_\  /1\  /2\  /3\ 
+<___><___><___><___><___><___><___><___><___><___><___>
+````

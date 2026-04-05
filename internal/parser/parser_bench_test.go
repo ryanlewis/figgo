@@ -89,7 +89,7 @@ func BenchmarkParseGlyph(b *testing.B) {
 			for b.Loop() {
 				scanner := strings.NewReader(content)
 				s := bufio.NewScanner(scanner)
-				_, _, _ = parseGlyph(s, tt.height, 100)
+				_, _, _, _ = parseGlyph(s, tt.height, 100)
 			}
 		})
 	}

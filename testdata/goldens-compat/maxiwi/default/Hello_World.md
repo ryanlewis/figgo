@@ -2,7 +2,7 @@
 font: maxiwi
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,16 +11,16 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 94afbb61d8068eef157da181ffc2ed8146c25d5af6e97751feaeccf5d0b07a40
+checksum_sha256: b2edfadca67b640dfb198152b1ff8f2e320536eb5e9edaff1750f07a5c6f8514
 ---
 
-```text
-        █  █                         █    █   
-█ █     █  █           █   █         █    █ █ 
-█ █ ███ █  █  ███      █   █ ███ ███ █  ███ █ 
-███ ███ █  █  █ █      █ █ █ █ █ █   █  █ █ █ 
-█ █ █   █  █  █ █      ██ ██ █ █ █   █  █ █   
-█ █ ███ ██ ██ ███  █   █   █ ███ █   ██ ███ █ 
-                  █                           
-                                              
-```
+````text
+        █  █                           █    █   
+█ █     █  █             █   █         █    █ █ 
+█ █ ███ █  █  ███        █   █ ███ ███ █  ███ █ 
+███ ███ █  █  █ █        █ █ █ █ █ █   █  █ █ █ 
+█ █ █   █  █  █ █        ██ ██ █ █ █   █  █ █   
+█ █ ███ ██ ██ ███  █ ███ █   █ ███ █   ██ ███ █ 
+                  █                             
+                                                
+````

@@ -2,7 +2,7 @@
 font: kontoslant
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,11 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: b68521574ee932d6b7d77273342534a686e6439578092f398df4a2cbc33ec9ae
+checksum_sha256: a0c9e19996fd7a192f3bfb553f05ba282ca16fbc0b3b0e32955718a2e429a436
 ---
 
-```text
- / /  / /  /  /1    /   /  /1 / /  /`. !
-// /..  /. /. /./  ,   L/L/  /./  /`.  /. /.- 
-```
+````text
+ / /  /.┤  /  /  /┤/   _/   /  /┤/  /┤/  /  /`. !
+/┤/  /..  /. /. /./  ,  L/L/  /./  /`.  /. /.-┤  
+````
+

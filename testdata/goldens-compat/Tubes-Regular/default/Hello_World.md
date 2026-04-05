@@ -2,7 +2,7 @@
 font: Tubes-Regular
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,15 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: cbc89dace96e359e1ec0b184e5a17f6cf142835d1afe073b70f3848d11ab46d5
+checksum_sha256: 6089f7cba30e87f02540da892078a04f2de69b3f0eec3f2170d60361bf0bcba3
 ---
 
-```text
+````text
 ╖   ╓      ╖ ╖            ╖  ╖  ╓           ╖    ╓ ╖ 
 ║   ║      ║ ║            ║  ║  ║           ║    ║ ║ 
 ╠═══╣ ╔══╗ ║ ║ ╔══╗       ║  ║  ║ ╔══╗ ╔══╕ ║ ╔══╣ ║ 
 ║   ║ ╠══╝ ║ ║ ║  ║       ║  ║  ║ ║  ║ ║    ║ ║  ║ ╙ 
-╜   ╙ ╚══╛ ╙ ╙ ╚══╝ ╓     ╚══╩══╝ ╚══╝ ╜    ╙ ╚══╝ ° 
+╜   ╙ ╚══╛ ╙ ╙ ╚══╝ ╓ ═══ ╚══╩══╝ ╚══╝ ╜    ╙ ╚══╝ ° 
                     ╜                                
                                                      
-```
+````

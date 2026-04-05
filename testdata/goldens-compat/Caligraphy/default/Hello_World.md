@@ -2,7 +2,7 @@
 font: Caligraphy
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,31 +11,31 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 25b5f89365991be4f930f5d2fe0546ecc647f78b1ba1caf94f1f0834a4640bd3
+checksum_sha256: 0b3e9d53ba1d23d0a6053bf3d5859fbf5b8f184bd64a7eb68f37aaa60ee8f448
 ---
 
-```text
-                                                           
-     *****    **              ***     ***                  
-  ******  *  **** *            ***     ***                 
- **   *  *   *****              **      **                 
-*    *  *    * *                **      **                 
-    *  *     *                  **      **       ****      
-   ** **     *         ***      **      **      * ***  *   
-   ** **     *        * ***     **      **     *   ****    
-   ** ********       *   ***    **      **    **    **     
-   ** **     *      **    ***   **      **    **    **     
-   ** **     **     ********    **      **    **    **     
-   *  **     **     *******     **      **    **    **     
-      *       **    **          **      **    **    **     
-  ****        **    ****    *   **      **     ******      
- *  *****      **    *******    *** *   *** *   ****       
-*     **              *****      ***     ***             c 
-*                                                        o 
- **                                                      m 
-                                                         m 
-                                                         a 
-                                                           
+````text
+                                                             
+     *****    **              ***     ***                    
+  ******  *  **** *            ***     ***                   
+ **   *  *   *****              **      **                   
+*    *  *    * *                **      **                   
+    *  *     *                  **      **       ****        
+   ** **     *         ***      **      **      * ***  *     
+   ** **     *        * ***     **      **     *   ****      
+   ** ********       *   ***    **      **    **    **       
+   ** **     *      **    ***   **      **    **    **       
+   ** **     **     ********    **      **    **    **     u 
+   *  **     **     *******     **      **    **    **     n 
+      *       **    **          **      **    **    **     d 
+  ****        **    ****    *   **      **     ******      e 
+ *  *****      **    *******    *** *   *** *   ****       r 
+*     **              *****      ***     ***             c s 
+*                                                        o c 
+ **                                                      m o 
+                                                         m r 
+                                                         a e 
+                                                             
                                                                          
      ***** *    **   ***                            ***          **      
   ******  *  *****    ***                            ***          **     
@@ -57,4 +57,4 @@ checksum_sha256: 25b5f89365991be4f930f5d2fe0546ecc647f78b1ba1caf94f1f0834a4640bd
                                                                        o 
                                                                        n 
                                                                          
-```
+````

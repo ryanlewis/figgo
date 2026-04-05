@@ -2,7 +2,7 @@
 font: NScript
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,26 +11,26 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: b4d2cfc750f5fa04b4a0d86c3be46635cfa39b0f4a4fe088dadbd2d009b0b868
+checksum_sha256: 69805af447ddb05d12e49ad240052d31609b0fb9dd6623984b5fba5af6dbf5bb
 ---
 
-```text
- ,ggg,        gg                                         
-dP""Y8b       88           ,dPYb, ,dPYb,                 
-Yb, `88       88           IP'`Yb IP'`Yb                 
- `"  88       88           I8  8I I8  8I                 
-     88aaaaaaa88           I8  8' I8  8'                 
-     88"""""""88   ,ggg,   I8 dP  I8 dP    ,ggggg,       
-     88       88  i8" "8i  I8dP   I8dP    dP"  "Y8ggg    
-     88       88  I8, ,8I  I8P    I8P    i8'    ,8I      
-     88       Y8, `YbadP' ,d8b,_ ,d8b,_ ,d8,   ,d8'  aaa 
-     88       `Y8888P"Y8888P'"Y888P'"Y88P"Y8888P"    "88 
-                                                     d8' 
-                                                    8"   
-                                                         
-                                                         
-                                                         
-                                                         
+````text
+ ,ggg,        gg                                                
+dP""Y8b       88           ,dPYb, ,dPYb,                   I8   
+Yb, `88       88           IP'`Yb IP'`Yb                   I8   
+ `"  88       88           I8  8I I8  8I                88888888
+     88aaaaaaa88           I8  8' I8  8'                   I8   
+     88"""""""88   ,ggg,   I8 dP  I8 dP    ,ggggg,       ,dI8   
+     88       88  i8" "8i  I8dP   I8dP    dP"  "Y8ggg   8P"I8   
+     88       88  I8, ,8I  I8P    I8P    i8'    ,8I        I8,  
+     88       Y8, `YbadP' ,d8b,_ ,d8b,_ ,d8,   ,d8'  aaa   `8b,_
+     88       `Y8888P"Y8888P'"Y888P'"Y88P"Y8888P"    "88    "Y88
+                                                     d8'        
+                                                    8"          
+                                                                
+                                                                
+                                                                
+                                                                
  ,ggg,      gg      ,gg                                                     
 dP""Y8a     88     ,8P                         ,dPYb,         8I            
 Yb, `88     88     d8'                         IP'`Yb         8I            
@@ -47,4 +47,4 @@ Yb, `88     88     d8'                         IP'`Yb         8I
                                                                             
                                                                             
                                                                             
-```
+````

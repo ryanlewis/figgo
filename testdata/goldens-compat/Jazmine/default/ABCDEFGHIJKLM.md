@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 0bcc7d07dbe5da41f0da0df5661829a47abd0082668d0058eb9be193b79a67cf
 ---
 
-```text
+````text
                                                                                
      .oo  .oPYo. .oPYo. ooo.   .oPYo.  ooooo .oPYo.  o    o o   o  o   o o     
     .P 8  8   `8 8    8 8  `8. 8.      8     8    8  8    8 8   8  8  .P 8     
@@ -35,4 +35,4 @@ o     o
 ..::::..
 ::::::::
 ::::::::
-```
+````

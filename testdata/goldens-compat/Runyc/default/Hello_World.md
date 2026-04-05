@@ -2,7 +2,7 @@
 font: Runyc
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,14 +11,14 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 3f3f770d4b7c838a483a8ef13ef9060262ede68e2538d895447f8c122b0ca7a9
+checksum_sha256: 7bb447273c97200b0bd942b942a356275e8d771b667b200652d4a94e0c879207
 ---
 
-```text
-|    |                    |\                 
-|\   |                    | >                
-| \  |                 _  |/                 
-|  \ | |\/| |\ |\ /\  |_| |   /\ |\ |\ |\ /| 
-|   \| |  | |  |  \/      |   \/ |/ |  | X | 
-|    | |  | |  |  /\      |   /\ |\ |  |/ \| 
-```
+````text
+|    |               |\                 
+|\   |               | >                
+| \  |               |/                 
+|  \ | |\/| |\ |\ /\ |   /\ |\ |\ |\ /| 
+|   \| |  | |  |  \/ |   \/ |/ |  | X | 
+|    | |  | |  |  /\ |   /\ |\ |  |/ \| 
+````

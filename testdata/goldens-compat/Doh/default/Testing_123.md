@@ -2,7 +2,7 @@
 font: Doh
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 0d6d616082bd67fcd4cc62dcb8567a9905c7cde8f4aca9ffb71957fbff4b989e
+checksum_sha256: d5eb88d2c35b502b431af560fae4eb843a92354da1d7aa5e4028e5455069b45a
 ---
 
-```text
+````text
                                                                                
                                                                                
 TTTTTTTTTTTTTTTTTTTTTTT                                          tttt          
@@ -40,31 +40,31 @@ TTTTTT  T:::::T  TTTTTTeeeeeeeeeeee        ssssssssss   ttttttt:::::ttttttt
                                                                                
                                                                                
                                                                                
-                                             
-                                             
-  iiii                                       
- i::::i                                      
-  iiii                                       
-                                             
-iiiiiiinnnn  nnnnnnnn       ggggggggg   ggggg
-i:::::in:::nn::::::::nn    g:::::::::ggg::::g
- i::::in::::::::::::::nn  g:::::::::::::::::g
- i::::inn:::::::::::::::ng::::::ggggg::::::gg
- i::::i  n:::::nnnn:::::ng:::::g     g:::::g 
- i::::i  n::::n    n::::ng:::::g     g:::::g 
- i::::i  n::::n    n::::ng:::::g     g:::::g 
- i::::i  n::::n    n::::ng::::::g    g:::::g 
-i::::::i n::::n    n::::ng:::::::ggggg:::::g 
-i::::::i n::::n    n::::n g::::::::::::::::g 
-i::::::i n::::n    n::::n  gg::::::::::::::g 
-iiiiiiii nnnnnn    nnnnnn    gggggggg::::::g 
-                                     g:::::g 
-                         gggggg      g:::::g 
-                         g:::::gg   gg:::::g 
-                          g::::::ggg:::::::g 
-                           gg:::::::::::::g  
-                             ggg::::::ggg    
-                                gggggg       
+                                                                     
+                                                                     
+  iiii                                                               
+ i::::i                                                              
+  iiii                                                               
+                                                                     
+iiiiiiinnnn  nnnnnnnn       ggggggggg   ggggg                        
+i:::::in:::nn::::::::nn    g:::::::::ggg::::g                        
+ i::::in::::::::::::::nn  g:::::::::::::::::g                        
+ i::::inn:::::::::::::::ng::::::ggggg::::::gg                        
+ i::::i  n:::::nnnn:::::ng:::::g     g:::::g                         
+ i::::i  n::::n    n::::ng:::::g     g:::::g                         
+ i::::i  n::::n    n::::ng:::::g     g:::::g                         
+ i::::i  n::::n    n::::ng::::::g    g:::::g                         
+i::::::i n::::n    n::::ng:::::::ggggg:::::g                         
+i::::::i n::::n    n::::n g::::::::::::::::g                         
+i::::::i n::::n    n::::n  gg::::::::::::::g                         
+iiiiiiii nnnnnn    nnnnnn    gggggggg::::::g                         
+                                     g:::::g ________________________
+                         gggggg      g:::::g _::::::::::::::::::::::_
+                         g:::::gg   gg:::::g ________________________
+                          g::::::ggg:::::::g                         
+                           gg:::::::::::::g                          
+                             ggg::::::ggg                            
+                                gggggg                               
                                                    
                                                    
   1111111    222222222222222     333333333333333   
@@ -90,4 +90,4 @@ iiiiiiii nnnnnn    nnnnnn    gggggggg::::::g
                                                    
                                                    
                                                    
-```
+````

@@ -3,6 +3,7 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -124,6 +125,12 @@ type Font struct {
 	// Characters maps ASCII codes to their glyph representations
 	Characters map[rune][]string
 
+	// CharacterWidths stores the unpadded row-0 width for each glyph.
+	// This matches figlet's currcharwidth = strlen(currchar[0]) behavior.
+	// The renderer must use this instead of len(glyph[0]) since glyph rows
+	// are padded to uniform width during parsing.
+	CharacterWidths map[rune]int
+
 	// CharacterTrims maps ASCII characters to their precomputed trim data per row
 	// This is computed lazily on first access for better parse performance
 	CharacterTrims map[rune][]GlyphTrim
@@ -173,9 +180,24 @@ type Font struct {
 }
 
 // Parse reads a FIGfont from the provided reader and returns a parsed Font.
+// Non-UTF-8 fonts (e.g., CP437) are automatically detected and transcoded.
 func Parse(r io.Reader) (*Font, error) {
+	// Read all data to detect encoding
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("error reading font data: %w", err)
+	}
+
+	// Transcode non-UTF-8 fonts (CP437, Latin-1, etc.)
+	var reader io.Reader
+	if !isValidUTF8Font(data) {
+		reader = strings.NewReader(transcodeCP437(data))
+	} else {
+		reader = bytes.NewReader(data)
+	}
+
 	// Use pooled scanner with pooled buffer
-	scanner, buf := createPooledScanner(r)
+	scanner, buf := createPooledScanner(reader)
 	defer releaseScannerBuffer(buf)
 
 	// Parse header and comments first
@@ -196,8 +218,17 @@ func Parse(r io.Reader) (*Font, error) {
 // It reads the signature line, validates all required fields, and reads
 // the specified number of comment lines.
 func ParseHeader(r io.Reader) (*Font, error) {
-	// Use pooled scanner with pooled buffer
-	scanner, buf := createPooledScanner(r)
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("error reading font data: %w", err)
+	}
+	var reader io.Reader
+	if !isValidUTF8Font(data) {
+		reader = strings.NewReader(transcodeCP437(data))
+	} else {
+		reader = bytes.NewReader(data)
+	}
+	scanner, buf := createPooledScanner(reader)
 	defer releaseScannerBuffer(buf)
 	return parseHeaderWithScanner(scanner)
 }
@@ -255,6 +286,7 @@ func parseHeaderWithScanner(scanner *bufio.Scanner) (*Font, error) {
 
 	// Initialize Characters map with capacity for ASCII (95) + German (7) + some extras
 	font.Characters = make(map[rune][]string, 128)
+	font.CharacterWidths = make(map[rune]int, 128)
 	font.CharacterTrims = make(map[rune][]GlyphTrim, 128)
 	font.trimsComputed = make(map[rune]bool, 128)
 
@@ -453,17 +485,17 @@ func readCommentLines(scanner *bufio.Scanner, font *Font) error {
 // The only hard requirement is the space character (ASCII 32).
 func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	// Parse space character (ASCII 32)
-	spaceGlyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
+	spaceGlyph, warnings, row0Width, err := parseGlyph(scanner, font.Height, font.MaxLength)
 	if err != nil {
 		return fmt.Errorf("error parsing glyph for character 32 (space): %w", err)
 	}
 	font.Characters[' '] = spaceGlyph
-	// Don't compute trims immediately - do it lazily
+	font.CharacterWidths[' '] = row0Width
 	font.Warnings = append(font.Warnings, warnings...)
 
 	// Parse remaining ASCII characters (33-126)
 	for charCode := rune(firstNonSpaceASCII); charCode <= lastPrintableASCII; charCode++ {
-		glyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
+		glyph, warnings, w, err := parseGlyph(scanner, font.Height, font.MaxLength)
 		if err != nil {
 			// Check if it's EOF - if so, we're done (partial font is OK)
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -472,7 +504,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for character %d (%c): %w", charCode, charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		// Don't compute trims immediately - do it lazily
+		font.CharacterWidths[charCode] = w
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -480,7 +512,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 	// Per FIGfont spec: 196 (Ä), 214 (Ö), 220 (Ü), 228 (ä), 246 (ö), 252 (ü), 223 (ß)
 	deutschChars := []rune{196, 214, 220, 228, 246, 252, 223}
 	for _, charCode := range deutschChars {
-		glyph, warnings, err := parseGlyph(scanner, font.Height, font.MaxLength)
+		glyph, warnings, w, err := parseGlyph(scanner, font.Height, font.MaxLength)
 		if err != nil {
 			// Check if it's EOF - German chars are optional for backward compatibility
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -489,7 +521,7 @@ func parseGlyphs(scanner *bufio.Scanner, font *Font) error {
 			return fmt.Errorf("error parsing glyph for German character %d: %w", charCode, err)
 		}
 		font.Characters[charCode] = glyph
-		// Don't compute trims immediately - do it lazily
+		font.CharacterWidths[charCode] = w
 		font.Warnings = append(font.Warnings, warnings...)
 	}
 
@@ -521,6 +553,9 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 	// We special-case \r because Windows line endings (\r\n) leave a trailing \r
 	// after Scanner removes the \n, and we need to strip it before processing endmarks
 	line = strings.TrimSuffix(line, "\r")
+	// Strip trailing whitespace before determining endmark (matches figlet behavior).
+	// figlet.c readfontchar: strips trailing spaces, THEN reads endmark.
+	line = strings.TrimRight(line, " \t")
 
 	if line == "" {
 		return "", 0, 0
@@ -585,7 +620,7 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 //
 // Memory optimization: Uses pooled slices for glyphs and warnings to reduce
 // allocations in high-throughput scenarios.
-func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
+func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, row0Width int, err error) {
 	glyph = acquireGlyphSlice(height)
 	warnings = acquireWarnings()
 	maxWidth := 0 // track widest row for padding
@@ -602,9 +637,9 @@ func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings 
 	for row := 0; row < height; row++ {
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
-				return nil, warnings, fmt.Errorf("error reading line %d: %w", row+1, err)
+				return nil, warnings, 0, fmt.Errorf("error reading line %d: %w", row+1, err)
 			}
-			return nil, warnings, fmt.Errorf(
+			return nil, warnings, 0, fmt.Errorf(
 				"unexpected EOF: expected %d lines, got %d: %w",
 				height, row, io.ErrUnexpectedEOF)
 		}
@@ -634,16 +669,15 @@ func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings 
 		glyph = append(glyph, body)
 	}
 
-	// Pad shorter rows with spaces to match the widest row.
-	// Many real-world fonts have inconsistent row widths (e.g. blank rows
-	// that are empty strings while other rows have content). The reference
-	// FIGlet implementation handles this gracefully.
-	for i, row := range glyph {
-		w := utf8.RuneCountInString(row)
-		if w < maxWidth {
-			glyph[i] = row + strings.Repeat(" ", maxWidth-w)
-		}
+	// Capture row 0 width BEFORE padding. figlet uses row 0's natural width
+	// as the character width (currcharwidth = strlen(currchar[0])).
+	if len(glyph) > 0 {
+		row0Width = utf8.RuneCountInString(glyph[0])
 	}
 
-	return glyph, warnings, nil
+	// Do NOT pad rows to uniform width. figlet stores each row at its
+	// natural width after endmark removal. Padding inflates currentCharWidth
+	// (derived from row 0) and causes extra trailing spaces in rendered output.
+
+	return glyph, warnings, row0Width, nil
 }

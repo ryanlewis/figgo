@@ -2,7 +2,7 @@
 font: Stick Letters
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 171b237752cab5e71a46af28e0f901d526f8fa9a0996b6f79b9151d4eb34f9b4
+checksum_sha256: 6e89fb2c032412d9745dec190628541f71de070b2231737effb6d830c3494d9e
 ---
 
-```text
-      ___            __             __   __        __    /
-|__| |__  |    |    /  \      |  | /  \ |__) |    |  \  / 
-|  | |___ |___ |___ \__/ .    |/\| \__/ |  \ |___ |__/ .  
-                         '                                
-```
+````text
+      ___            __              __   __        __    /
+|__| |__  |    |    /  \       |  | /  \ |__) |    |  \  / 
+|  | |___ |___ |___ \__/ . ___ |/\| \__/ |  \ |___ |__/ .  
+                         '                                 
+````

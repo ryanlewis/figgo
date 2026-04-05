@@ -2,7 +2,7 @@
 font: smpoison
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,22 +11,22 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 2616a1f83cf3b7ed593a3d47562e6459abc14e2de6c5753de2cbeb6d0757506f
+checksum_sha256: eb8fbe4500dbc1439b361a57fe1771a6722a5d7a6ae23ee545263f572eba94bf
 ---
 
-```text
-                                                        
-@@@@@@@ @@@@@@@@  @@@@@@ @@@@@@@ @@@ @@@  @@@  @@@@@@@  
-  @!!   @@!      !@@       @!!   @@! @@!@!@@@ !@@       
-  @!!   @!!!:!    !@@!!    @!!   !!@ @!@@!!@! !@! @!@!@ 
-  !!:   !!:          !:!   !!:   !!: !!:  !!! :!!   !!: 
-   :    : :: ::  ::.: :     :    :   ::    :   :: :: :  
-                                                        
-                      
- @@@  @@@@@@  @@@@@@  
-@@@@ @@   @@@     @@! 
- !@!   .!!@!   @!!!:  
- !!!  !!:         !!: 
- ::  :.:: ::: ::: ::  
-                      
-```
+````text
+                                                                               
+@@@@@@@ @@@@@@@@  @@@@@@ @@@@@@@ @@@ @@@  @@@  @@@@@@@            @@@  @@@@@@  
+  @!!   @@!      !@@       @!!   @@! @@!@!@@@ !@@                @@@@ @@   @@@ 
+  @!!   @!!!:!    !@@!!    @!!   !!@ @!@@!!@! !@! @!@!@           !@!   .!!@!  
+  !!:   !!:          !:!   !!:   !!: !!:  !!! :!!   !!:           !!!  !!:     
+   :    : :: ::  ::.: :     :    :   ::    :   :: :: :  .......   ::  :.:: ::: 
+                                                        : :: : :               
+        
+@@@@@@  
+    @@! 
+ @!!!:  
+    !!: 
+::: ::  
+        
+````

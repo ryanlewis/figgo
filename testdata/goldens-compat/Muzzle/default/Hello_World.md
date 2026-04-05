@@ -2,7 +2,7 @@
 font: Muzzle
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 3d6ee694455756b416119b4ac5f644ab29031523fb44473329404a7e9e753cbd
+checksum_sha256: 62b5661eed6e624e20ea72607aea42f8175ac58905c962317db596e6be17a58d
 ---
 
-```text
-      __              ,                             
-|  | |   |   |    >>     |   |  >>  |<<  |    __| | 
-|><| |<< |   |   |  |    | < | |  | |>>| |   |<<| | 
-|  | |__ |<< |<<  <<     |/ \|  <<  |  \ |<< |__| > 
-```
+````text
+      __              ,_                           
+|  | |   |   |    >>    |   |  >>  |<<  |    __| | 
+|><| |<< |   |   |  |   | < | |  | |>>| |   |<<| | 
+|  | |__ |<< |<<  <<    |/ \|  <<  |  \ |<< |__| > 
+````

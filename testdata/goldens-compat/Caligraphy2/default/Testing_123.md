@@ -2,7 +2,7 @@
 font: Caligraphy2
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 6e3b382d1cbc8a148a9d1d50b3768303779fd1deeeb0cc7fd871caa1548d48f2
+checksum_sha256: 2ae97b99e8f98912abfb5932840d6f96c4ead9179bac1b0e83bfe47d193ffebc
 ---
 
-```text
+````text
                                                                               
   /###           /                                                            
  /  ############/                                 #                           
@@ -35,24 +35,24 @@ checksum_sha256: 6e3b382d1cbc8a148a9d1d50b3768303779fd1deeeb0cc7fd871caa1548d48f
                                                                    ####   ### 
                                                                  /######  /#  
                                                                 /     ###/    
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-n n n 
-u u u 
-m m m 
-b b b 
-e e e 
-r r r 
-1 2 3 
-```
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+u       
+n       
+d       
+e n n n 
+r u u u 
+s m m m 
+c b b b 
+o e e e 
+r r r r 
+e 1 2 3 
+````

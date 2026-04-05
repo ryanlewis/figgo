@@ -2,7 +2,7 @@
 font: Wet Letter
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,15 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 432b59301e913ef9bb4b895b3b2bb9169e63fd5228c76d09b152002fbdba7fe9
+checksum_sha256: 7669a3c475e38441f4712687b6c17c7f47a38f5dc2da0e7e519cd9b2f26b66a4
 ---
 
-```text
- _______ ,---.     .---.  _______ ,-..-. .-.  ,--,    123
-|__   __|| .-'    ( .-._)|__   __||(||  \| |.' .'        
-  )| |   | `-.   (_) \     )| |   (_)|   | ||  |  __     
- (_) |   | .-'   _  \ \   (_) |   | || |\  |\  \ ( _)    
-   | |   |  `--.( `-'  )    | |   | || | |)| \  `-) )    
-   `-'   /( __.' `----'     `-'   `-'/(  (_) )\____/     
-        (__)                        (__)    (__)         
-```
+````text
+ _______ ,---.     .---.  _______ ,-..-. .-.  ,--,  _123
+|__   __|| .-'    ( .-._)|__   __||(||  \| |.' .'       
+  )| |   | `-.   (_) \     )| |   (_)|   | ||  |  __    
+ (_) |   | .-'   _  \ \   (_) |   | || |\  |\  \ ( _)   
+   | |   |  `--.( `-'  )    | |   | || | |)| \  `-) )   
+   `-'   /( __.' `----'     `-'   `-'/(  (_) )\____/    
+        (__)                        (__)    (__)        
+````

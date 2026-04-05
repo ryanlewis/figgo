@@ -2,7 +2,7 @@
 font: LCD
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,14 +11,14 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 5332679234182415271a086637d9bacf69eb58f859c438e8583b005faa02dd04
+checksum_sha256: d03b7ae3920c5830ac60b2b23d7e16da548ca35319f718b5903862ee4bd27d1e
 ---
 
-```text
+````text
  ___                      _            _         _     ___   ___  
   |                 |                 | |         |       |     | 
   +    -       -   -+-    +   |-       -|         +    -+-   -+-  
   |   |/       \    |     |   | |       |         |   |         | 
-       --      -     -                 -         ---   ---   ---  
+       --      -     -                 -   ---   ---   ---   ---  
                                                                   
-```
+````

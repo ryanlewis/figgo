@@ -2,7 +2,7 @@
 font: AMC Razor
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 409d9e0d8db5bc22189975fd44220ec6daa2902f9acf7bbc3400c60fe8128c43
+checksum_sha256: b3d49aa175dbfe4431786e9cc70bb0ea148b9656a21071e1a0232a77b297c18f
 ---
 
-```text
+````text
  ___  ___   ___        ___  ___   ___  ___  ___   ___              ___  
 `._|=|   |=|_.'   .'|=|_.' |   |=|_.' `._|=|   |=|_.'   .'|   .'| |   | 
      |   |      .'  |  ___ `.  |           |   |      .'  | .'  |\|   | 
@@ -22,11 +22,11 @@ checksum_sha256: 409d9e0d8db5bc22189975fd44220ec6daa2902f9acf7bbc3400c60fe8128c4
      `.  |      |   |  ___  ___  |  `.     `.  |      |   | |   | |  .' 
        `.|      |___|=|_.'  `._|=|___|       `.|      |___| |___| |.'   
                                                                         
-       ___      ______   ___         ___        
-  .'|=|_.'     `._    |  `._|=|`.    `._|=|`.   
-.'  |___          |   |       |  `.  ___  |  `. 
-|   |`._|=.       |   |   .'|=|___|  `._|=|   | 
-`.  |  __||       |   | .'  |  ___   ___  |   | 
-  `.|=|_.''       |___| |___|=|_.'   `._|=|___| 
-                                                
-```
+       ___   ______   ___         ___        
+  .'|=|_.'  `._    |  `._|=|`.    `._|=|`.   
+.'  |___       |   |       |  `.  ___  |  `. 
+|   |`._|=.    |   |   .'|=|___|  `._|=|   | 
+`.  |  __||    |   | .'  |  ___   ___  |   | 
+  `.|=|_.''    |___| |___|=|_.'   `._|=|___| 
+                                             
+````

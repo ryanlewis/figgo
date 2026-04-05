@@ -2,7 +2,7 @@
 font: Patorjk-HeX
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: a8852bbb269227cdea93fe58de652d3f477dd59b6879a7a2dc3e85db985fc0bd
 ---
 
-```text
+````text
                                 _____                     
   ________    ________     _____\    \            _____   
  /        \  /        \   /    / |    |      _____\    \  
@@ -39,4 +39,4 @@ checksum_sha256: a8852bbb269227cdea93fe58de652d3f477dd59b6879a7a2dc3e85db985fc0b
             \ |   |     |           | / |      | |     | || |     /____/| | || 
              \|___|     |___________|/  |______|/|_____|/  \|_____|     |\|_|/ 
                                                                   |____/       
-```
+````

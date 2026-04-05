@@ -7,13 +7,13 @@ figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
 layout_info: "20205"
 print_direction: 0
-generated: "2025-08-22"
+generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -W -w 80
 checksum_sha256: b67034c27a98a7fd5b7f07f9c8d33ce59f59abaf82ea3a4c81ae177fa72a6c99
 ---
 
-```text
+````text
   _____   _                                _          _    
  |_   _| | |__     ___      __ _   _   _  (_)   ___  | | __
    | |   | '_ \   / _ \    / _` | | | | | | |  / __| | |/ /
@@ -38,4 +38,4 @@ checksum_sha256: b67034c27a98a7fd5b7f07f9c8d33ce59f59abaf82ea3a4c81ae177fa72a6c9
  | |_  | | | | |  __/   | | | (_| |  / /  | |_| |   | (_| | | (_) | | (_| |
   \__| |_| |_|  \___|   |_|  \__,_| /___|  \__, |    \__,_|  \___/   \__, |
                                            |___/                     |___/ 
-```
+````

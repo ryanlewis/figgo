@@ -232,9 +232,9 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 			want:      FitSmushing | RuleBigX,
 		},
 		{
-			name:      "smushing with hardblank",
-			oldLayout: 32, // Smushing + hardblank rule (bit 5)
-			want:      FitSmushing | RuleHardblank,
+			name:      "oldLayout 32 -> universal smushing (bit 5 not a rule)",
+			oldLayout: 32, // Bit 5 is not a rule in OldLayout; 32 & 0x1F = 0 -> universal
+			want:      FitSmushing,
 		},
 		{
 			name:      "smushing with multiple rules",
@@ -242,9 +242,14 @@ func TestLayoutNormalizationFromOldLayout(t *testing.T) {
 			want:      FitSmushing | RuleEqualChar | RuleUnderscore,
 		},
 		{
-			name:      "smushing with all rules",
-			oldLayout: 63, // All 6 rule bits
-			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank,
+			name:      "smushing with all 5 OldLayout rules",
+			oldLayout: 31, // Bits 0-4 = all 5 OldLayout rules
+			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX,
+		},
+		{
+			name:      "oldLayout 63 masks to 5 bits (31)",
+			oldLayout: 63, // 63 & 0x1F = 31, same as above
+			want:      FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX,
 		},
 	}
 

@@ -122,7 +122,7 @@ func TestRender_FullWidth(t *testing.T) {
 			name: "empty text",
 			text: "",
 			opts: []Option{WithLayout(FitFullWidth)},
-			want: "\n\n\n",
+			want: "",
 		},
 	}
 

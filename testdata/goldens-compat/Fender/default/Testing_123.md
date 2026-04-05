@@ -2,7 +2,7 @@
 font: Fender
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,15 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: bd92712fb8d6c93be78a0b1d69dac1cdb2edcbc1506a74a67d54ed3df0562690
+checksum_sha256: 8c8d629466087906747b3de71c23bfccab3d4f858366253bf376ccbdd4a05488
 ---
 
-```text
-|''||''|                ||                             ||   ''|, ,'''|, 
-   ||                   ||     ''                     '||  '  ||     || 
-   ||    .|''|, ('''' ''||''   ||  `||''|,  .|''|,     ||    .|'  '''|| 
-   ||    ||..||  `'')   ||     ||   ||  ||  ||  ||     ||   //       || 
-  .||.   `|...  `...'   `|..' .||. .||  ||. `|..||    .||. ((... '...|' 
-                                                ||                      
-                                             `..|'                      
-```
+````text
+|''||''|                ||                              ||   ''|, ,'''|, 
+   ||                   ||     ''                      '||  '  ||     || 
+   ||    .|''|, ('''' ''||''   ||  `||''|,  .|''|,      ||    .|'  '''|| 
+   ||    ||..||  `'')   ||     ||   ||  ||  ||  ||      ||   //       || 
+  .||.   `|...  `...'   `|..' .||. .||  ||. `|..||     .||. ((... '...|' 
+                                                || ....                  
+                                             `..|'                       
+````

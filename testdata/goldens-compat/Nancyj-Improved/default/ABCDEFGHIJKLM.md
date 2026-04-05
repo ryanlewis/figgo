@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 53445854c466aadfba77cf0e0c70ed81781a33f110d48cb5bcbe9ddf6598297f
 ---
 
-```text
+````text
  .d888888   888888ba   a88888b. 888888ba   88888888b  88888888b  .88888.  
 d8'    88   88    `8b d8'   `88 88    `8b  88         88        d8'   `88 
 88aaaaa88a a88aaaa8P' 88        88     88 a88aaaa    a88aaaa    88        
@@ -31,4 +31,4 @@ dP     dP  dP        dP dP     dP dP        8888ba.88ba
 dP     dP  dP  `Y8888'  dP     dP 88888888P dP   dP   dP 
                                                          
                                                          
-```
+````

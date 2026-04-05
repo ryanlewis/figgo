@@ -2,7 +2,7 @@
 font: Tengwar
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: f4504f87367048c84ff306cd53750b9116f5d0a8f826515228267fb2068ec91e
+checksum_sha256: fae661b7f35c9b1146a339a0231077e38b0f5f175f9963a9b7e91734a43e6f30
 ---
 
-```text
+````text
              .dP'                                                        
            dP'                         db                                
                                                          "Ybaaaaaaaaad8' 
@@ -25,14 +25,14 @@ checksum_sha256: f4504f87367048c84ff306cd53750b9116f5d0a8f826515228267fb2068ec91
  88                 .dP'    88                                       88  
  88               .dP'      88                                       88  
 .8P                        .8P                                       Y8. 
-                                       
-                                       
-                                       
-'Y8888b. 'Y88888888b. 'Y888888888888b. 
- .P'      .P' .P'      .P' .P' .P'     
- 8    b   8   8    b   8   8   8    b  
- `YbwP'   `Ybd`YbwP'   `Ybd`Ybd`YbwP'  
-                                       
-                                       
-                                       
-```
+                                                 
+                                                 
+                                                 
+          'Y8888b. 'Y88888888b. 'Y888888888888b. 
+           .P'      .P' .P'      .P' .P' .P'     
+           8    b   8   8    b   8   8   8    b  
+           `YbwP'   `Ybd`YbwP'   `Ybd`Ybd`YbwP'  
+                                                 
+                                                 
+`Y88888b.                                        
+````

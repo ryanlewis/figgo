@@ -319,7 +319,7 @@ func TestIntegrationComplexScenarios(t *testing.T) {
 			name: "empty text",
 			text: "",
 			opts: &Options{Layout: 0},
-			want: "\n\n",
+			want: "",
 		},
 		{
 			name: "hardblank in text",

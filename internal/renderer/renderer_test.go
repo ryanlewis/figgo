@@ -26,7 +26,7 @@ func TestRender(t *testing.T) {
 			wantErr: errors.New("font cannot be nil"),
 		},
 		{
-			name: "empty text returns empty lines",
+			name: "empty text returns empty output",
 			text: "",
 			font: &parser.Font{
 				Height:     3,
@@ -34,7 +34,7 @@ func TestRender(t *testing.T) {
 				Characters: map[rune][]string{},
 			},
 			opts: nil,
-			want: "\n\n",
+			want: "",
 		},
 		{
 			name: "single character renders correctly",
@@ -197,7 +197,7 @@ func TestRender(t *testing.T) {
 				},
 			},
 			opts: nil,
-			want: "\n\n",
+			want: "",
 		},
 		{
 			name: "full layout from font",
@@ -362,9 +362,14 @@ func TestOldLayoutToSmushMode(t *testing.T) {
 			want:      SMSmush | 1,
 		},
 		{
-			name:      "smushing with all rules (63)",
+			name:      "smushing with all rules (31)",
+			oldLayout: 31,
+			want:      SMSmush | 31,
+		},
+		{
+			name:      "oldLayout 63 masks to 5 bits (31)",
 			oldLayout: 63,
-			want:      SMSmush | 63,
+			want:      SMSmush | 31,
 		},
 		{
 			name:      "invalid negative value",

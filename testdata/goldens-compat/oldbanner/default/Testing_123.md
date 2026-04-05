@@ -2,7 +2,7 @@
 font: oldbanner
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,15 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 6b7c6120878d08b751adee0ad93719b35897a61e51b224318383473999a71073
+checksum_sha256: 0170ebe236c156b9c07cd27bc4d3d7e3aadbc3b26f7876fb7862637a570d8247
 ---
 
-```text
-#######                                           #    #####   #####  
-   #    ######  ####  ##### # #    #  ####       ##   #     # #     # 
-   #    #      #        #   # ##   # #    #     # #         #       # 
-   #    #####   ####    #   # # #  # #            #    #####   #####  
-   #    #           #   #   # #  # # #  ###       #   #             # 
-   #    #      #    #   #   # #   ## #    #       #   #       #     # 
-   #    ######  ####    #   # #    #  ####      ##### #######  #####  
-```
+````text
+#######                                                #    #####   #####  
+   #    ######  ####  ##### # #    #  ####            ##   #     # #     # 
+   #    #      #        #   # ##   # #    #          # #         #       # 
+   #    #####   ####    #   # # #  # #                 #    #####   #####  
+   #    #           #   #   # #  # # #  ###            #   #             # 
+   #    #      #    #   #   # #   ## #    #            #   #       #     # 
+   #    ######  ####    #   # #    #  ####  #######  ##### #######  #####  
+````

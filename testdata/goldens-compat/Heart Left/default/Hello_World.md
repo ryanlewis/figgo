@@ -2,7 +2,7 @@
 font: Heart Left
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: d0b6b1ad9f396a8810b19a0307c572e28e9fddc60049252e42b20ef4a96054c0
+checksum_sha256: 78ce2699899396eb756f18640a72ab72470a6405a7e04385199a8beab5f69341
 ---
 
-```text
- .-.-. .-.-. .-.-. .-.-. .-.-. .-.-.      .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. 
-( H .'( e .'( l .'( l .'( o .'( , .'.-.-.( W .'( o .'( r .'( l .'( d .'( ! .' 
- `.(   `.(   `.(   `.(   `.(   '.(  '._.' `.(   `.(   `.(   `.(   `.(   `.(   
-                                                                              
-```
+````text
+ .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. 
+( H .'( e .'( l .'( l .'( o .'( , .'( _ .'( W .'( o .'( r .'( l .'( d .'( ! .' 
+ `.(   `.(   `.(   `.(   `.(   '.(   '.(   `.(   `.(   `.(   `.(   `.(   `.(   
+                                                                               
+````

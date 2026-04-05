@@ -2,7 +2,7 @@
 font: Swan
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,17 +11,17 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: f6ec1565c984570ebf886f6a8c5567af3414d8ccdf15d72d0869376e3016bef7
+checksum_sha256: 912bce00df00967c4a6061b97686de78b9ecd814842608edd553b0353d185dad
 ---
 
-```text
-                                             
-                                             
-.   .     . .       .  .   .  .      .    . .
-|   |     | |        \  \ /  /       |    | |
-|---| .-. | | .-.     \  \  /.-. .--.| .-.| |
-|   |(.-' | |(   )     \/ \/(   )|   |(   | '
-'   ' `--'`-`-`-'o      ' '  `-' '   `-`-'`-o
-                -'                           
-                                             
-```
+````text
+                                           
+                                           
+.   .     . .     .  .   .  .      .    . .
+|   |     | |      \  \ /  /       |    | |
+|---| .-. | | .-.   \  \  /.-. .--.| .-.| |
+|   |(.-' | |(   )   \/ \/(   )|   |(   | '
+'   ' `--'`-`-`-'o____' '  `-' '   `-`-'`-o
+                -'                         
+                                           
+````

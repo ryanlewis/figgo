@@ -2,7 +2,7 @@
 font: Block
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,24 +11,24 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 732d35939fa006be19bb255b7b49cdeb775bd3784ec6ebfe09ee587a6a82bf61
+checksum_sha256: 9ba1934dedac10a0e50617c6aeeb15963784dac5d571c00a3f87bcc0a1445e24
 ---
 
-```text
-                                                                
-_|_|_|_|_|                      _|      _|                      
-    _|      _|_|      _|_|_|  _|_|_|_|      _|_|_|      _|_|_|  
-    _|    _|_|_|_|  _|_|        _|      _|  _|    _|  _|    _|  
-    _|    _|            _|_|    _|      _|  _|    _|  _|    _|  
-    _|      _|_|_|  _|_|_|        _|_|  _|  _|    _|    _|_|_|  
-                                                            _|  
-                                                        _|_|    
-                          
-  _|    _|_|    _|_|_|    
-_|_|  _|    _|        _|  
-  _|      _|      _|_|    
-  _|    _|            _|  
-  _|  _|_|_|_|  _|_|_|    
-                          
-                          
-```
+````text
+                                                                              
+_|_|_|_|_|                      _|      _|                                _|  
+    _|      _|_|      _|_|_|  _|_|_|_|      _|_|_|      _|_|_|          _|_|  
+    _|    _|_|_|_|  _|_|        _|      _|  _|    _|  _|    _|            _|  
+    _|    _|            _|_|    _|      _|  _|    _|  _|    _|            _|  
+    _|      _|_|_|  _|_|_|        _|_|  _|  _|    _|    _|_|_|            _|  
+                                                            _|                
+                                                        _|_|    _|_|_|_|_|    
+                    
+  _|_|    _|_|_|    
+_|    _|        _|  
+    _|      _|_|    
+  _|            _|  
+_|_|_|_|  _|_|_|    
+                    
+                    
+````

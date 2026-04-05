@@ -2,7 +2,7 @@
 font: alligator3
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: a697196fba3b27296816d4a119b1ca647fbdee16478270c14979b4f14bf5e955
+checksum_sha256: 0a66acb375d065b99beed76ad70b130f12a4db3748a0426dbe66d1eab00d65f9
 ---
 
-```text
+````text
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::    ::: ::::::::  
     :+:    :+:      :+:    :+:   :+:        :+:    :+:+:   :+::+:    :+: 
     +:+    +:+      +:+          +:+        +:+    :+:+:+  +:++:+        
@@ -22,11 +22,11 @@ checksum_sha256: a697196fba3b27296816d4a119b1ca647fbdee16478270c14979b4f14bf5e95
     +#+    +#+             +#+   +#+        +#+    +#+  +#+#+#+#+   +#+# 
     #+#    #+#      #+#    #+#   #+#        #+#    #+#   #+#+##+#    #+# 
     ###    ##################    ###    ##############    #### ########  
-  :::   ::::::::  ::::::::  
-:+:+:  :+:    :+::+:    :+: 
-  +:+        +:+        +:+ 
-  +#+      +#+       +#++:  
-  +#+    +#+            +#+ 
-  #+#   #+#      #+#    #+# 
-################# ########  
-```
+            :::   ::::::::  ::::::::  
+          :+:+:  :+:    :+::+:    :+: 
+            +:+        +:+        +:+ 
+            +#+      +#+       +#++:  
+            +#+    +#+            +#+ 
+            #+#   #+#      #+#    #+# 
+########################### ########  
+````

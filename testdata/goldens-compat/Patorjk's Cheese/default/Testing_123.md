@@ -2,7 +2,7 @@
 font: Patorjk's Cheese
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: ba664ca423aee6ee360f4043abac93a751a915a9a1d14d72d04b23e51f5fb6f3
+checksum_sha256: 1af35bce65ef0e517c1a8141cdfc9a4d53b522ea310da1a90bfc23bd4995daee
 ---
 
-```text
+````text
                                                                            
  _________________      ______            ______   _________________  ____ 
 /                 \ ___|\     \       ___|\     \ /                 \|    |
@@ -29,18 +29,18 @@ checksum_sha256: ba664ca423aee6ee360f4043abac93a751a915a9a1d14d72d04b23e51f5fb6f
      \(              \( |_____|/     \(    )/          \(              \(  
       '               '    )/         '    '            '               '  
                            '                                               
-                                       
- _____   ______         _____          
-|\    \ |\     \    ___|\    \         
- \\    \| \     \  /    /\    \        
-  \|    \  \     ||    |  |____|       
-   |     \  |    ||    |    ____       
-   |      \ |    ||    |   |    |      
-   |    |\ \|    ||    |   |_,  |      
-   |____||\_____/||\ ___\___/  /|      
-   |    |/ \|   ||| |   /____ / |      
-   |____|   |___|/ \|___|    | /       
-     \(       )/     \( |____|/        
-      '       '       '   )/           
-                          '            
-```
+                                 
+ _____   ______         _____    
+|\    \ |\     \    ___|\    \   
+ \\    \| \     \  /    /\    \  
+  \|    \  \     ||    |  |____| 
+   |     \  |    ||    |    ____ 
+   |      \ |    ||    |   |    |
+   |    |\ \|    ||    |   |_,  |
+   |____||\_____/||\ ___\___/  /|
+   |    |/ \|   ||| |   /____ / |
+   |____|   |___|/ \|___|    | / 
+     \(       )/     \( |____|/  
+      '       '       '   )/     
+                          '      
+````

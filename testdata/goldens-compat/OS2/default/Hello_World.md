@@ -2,7 +2,7 @@
 font: OS2
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,22 +11,22 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: a5d49f6076e0d9237ef60a837ba41d9322dfd540d689f59f34a3ccebffaf567a
+checksum_sha256: b73e68a1d0c582ec571f9e6673f138993290320c4954937c1469ef9c4a61f969
 ---
 
-```text
-oo____oo_________ooo___ooo_______________
-oo____oo__ooooo___oo____oo____ooooo______
-oo____oo_oo____o__oo____oo___oo___oo_____
-oooooooo_ooooooo__oo____oo___oo___oo_____
-oo____oo_oo_______oo____oo___oo___oo__oo_
-oo____oo__ooooo__ooooo_ooooo__ooooo___oo_
-_____________________________________oo__
-oo____oo____oo_________________ooo________oo_oo_
-oo____oo____oo__ooooo__oo_ooo___oo____oooooo_oo_
-oo____oo____oo_oo___oo_ooo___o__oo___oo___oo_oo_
-_oo__oooo__oo__oo___oo_oo_______oo___oo___oo_oo_
-__oooo__oooo___oo___oo_oo_______oo___oo___oo____
-___oo____oo_____ooooo__oo______ooooo__oooooo_oo_
-_____________________________________________oo_
-```
+````text
+oo____oo_________ooo___ooo_______________________oo____oo____oo_________
+oo____oo__ooooo___oo____oo____ooooo______________oo____oo____oo__ooooo__
+oo____oo_oo____o__oo____oo___oo___oo_____________oo____oo____oo_oo___oo_
+oooooooo_ooooooo__oo____oo___oo___oo______________oo__oooo__oo__oo___oo_
+oo____oo_oo_______oo____oo___oo___oo__oo___________oooo__oooo___oo___oo_
+oo____oo__ooooo__ooooo_ooooo__ooooo___oo_oooooooo___oo____oo_____ooooo__
+_____________________________________oo_________________________________
+________ooo________oo_oo_
+oo_ooo___oo____oooooo_oo_
+ooo___o__oo___oo___oo_oo_
+oo_______oo___oo___oo_oo_
+oo_______oo___oo___oo____
+oo______ooooo__oooooo_oo_
+______________________oo_
+````

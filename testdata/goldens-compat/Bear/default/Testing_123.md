@@ -2,7 +2,7 @@
 font: Bear
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 1c414254d74262d416bf43767d58c9cedf033b37fc4465bb59e3ed3af3563a79
+checksum_sha256: 7655e746c3ef92c16b14a69da20bd6d37a48e8e94cf033759beefd2a205f5726
 ---
 
-```text
+````text
    _     _      _     _      _     _      _     _      _     _      _     _   
   (c).-.(c)    (c).-.(c)    (c).-.(c)    (c).-.(c)    (c).-.(c)    (c).-.(c)  
    / ._. \      / ._. \      / ._. \      / ._. \      / ._. \      / ._. \   
@@ -24,13 +24,13 @@ checksum_sha256: 1c414254d74262d416bf43767d58c9cedf033b37fc4465bb59e3ed3af3563a7
  _.' `-' '._  _.' `-' '._  _.' `-' '._  _.' `-' '._  _.' `-' '._  _.' `-' '._ 
 (.-./`-'\.-.)(.-./`-'\.-.)(.-./`-`\.-.)(.-./`-'\.-.)(.-./`-'\.-.)(.-./`-'\.-.)
  `-'     `-'  `-'     `-'  `-'     `-'  `-'     `-'  `-'     `-'  `-'     `-' 
-   _     _    123
-  (c).-.(c)      
-   / ._. \       
- __\( Y )/__     
-(_.-/'-'\-._)    
-   || G ||       
- _.' `-' '._     
-(.-./`-'\.-.)    
- `-'     `-'     
-```
+   _     _  _123
+  (c).-.(c)     
+   / ._. \      
+ __\( Y )/__    
+(_.-/'-'\-._)   
+   || G ||      
+ _.' `-' '._    
+(.-./`-'\.-.)   
+ `-'     `-'    
+````

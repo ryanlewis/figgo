@@ -2,7 +2,7 @@
 font: Isometric2
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: abddb5d0ee482707919f0941add02a10acf5ef393bcc5bff10a7e00bbcbbeb96
 ---
 
-```text
+````text
       ___           ___                                       ___     
      /\  \         /\__\                                     /\  \    
      \:\  \       /:/ _/_                                   /::\  \   
@@ -37,4 +37,4 @@ checksum_sha256: abddb5d0ee482707919f0941add02a10acf5ef393bcc5bff10a7e00bbcbbeb9
    \:\/:/  /     \:\/:/  /     \:\~~\        \:\/:/  /     \:\/:/  /  
     \::/  /       \::/  /       \:\__\        \::/  /       \::/  /   
      \/__/         \/__/         \/__/         \/__/         \/__/    
-```
+````

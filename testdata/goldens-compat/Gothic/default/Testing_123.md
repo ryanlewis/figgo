@@ -2,7 +2,7 @@
 font: Gothic
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 89fc4ae6b0883589f0279bec5cde4d0d1eebe6d1dcddf70cb9d4811f8a0f1a3b
+checksum_sha256: fbdcf2489c1fa3c6a728852b45dede9256a0ea817af5e2bc5bd8e73162e59180
 ---
 
-```text
+````text
  ___                                                        ____ 
 -   ---___-               ,                        /|   /\  ` // 
    (' ||                 ||   '         _         /||  (  )  //  
@@ -22,6 +22,6 @@ checksum_sha256: 89fc4ae6b0883589f0279bec5cde4d0d1eebe6d1dcddf70cb9d4811f8a0f1a3
  ((   ||    || \\ ||_.   ||  || || || || ||        ||   //    )) 
   (( //     ||/    ~ ||  ||  || || || || ||        ||  /(    //  
     -____-  \\,/  ,-_-   \\, \\ \\ \\ \\_-|       ,/-' {___ /'   
-                                       /  \                      
+                                       /  \ _____                
                                       '----`                     
-```
+````

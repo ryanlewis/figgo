@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 4a11662fc3f721dbaf3584cb7ec268ff07a217909d82ff34efccf6250358de44
 ---
 
-```text
+````text
                                                                             
                                                                             
        _      ________      ____   ________   __________ ________    ____   
@@ -47,4 +47,4 @@ _MM_    _MM__MM_ YMMMM9  _MM_   YM.__MMMMMMM _M_      _MM_
                                                           
                                                           
                                                           
-```
+````

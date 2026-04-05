@@ -14,7 +14,9 @@ figlet_args: -w 80
 checksum_sha256: 840b4f4f4827984b9b56469b53816798c49e4dda72dc39cea1111e509d30fa48
 ---
 
-```text
-.^. I^,.I`. I.` IL.J I   7 II   IVI 
-I^I I.D `.. I./ I.. `.7 I I I `.I`. L.. I I 
-```
+````text
+.^. I┤D ,┤┤ I`. I.` I┤┤ ,┤┤ L.J I   7 I,┤ I   IVI 
+I^I I.D `.. I./ I.. I┤  `.7 I I I `.┤ I`. L.. I I 
+````
+````
+

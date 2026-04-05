@@ -2,7 +2,7 @@
 font: Star Strips
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: f904415533fe4270101f1b9fd586584dac7a72218a29856d5927a28772de20a6
+checksum_sha256: 18744916010dfdecd82a27167871aeddf555ab150b8a10a4a3c8cb0578375058
 ---
 
-```text
+````text
 ------------ ------------ ------------ ------------ --------  ----    ---- 
 ************ ************ ************ ************ ********  *****   **** 
 ------------ ----         ----         ------------   ----    ------  ---- 
@@ -24,13 +24,13 @@ checksum_sha256: f904415533fe4270101f1b9fd586584dac7a72218a29856d5927a28772de20a
     ----     ------------ ------------     ----     --------  ----   ----- 
     ****     ************ ************     ****     ********  ****    **** 
                                                                            
-------------      1 2 3 
-************            
-----                    
-****  ******            
-----  ------            
-****    ****            
-------------            
-************            
-                        
-```
+------------ _ 1 2 3 
+************         
+----                 
+****  ******         
+----  ------         
+****    ****         
+------------         
+************         
+                     
+````

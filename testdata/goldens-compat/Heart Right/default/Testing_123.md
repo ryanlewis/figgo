@@ -2,7 +2,7 @@
 font: Heart Right
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: fc660901ec01e29f7e6b894bb669b6313e151312676aeecc06654285aba73a9f
+checksum_sha256: 346073a1cca59667cbde5cf114e151b4fe956e0c89e004c3660dc8fd4d60a75a
 ---
 
-```text
-.-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-.      .-.-. .-.-. .-.-.  
-'. T )'. e )'. s )'. t )'. i )'. n )'. g ).-.-.'. 1 )'. 2 )'. 3 ) 
-  ).'   ).'   ).'   ).'   ).'   ).'   ).' '._.'  ).'   ).'   ).'  
-                                                                  
-```
+````text
+.-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-. .-.-.  
+'. T )'. e )'. s )'. t )'. i )'. n )'. g )'. _ )'. 1 )'. 2 )'. 3 ) 
+  ).'   ).'   ).'   ).'   ).'   ).'   ).'   ).'   ).'   ).'   ).'  
+                                                                   
+````

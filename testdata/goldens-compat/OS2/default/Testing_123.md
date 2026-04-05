@@ -2,7 +2,7 @@
 font: OS2
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,22 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: cbf4d1b0cbf7be630cf0ed102eaf04ae7f85d842aa34d4cbe25a8b9c0fbf686f
+checksum_sha256: 8d7a9b6ce1f94d57c7753962f34ef49740687f35eaaa9e8d600e148d2d7b9501
 ---
 
-```text
-oooooooo_________________oo_____oo_______________________oo____ooooo____ooooo__
-___oo_____ooooo___oooo___oo_________oo_ooo___oooo______oooo__oo____oo_oo____oo_
-___oo____oo____o_oo___o_oooo____oo__ooo___o_oo__oo_______oo________oo_______oo_
-___oo____ooooooo___oo____oo_____oo__oo____o_oo___o_______oo______ooo______ooo__
-___oo____oo______o___oo__oo__o__oo__oo____o__oooooo______oo____ooo____oo____oo_
-___oo_____ooooo___oooo____ooo__oooo_oo____o_o____oo____ooooo_oooooooo__oooooo__
-_____________________________________________ooooo_____________________________
-```
+````text
+oooooooo_________________oo_____oo_____________________________oo____ooooo__
+___oo_____ooooo___oooo___oo_________oo_ooo___oooo____________oooo__oo____oo_
+___oo____oo____o_oo___o_oooo____oo__ooo___o_oo__oo_____________oo________oo_
+___oo____ooooooo___oo____oo_____oo__oo____o_oo___o_____________oo______ooo__
+___oo____oo______o___oo__oo__o__oo__oo____o__oooooo____________oo____ooo____
+___oo_____ooooo___oooo____ooo__oooo_oo____o_o____oo_oooooooo_ooooo_oooooooo_
+_____________________________________________ooooo__________________________
+__ooooo__
+oo____oo_
+______oo_
+____ooo__
+oo____oo_
+_oooooo__
+_________
+````

@@ -2,7 +2,7 @@
 font: Lean
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,24 +11,24 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 222aae8d8252feeeaa4545af2e12b278af9ed98dd446abdb01c1153267df8c8c
+checksum_sha256: 7ce7a09ad31b5344737ce8b9f5dc6242df0621a23b1de01a5742b11e2a888f71
 ---
 
-```text
-                                                                
-_/_/_/_/_/                      _/      _/                      
-   _/      _/_/      _/_/_/  _/_/_/_/      _/_/_/      _/_/_/   
-  _/    _/_/_/_/  _/_/        _/      _/  _/    _/  _/    _/    
- _/    _/            _/_/    _/      _/  _/    _/  _/    _/     
-_/      _/_/_/  _/_/_/        _/_/  _/  _/    _/    _/_/_/      
-                                                       _/       
-                                                  _/_/          
-                            
-    _/    _/_/    _/_/_/    
- _/_/  _/    _/        _/   
-  _/      _/      _/_/      
- _/    _/            _/     
-_/  _/_/_/_/  _/_/_/        
-                            
-                            
-```
+````text
+                                                                               
+_/_/_/_/_/                      _/      _/                                _/   
+   _/      _/_/      _/_/_/  _/_/_/_/      _/_/_/      _/_/_/          _/_/    
+  _/    _/_/_/_/  _/_/        _/      _/  _/    _/  _/    _/            _/     
+ _/    _/            _/_/    _/      _/  _/    _/  _/    _/            _/      
+_/      _/_/_/  _/_/_/        _/_/  _/  _/    _/    _/_/_/            _/       
+                                                       _/                      
+                                                  _/_/    _/_/_/_/_/           
+                        
+      _/_/    _/_/_/    
+   _/    _/        _/   
+      _/      _/_/      
+   _/            _/     
+_/_/_/_/  _/_/_/        
+                        
+                        
+````

@@ -2,7 +2,7 @@
 font: Wow
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,9 +11,9 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 6b55e3baf4e5dc947c614ecd10d165548a91976c0a18cefac50a753efc52fdc3
+checksum_sha256: 0a267e413c501e0aac2dcef2bb1f9f6495959c38ce2a56fe4aaca1fc216df750
 ---
 
-```text
-`][` ]E ((5 `][` ]][ ][\][ ((6   123
-```
+````text
+`][` ]E ((5 `][` ]][ ][\][ ((6 _123
+````

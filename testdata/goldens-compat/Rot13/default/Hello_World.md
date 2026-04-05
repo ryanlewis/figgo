@@ -2,7 +2,7 @@
 font: Rot13
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,9 +11,9 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 9ddd6202eefd9a24056a41a31a9083b2bc5995ff10e5959acee352db2f10c706
+checksum_sha256: 4bdf76fdb39fb37060d74267a325284edfef9109f3800e4ee2ac4cf2df8bffec
 ---
 
-```text
-Uryyb, Jbeyq!
-```
+````text
+Uryyb,_Jbeyq!
+````

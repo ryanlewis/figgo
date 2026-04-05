@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 143e0013541dc1d0f808737e117b4d8bf28e574466f1c59bf152fbf0e0693023
 ---
 
-```text
+````text
 .sSSSSs.    .sSSSSs.    .sSSSSs.    .sSSSSs.    .sSSSSs.    .sSSSSs.    
 SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs. 
 S SSS SSSSS S SSS SSSSS S SSS SSSSS S SSS SSSSS S SSS SSSS' S SSS SSSS' 
@@ -45,4 +45,4 @@ S;;;S       SSSSS
 S%%%S       SSSSS 
 SSSSS       SSSSS 
                   
-```
+````

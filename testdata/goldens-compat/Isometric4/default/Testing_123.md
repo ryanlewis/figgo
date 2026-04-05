@@ -2,7 +2,7 @@
 font: Isometric4
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: c91af8726e751ca1b4cc470e77a51615fe268fe3b6ef8a5ef6f76425e37ef2a1
+checksum_sha256: 837d61259e3971102e4e9d09e3e9e005d194db85720f2f513912d20f39313639
 ---
 
-```text
+````text
                     ___           ___                                
       ___          /  /\         /  /\          ___            ___   
      /__/\        /  /::\       /  /::\        /__/\          /__/\  
@@ -26,15 +26,15 @@ checksum_sha256: c91af8726e751ca1b4cc470e77a51615fe268fe3b6ef8a5ef6f76425e37ef2a
    /__/:/        \  \:\_\/     \  \:\/:/     /__/:/        \  \:\    
    \__\/          \  \:\        \  \::/      \__\/          \__\/    
                    \__\/         \__\/                               
-      ___           ___              
-     /  /\         /  /\             
-    /  /::|       /  /::\            
-   /  /:|:|      /  /:/\:\           
-  /  /:/|:|__   /  /:/  \:\          
- /__/:/ |:| /\ /__/:/_\_ \:\         
- \__\/  |:|/:/ \  \:\__/\_\/         
-     |  |:/:/   \  \:\ \:\           
-     |__|::/     \  \:\/:/           
-     /__/:/       \  \::/            
-     \__\/         \__\/             
-```
+      ___           ___     
+     /  /\         /  /\    
+    /  /::|       /  /::\   
+   /  /:|:|      /  /:/\:\  
+  /  /:/|:|__   /  /:/  \:\ 
+ /__/:/ |:| /\ /__/:/_\_ \:\
+ \__\/  |:|/:/ \  \:\__/\_\/
+     |  |:/:/   \  \:\ \:\  
+     |__|::/     \  \:\/:/  
+     /__/:/       \  \::/   
+     \__\/         \__\/    
+````

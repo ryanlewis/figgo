@@ -2,7 +2,7 @@
 font: Lockergnome
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: b580213ab0a48f547523aeaba07a3f10d21911da6986a0889734de60cf131313
+checksum_sha256: 6ad5470c5fb202be1049f3f40fe78a86b9c069778480dcf557d138537019fff3
 ---
 
-```text
-::| ::|     :| :|            ::| ::|          :|   :| ::| 
-::::::|:~~/ :| :| ,::\       :::"::|,::\ :::| :| :':| `:' 
-::| ::|:::, :| :| `::/ ::|   ::::::|`::/ :|   :| :::|  +  
-                       :/                                 
-```
+````text
+::| ::|     :| :|                  ::| ::|          :|   :| ::| 
+::::::|:~~/ :| :| ,::\             :::"::|,::\ :::| :| :':| `:' 
+::| ::|:::, :| :| `::/ ::| ::::::| ::::::|`::/ :|   :| :::|  +  
+                       :/                                       
+````

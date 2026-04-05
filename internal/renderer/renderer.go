@@ -28,7 +28,7 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		return err
 	}
 
-	return state.writeOutput(w, text, startTime, font.Height)
+	return state.writeOutput(w, text, startTime)
 }
 
 // initFromOptions configures the render state from font and options.
@@ -42,6 +42,7 @@ func (state *renderState) initFromOptions(font *parser.Font, opts *Options) {
 		state.trimWhitespace = opts.TrimWhitespace
 		if opts.Width != nil && *opts.Width > 0 {
 			state.outlineLenLimit = *opts.Width - 1
+			state.outputWidth = *opts.Width
 		}
 	}
 
@@ -69,7 +70,7 @@ func resolveSmushMode(font *parser.Font, opts *Options) int {
 
 // fontDefaultSmushMode extracts the default smush mode from a font.
 func fontDefaultSmushMode(font *parser.Font) int {
-	if font.FullLayoutSet && font.FullLayout != 0 {
+	if font.FullLayoutSet {
 		return font.FullLayout & 0xFF
 	}
 	return oldLayoutToSmushMode(font.OldLayout)
@@ -166,7 +167,13 @@ func (state *renderState) processChar(r rune, charIdx int, font *parser.Font, op
 		state.processingSpaceGlyph = (r == ' ')
 		state.emitGlyphEvent(r, glyph)
 
-		if state.addChar(glyph) {
+		// Use unpadded row-0 width (matches figlet's currcharwidth)
+		glyphWidth := font.CharacterWidths[r]
+		if glyphWidth == 0 && len(glyph) > 0 {
+			glyphWidth = getCachedRuneCount(glyph[0])
+		}
+
+		if state.addChar(glyph, glyphWidth) {
 			state.processingSpaceGlyph = false
 			state.recordSuccess(r)
 		} else {
@@ -323,7 +330,7 @@ func (state *renderState) handleNonSpaceFailure(font *parser.Font, opts *Options
 }
 
 // writeOutput writes the accumulated render output to the writer.
-func (state *renderState) writeOutput(w io.Writer, text string, startTime time.Time, fontHeight int) error {
+func (state *renderState) writeOutput(w io.Writer, text string, startTime time.Time) error {
 	if len(state.outputBuffer) > 0 {
 		if state.outputBuffer[len(state.outputBuffer)-1] == '\n' {
 			state.outputBuffer = state.outputBuffer[:len(state.outputBuffer)-1]
@@ -334,18 +341,7 @@ func (state *renderState) writeOutput(w io.Writer, text string, startTime time.T
 		return err
 	}
 
-	// Handle empty output - return height-1 blank lines
-	if fontHeight > 1 {
-		blankLines := make([]byte, fontHeight-1)
-		for i := range blankLines {
-			blankLines[i] = '\n'
-		}
-		bytesWritten := len(blankLines)
-		_, err := w.Write(blankLines)
-		state.emitRenderEnd("", startTime, fontHeight-1, bytesWritten)
-		return err
-	}
-
+	// Empty output: nothing to write (matches figlet behavior for zero-width glyphs)
 	state.emitRenderEnd(text, startTime, 0, 0)
 	return nil
 }
@@ -469,7 +465,7 @@ func oldLayoutToSmushMode(oldLayout int) int {
 		return 0
 	default:
 		// Smushing mode with rules (1..63)
-		return SMSmush | (oldLayout & 63)
+		return SMSmush | (oldLayout & 31)
 	}
 }
 
@@ -492,7 +488,7 @@ func oldLayoutToSmushMode(oldLayout int) int {
 //
 // The function uses pooled buffers for rune conversion to minimize allocations.
 // RTL processing requires a temporary buffer to reverse the merge order.
-func (state *renderState) addChar(glyph []string) bool {
+func (state *renderState) addChar(glyph []string, glyphWidth ...int) bool {
 	if len(glyph) != state.charHeight {
 		return false
 	}
@@ -501,9 +497,14 @@ func (state *renderState) addChar(glyph []string) bool {
 	state.previousCharWidth = state.currentCharWidth
 	state.currentChar = glyph
 
-	if len(glyph) > 0 {
+	// Use provided width (unpadded row-0 width from parser) if available,
+	// otherwise fall back to actual row-0 rune count.
+	switch {
+	case len(glyphWidth) > 0 && glyphWidth[0] > 0:
+		state.currentCharWidth = glyphWidth[0]
+	case len(glyph) > 0:
 		state.currentCharWidth = getCachedRuneCount(glyph[0])
-	} else {
+	default:
 		state.currentCharWidth = 0
 	}
 
@@ -546,6 +547,11 @@ func (state *renderState) addChar(glyph []string) bool {
 func (state *renderState) addCharRowRTL(row int, rowRunes, tempLine []rune, smushAmt int) {
 	end := state.rowLengths[row]
 	copy(tempLine, rowRunes)
+	// Clear any positions beyond the row content (rows may be shorter than
+	// currentCharWidth since we no longer pad glyph rows to uniform width)
+	for i := len(rowRunes); i < state.currentCharWidth; i++ {
+		tempLine[i] = 0
+	}
 
 	// Apply smushing at overlap positions
 	for k := 0; k < smushAmt; k++ {
@@ -795,6 +801,17 @@ func (state *renderState) flushLine() {
 		buf = make([]byte, 0, 256)
 	}
 
+	// Right-justify for RTL fonts (matches figlet behavior).
+	// Use outlineLenLimit (width-1) as the target width because figlet
+	// pads to outputwidth then trims trailing spaces, netting width-1.
+	padding := 0
+	if state.right2left != 0 && state.outputWidth > 0 {
+		padding = state.outlineLenLimit - state.outlineLen
+		if padding < 0 {
+			padding = 0
+		}
+	}
+
 	// Process each row of the current line
 	for i := 0; i < state.charHeight; i++ {
 		// Extract only the actual content using row-specific length
@@ -807,6 +824,11 @@ func (state *renderState) flushLine() {
 			for lastNonSpace >= 0 && actualLine[lastNonSpace] == ' ' {
 				lastNonSpace--
 			}
+		}
+
+		// Add right-justification padding
+		for p := 0; p < padding; p++ {
+			state.outputBuffer = append(state.outputBuffer, ' ')
 		}
 
 		// Write runes to buffer, replacing hardblanks
@@ -928,8 +950,11 @@ func (state *renderState) renderCharacterRange(font *parser.Font, start, end int
 		// preserve the font's original space glyph width (not 1-column)
 		state.processingSpaceGlyph = (r == ' ')
 
+		// Use unpadded row-0 width if available
+		w := font.CharacterWidths[r]
+
 		// Add character to output (without updating inputBuffer)
-		if !state.addChar(glyph) {
+		if !state.addChar(glyph, w) {
 			// Character doesn't fit - return what we've rendered so far
 			state.processingSpaceGlyph = false
 			break

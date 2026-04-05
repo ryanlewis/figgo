@@ -63,6 +63,7 @@ type renderState struct {
 	// int fields (8 bytes each on 64-bit)
 	outlineLen        int // Length of current output line
 	outlineLenLimit   int // Maximum line length allowed
+	outputWidth       int // Explicit output width for justification (0 = not set)
 	currentCharWidth  int // Width of current character
 	previousCharWidth int // Width of previous character
 	charHeight        int // Character height from font

@@ -2,7 +2,7 @@
 font: Patorjk's Cheese
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 020349a808b582c47e74486876b861364c83c9218447dc132ad7cd295429a8ed
 ---
 
-```text
+````text
                                                                       
  ____   ____      ______    ____         ____                _____    
 |    | |    | ___|\     \  |    |       |    |          ____|\    \   
@@ -43,4 +43,4 @@ checksum_sha256: 020349a808b582c47e74486876b861364c83c9218447dc132ad7cd295429a8e
     \(   \|____|/      \(    )/      \(     )/    \(    )/     \(    )/   
      '      )/          '    '        '     '      '    '       '    '    
             '                                                             
-```
+````

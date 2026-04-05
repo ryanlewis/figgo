@@ -2,7 +2,7 @@
 font: Runyc
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,14 +11,14 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 63064459c8949aa873df7354c18b55ec33bedeaebf3994143045fe0559bed953
+checksum_sha256: 36cea2878bbfaa56834d23f8bf4abf6166519200b969857e0ef74332861c9af4
 ---
 
-```text
-  /|\                              
- / | \                             
-/  |  \                         _  
-   |    |\/| /  /|\ |  |  \ /  |_| 
-   |    |  | --  |  | `|   X       
-   |    |  |  /  |  |  |` / \      
-```
+````text
+  /|\                         
+ / | \                        
+/  |  \                       
+   |    |\/| /  /|\ |  |  \ / 
+   |    |  | --  |  | `|   X  
+   |    |  |  /  |  |  |` / \ 
+````

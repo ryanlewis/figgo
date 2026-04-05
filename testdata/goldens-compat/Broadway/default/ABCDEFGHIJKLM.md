@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: cdaa597d8a2f1d962bf20e7adbba766aadfb0d842b9d45e9803f42db8c1560e2
 ---
 
-```text
+````text
                                                                           
          .8.          8 888888888o       ,o888888o.    8 888888888o.      
         .888.         8 8888    `88.    8888     `88.  8 8888    `^888.   
@@ -59,4 +59,4 @@ checksum_sha256: cdaa597d8a2f1d962bf20e7adbba766aadfb0d842b9d45e9803f42db8c1560e
   ,8'     `8.`'     `8.`8888.   
  ,8'       `8        `8.`8888.  
 ,8'         `         `8.`8888. 
-```
+````

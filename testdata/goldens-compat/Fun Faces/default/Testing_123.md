@@ -2,7 +2,7 @@
 font: Fun Faces
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,15 +11,15 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: a64170ee3cd09b90f373451bc933d82e9e9352c37ece45ed719a0a01dd9cb6d5
+checksum_sha256: 84de4cea4e3c88a7eb8afdc9deace99bf0cc8e185260b76458a0d43f289765e0
 ---
 
-```text
-(o)__(o)wWw   oo_   (o)__(o)wW  Ww\\\  ///   \/        __            wWw   
-(__  __)(O)_ /  _)-<(__  __)(O)(O)((O)(O))  (OO)      /' \ (O)-.    _(O)   
-  (  )  / __)\__ `.   (  )   (..)  | \ || ,'.--.)     " ||(_.-. \  (__ \   
-   )(  / (      `. |   )(     ||   ||\\||/ /|_|_\       ||     )/     ) \  
-  (  )(  _)     _| |  (  )   _||_  || \ || \_.--.       ||    //     (_  ) 
-   )/  \ \_  ,-'   |   )/   (_/\_) ||  ||'.   \) \     _||_  /(____; _/ /  
-  (     \__)(_..--'   (           (_/  \_) `-.(_.'    (_/\_)(____.-'(__/   
-```
+````text
+(o)__(o)wWw   oo_   (o)__(o)wW  Ww\\\  ///   \/           __            wWw   
+(__  __)(O)_ /  _)-<(__  __)(O)(O)((O)(O))  (OO)         /' \ (O)-.    _(O)   
+  (  )  / __)\__ `.   (  )   (..)  | \ || ,'.--.)        " ||(_.-. \  (__ \   
+   )(  / (      `. |   )(     ||   ||\\||/ /|_|_\          ||     )/     ) \  
+  (  )(  _)     _| |  (  )   _||_  || \ || \_.--.          ||    //     (_  ) 
+   )/  \ \_  ,-'   |   )/   (_/\_) ||  ||'.   \) \ _____  _||_  /(____; _/ /  
+  (     \__)(_..--'   (           (_/  \_) `-.(_.'[_____](_/\_)(____.-'(__/   
+````

@@ -2,7 +2,7 @@
 font: defleppard
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 2a334170382fb0970b2987c4818ec365ce80e07815865401d191be5e428aec8e
+checksum_sha256: a8157af2c7be7fd9c656e4ddb24e2f4401f302de1369d738df9c19d1d43b90d9
 ---
 
-```text
+````text
                                                                       
                                                                       
                   ,;         .              L.                        
@@ -31,20 +31,20 @@ checksum_sha256: 2a334170382fb0970b2987c4818ec365ce80e07815865401d191be5e428aec8
      fE          tt EG.            fE   E#t ..         G#E        .G#t
       :             ,               :   ,;.             fE          ;;
                                                          ,            
-                        
-                        
-                        
-     t          L       
-     EE.        #K:     
-  jt :KW;       :K#t    
- G#t   G#j        L#G.  
- E#t    j#D.       t#W, 
- E#t itttG#K,   .jffD##f
- E#t E##DDDDG: .fLLLD##L
- E#t E#E           ;W#i 
- E#t E#E          j#E.  
- E#t E##EEEEEEt .D#f    
- tf, tffffffffftKW,     
-                G.      
-                        
-```
+                                    
+                                    
+                                    
+                 t          L       
+                 EE.        #K:     
+              jt :KW;       :K#t    
+             G#t   G#j        L#G.  
+             E#t    j#D.       t#W, 
+             E#t itttG#K,   .jffD##f
+             E#t E##DDDDG: .fLLLD##L
+             E#t E#E           ;W#i 
+             E#t E#E          j#E.  
+ ,;;;;;;;;;. E#t E##EEEEEEt .D#f    
+ jLLLLLLLLLL,tf, tffffffffftKW,     
+                            G.      
+                                    
+````

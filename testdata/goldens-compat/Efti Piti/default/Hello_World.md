@@ -2,7 +2,7 @@
 font: Efti Piti
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,11 +11,11 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 7c38cd434b3fb447a963719d0d6d1484c6ded32ef4fca286287301fdaa874494
+checksum_sha256: 8a138a59f94e773421681f6ca89adb9e4e28beb7f255749848a77511d7b99215
 ---
 
-```text
+````text
            _ _ _    []
 []-|ello,  \\/\/orld()
-                      
-```
+         ==           
+````

@@ -2,7 +2,7 @@
 font: Red Phoenix
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,22 +11,22 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 4d12ed9e4efefb8a516fc10c40e594900995c6fdf996104ccd347cd9a51e781c
+checksum_sha256: de74ff7fc34edf6195393f27123e542d27ed813ac5a935e3930147862395f04b
 ---
 
-```text
-  ___ ___          .__   .__             
- /   |   \   ____  |  |  |  |    ____    
-/    ~    \_/ __ \ |  |  |  |   /  _ \   
-\    Y    /\  ___/ |  |__|  |__(  <_> )  
- \___|_  /  \___  >|____/|____/ \____//\ 
-       \/       \/                    )/ 
-                                         
- __      __               .__       .___._. 
-/  \    /  \ ____ _______ |  |    __| _/| | 
-\   \/\/   //  _ \\_  __ \|  |   / __ | | | 
- \        /(  <_> )|  | \/|  |__/ /_/ |  \| 
-  \__/\  /  \____/ |__|   |____/\____ |  __ 
-       \/                            \/  \/ 
-                                            
-```
+````text
+  ___ ___          .__   .__                  __      __               .__    
+ /   |   \   ____  |  |  |  |    ____        /  \    /  \ ____ _______ |  |   
+/    ~    \_/ __ \ |  |  |  |   /  _ \       \   \/\/   //  _ \\_  __ \|  |   
+\    Y    /\  ___/ |  |__|  |__(  <_> )       \        /(  <_> )|  | \/|  |__ 
+ \___|_  /  \___  >|____/|____/ \____//\ ______\__/\  /  \____/ |__|   |____/ 
+       \/       \/                    )//_____/     \/                        
+                                                                              
+    .___._. 
+  __| _/| | 
+ / __ | | | 
+/ /_/ |  \| 
+\____ |  __ 
+     \/  \/ 
+            
+````

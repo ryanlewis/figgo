@@ -2,7 +2,7 @@
 font: Short
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,11 +11,11 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 406b6087fd1f2262fd9ba5435bcd58201211bc2e3717e68d0a3dcb106d8ca253
+checksum_sha256: 38eb3a924e25b0f5db1d286ba526d4812f06b6dc57c49bfcac45bad189f6bfcb
 ---
 
-```text
+````text
 ~|~ _  _|-.,_    '| ')')
- | (/__\|_|||(|  _|_/_.)
+ | (/__\|_|||(|___|_/_.)
              _|         
-```
+````

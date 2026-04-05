@@ -197,10 +197,12 @@ func NormalizeOldLayout(oldLayout int) (Layout, error) {
 	case 0:
 		return FitKerning, nil
 	default:
-		// oldLayout > 0: smushing with rules from bits 0-5
+		// oldLayout > 0: smushing with rules from bits 0-4
+		// Only 5 bits are rule bits; bit 5 is NOT a rule in OldLayout.
+		// This matches figlet's masking with & 31 (figlet.c:1238).
 		layout := FitSmushing
 
-		// Map rule bits (bits 0-5 correspond to rules 1-6)
+		// Map rule bits (bits 0-4 correspond to rules 1-5)
 		if oldLayout&1 != 0 {
 			layout |= RuleEqualChar
 		}
@@ -216,9 +218,7 @@ func NormalizeOldLayout(oldLayout int) (Layout, error) {
 		if oldLayout&16 != 0 {
 			layout |= RuleBigX
 		}
-		if oldLayout&32 != 0 {
-			layout |= RuleHardblank
-		}
+		// Bit 5 (value 32) is NOT mapped — it's not a rule bit in OldLayout
 
 		return layout, nil
 	}
@@ -350,9 +350,9 @@ func (l Layout) String() string {
 // OldLayout valid range: -1..63
 //   - -1: Horizontal full width
 //   - 0: Horizontal fitting (kerning)
-//   - 1-63: Horizontal controlled smushing with rules from bits 0-5
-//
-// Note: OldLayout cannot express universal smushing directly
+//   - 1-31: Horizontal controlled smushing with rules from bits 0-4
+//   - 32-63: Only 5 bits (0-4) are rules; bit 5 is masked off (matching figlet).
+//     When masked rules are 0, the result is universal smushing.
 //
 // FullLayout valid range: 0..32767 (15-bit bitmask)
 //   - Bits 0-5: Horizontal smushing rules (equal char, underscore, hierarchy, etc.)
@@ -368,12 +368,10 @@ func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (N
 	if oldLayout < -1 || oldLayout > 63 {
 		return NormalizedLayout{}, ErrInvalidOldLayout
 	}
-	// If FullLayout is out of range, ignore it and fall back to OldLayout.
-	// Some real-world fonts have invalid FullLayout values that FIGlet
-	// handles by ignoring the field.
-	if fullLayout < 0 || fullLayout > 32767 {
-		fullLayoutSet = false
-	}
+	// Do NOT reject out-of-range FullLayout values. figlet treats the raw
+	// value as a signed int bitfield (e.g., -2 → smushing with rules 2-6).
+	// parseFullLayout only examines specific bit positions, so extra/sign
+	// bits are harmlessly ignored.
 
 	var result NormalizedLayout
 
@@ -398,7 +396,11 @@ func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (N
 	return result, nil
 }
 
-// parseOldLayout converts OldLayout to NormalizedLayout
+// parseOldLayout converts OldLayout to NormalizedLayout.
+//
+// OldLayout only has 5 rule bits (0-4), matching figlet's masking with & 31.
+// Bit 5 is NOT a smushing rule in OldLayout — it indicates that smushing is
+// active. When masked rules are 0, this produces universal smushing.
 func parseOldLayout(oldLayout int) NormalizedLayout {
 	result := NormalizedLayout{
 		VertMode: ModeFull, // OldLayout doesn't specify vertical, default to full
@@ -410,13 +412,16 @@ func parseOldLayout(oldLayout int) NormalizedLayout {
 	case 0:
 		result.HorzMode = ModeFitting
 	default:
-		// oldLayout > 0: smushing with rules (1..63 are valid)
-		result.HorzMode = ModeSmushingControlled
-		// Extract rule bits (0-5) - oldLayout validated to be 1..63
-		// Masking with 0x3F ensures value is 0..63, safe for uint8
-		// Note: oldLayout is already validated to be <= 63, so conversion is safe
-		// #nosec G115 -- oldLayout validated to be in range 1..63
-		result.HorzRules = uint8(oldLayout & horzRuleMask)
+		// oldLayout > 0: smushing mode
+		// Mask with 5 bits (0x1F) to match figlet's behavior (figlet.c:1238)
+		// #nosec G115 -- oldLayout & 0x1F is in range 0..31, safe for uint8
+		rules := uint8(oldLayout & 0x1F)
+		if rules == 0 {
+			result.HorzMode = ModeSmushingUniversal
+		} else {
+			result.HorzMode = ModeSmushingControlled
+			result.HorzRules = rules
+		}
 	}
 
 	return result

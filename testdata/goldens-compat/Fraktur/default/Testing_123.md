@@ -2,7 +2,7 @@
 font: Fraktur
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: df36b661f54a4b052aa8c9ac576b98acd6e846c2371af3482f74bebfeeb19665
+checksum_sha256: 108dbaa672d30fd98157f63325a9d75e6fb8da2c301e578c4e595f2e4a1f9b04
 ---
 
-```text
+````text
     .....                        .x+=:.        s       .                  
  .H8888888h.  ~-.               z`    ^%      :8      @88>                
  888888888888x  `>                 .   <k    .88      %8P      u.    u.   
@@ -30,19 +30,19 @@ X~     `?888888hx~      .u       .@8Ned8"   :888ooo    .     x@88k u@88c.
                                                                           
                                                                           
                                                                           
-                                                         
-                     oe      .--~*teu.      .x~~"*Weu.   
-                   .@88     dF     988Nx   d8Nu.  9888c  
-     uL        ==*88888    d888b   `8888>  88888  98888  
- .ue888Nc..       88888    ?8888>  98888F  "***"  9888%  
-d88E`"888E`       88888     "**"  x88888~       ..@8*"   
-888E  888E        88888          d8888*`     ````"8Weu   
-888E  888E        88888        z8**"`   :   ..    ?8888L 
-888E  888E        88888      :?.....  ..F :@88N   '8888N 
-888& .888E        88888     <""888888888~ *8888~  '8888F 
-*888" 888&        88888     8:  "888888*  '*8"`   9888%  
- `"   "888E    '**%%%%%%**  ""    "**"`     `~===*%"`    
-.dWi   `88E                                              
-4888~  J8%                                               
- ^"===*"`                                                
-```
+                                                                    
+                                oe      .--~*teu.      .x~~"*Weu.   
+                              .@88     dF     988Nx   d8Nu.  9888c  
+     uL                   ==*88888    d888b   `8888>  88888  98888  
+ .ue888Nc..                  88888    ?8888>  98888F  "***"  9888%  
+d88E`"888E`                  88888     "**"  x88888~       ..@8*"   
+888E  888E                   88888          d8888*`     ````"8Weu   
+888E  888E                   88888        z8**"`   :   ..    ?8888L 
+888E  888E                   88888      :?.....  ..F :@88N   '8888N 
+888& .888E                   88888     <""888888888~ *8888~  '8888F 
+*888" 888&                   88888     8:  "888888*  '*8"`   9888%  
+ `"   "888E               '**%%%%%%**  ""    "**"`     `~===*%"`    
+.dWi   `88E                                                         
+4888~  J8%  8888888888888                                           
+ ^"===*"`                                                           
+````

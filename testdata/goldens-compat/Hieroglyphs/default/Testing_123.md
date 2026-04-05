@@ -2,7 +2,7 @@
 font: Hieroglyphs
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 680b3538a6e8b768cf209490fa0b9556eed2711d6124de207477ee1fab767a4f
+checksum_sha256: d408cb8376b13469ef1454cc3e4412fc82e8fa3533bb9024ea9110d0f46c3bd0
 ---
 
-```text
-                    ,-.           ;.                  123
-                 || | |          ; |          ____       
-()----. ....     || | '  .-==-.  `.|          /  \       
-()----' `=.`''===.' |   /______\   | ^^^^^^^ /_/\_\      
-```
+````text
+                    ,-.           ;.                _123
+                 || | |          ; |          ____      
+()----. ....     || | '  .-==-.  `.|          /  \      
+()----' `=.`''===.' |   /______\   | ^^^^^^^ /_/\_\     
+````

@@ -68,13 +68,26 @@ func TestNormalizeLayoutFromOldLayout(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:          "OldLayout 63 -> Smushing with all 6 rules",
+			name:          "OldLayout 31 -> Smushing with all 5 rules",
+			oldLayout:     31,
+			fullLayout:    0,
+			fullLayoutSet: false,
+			want: NormalizedLayout{
+				HorzMode:  ModeSmushingControlled,
+				HorzRules: 0x1F, // All 5 rules (OldLayout only has 5 rule bits)
+				VertMode:  ModeFull,
+				VertRules: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name:          "OldLayout 63 -> masks to 5 bits, universal smushing",
 			oldLayout:     63,
 			fullLayout:    0,
 			fullLayoutSet: false,
 			want: NormalizedLayout{
 				HorzMode:  ModeSmushingControlled,
-				HorzRules: 0x3F, // All 6 rules
+				HorzRules: 0x1F, // 63 & 0x1F = 31 (5 rule bits)
 				VertMode:  ModeFull,
 				VertRules: 0,
 			},
@@ -342,25 +355,40 @@ func TestNormalizeLayoutFromOldLayout(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		// Invalid FullLayout falls back to OldLayout
+		// FullLayout treated as raw bits (matching figlet behavior)
 		{
-			name:          "FullLayout negative -> fallback to OldLayout",
+			name:          "FullLayout -1 -> all bits set -> smushing with all rules",
 			oldLayout:     0,
 			fullLayout:    -1,
 			fullLayoutSet: true,
 			want: NormalizedLayout{
-				HorzMode: ModeFitting,
-				VertMode: ModeFull,
+				HorzMode:  ModeSmushingControlled,
+				HorzRules: 0x3F, // All 6 horizontal rules
+				VertMode:  ModeSmushingControlled,
+				VertRules: 0x1F, // All 5 vertical rules
 			},
 			wantErr: false,
 		},
 		{
-			name:          "FullLayout > 32767 -> fallback to OldLayout",
+			name:          "FullLayout -2 -> smushing with rules 2-6 (like Double font)",
+			oldLayout:     -1,
+			fullLayout:    -2,
+			fullLayoutSet: true,
+			want: NormalizedLayout{
+				HorzMode:  ModeSmushingControlled,
+				HorzRules: 0x3E, // -2 & 0x3F = 62 = bits 1-5
+				VertMode:  ModeSmushingControlled,
+				VertRules: 0x1F, // -2 >> 8 & 0x1F = all vertical rules
+			},
+			wantErr: false,
+		},
+		{
+			name:          "FullLayout 32768 -> bit 15 is undefined, both axes full",
 			oldLayout:     0,
 			fullLayout:    32768,
 			fullLayoutSet: true,
 			want: NormalizedLayout{
-				HorzMode: ModeFitting,
+				HorzMode: ModeFull,
 				VertMode: ModeFull,
 			},
 			wantErr: false,

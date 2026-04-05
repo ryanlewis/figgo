@@ -2,7 +2,7 @@
 font: Doh
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: f45cdf8735bf3d7ec4f479d75e4cf232c1c4386cc8508c33e34da2366fb8f589
+checksum_sha256: 583f961b5fc06ee0fa3fb429e9a95fd60650201a8217590f65471d9621159088
 ---
 
-```text
+````text
                                                                            
                                                                            
 HHHHHHHHH     HHHHHHHHH                   lllllll lllllll                  
@@ -40,79 +40,54 @@ HHHHHHHHH     HHHHHHHHH    eeeeeeeeeeeeee llllllllllllllll   ooooooooooo
                                                                            
                                                                            
                                                                            
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
- ,,,,,,
- ,::::,
- ,::::,
- ,:::,,
-,:::,  
-,,,,   
-       
-       
-       
-       
-       
-                                                                             
-                                                                             
-WWWWWWWW                           WWWWWWWW                                  
-W::::::W                           W::::::W                                  
-W::::::W                           W::::::W                                  
-W::::::W                           W::::::W                                  
- W:::::W           WWWWW           W:::::W ooooooooooo   rrrrr   rrrrrrrrr   
-  W:::::W         W:::::W         W:::::Woo:::::::::::oo r::::rrr:::::::::r  
-   W:::::W       W:::::::W       W:::::Wo:::::::::::::::or:::::::::::::::::r 
-    W:::::W     W:::::::::W     W:::::W o:::::ooooo:::::orr::::::rrrrr::::::r
-     W:::::W   W:::::W:::::W   W:::::W  o::::o     o::::o r:::::r     r:::::r
-      W:::::W W:::::W W:::::W W:::::W   o::::o     o::::o r:::::r     rrrrrrr
-       W:::::W:::::W   W:::::W:::::W    o::::o     o::::o r:::::r            
-        W:::::::::W     W:::::::::W     o::::o     o::::o r:::::r            
-         W:::::::W       W:::::::W      o:::::ooooo:::::o r:::::r            
-          W:::::W         W:::::W       o:::::::::::::::o r:::::r            
-           W:::W           W:::W         oo:::::::::::oo  r:::::r            
-            WWW             WWW            ooooooooooo    rrrrrrr            
-                                                                             
-                                                                             
-                                                                             
-                                                                             
-                                                                             
-                                                                             
-                                                                             
-                                 
-                    dddddddd     
-lllllll             d::::::d !!! 
-l:::::l             d::::::d!!:!!
-l:::::l             d::::::d!:::!
-l:::::l             d:::::d !:::!
- l::::l     ddddddddd:::::d !:::!
- l::::l   dd::::::::::::::d !:::!
- l::::l  d::::::::::::::::d !:::!
- l::::l d:::::::ddddd:::::d !:::!
- l::::l d::::::d    d:::::d !:::!
- l::::l d:::::d     d:::::d !:::!
- l::::l d:::::d     d:::::d !!:!!
- l::::l d:::::d     d:::::d  !!! 
-l::::::ld::::::ddddd::::::dd     
-l::::::l d:::::::::::::::::d !!! 
-l::::::l  d:::::::::ddd::::d!!:!!
-llllllll   ddddddddd   ddddd !!! 
-                                 
-                                 
-                                 
-                                 
-                                 
-                                 
-                                 
-```
+                                                                          
+                                                                          
+                               WWWWWWWW                           WWWWWWWW
+                               W::::::W                           W::::::W
+                               W::::::W                           W::::::W
+                               W::::::W                           W::::::W
+                                W:::::W           WWWWW           W:::::W 
+                                 W:::::W         W:::::W         W:::::W  
+                                  W:::::W       W:::::::W       W:::::W   
+                                   W:::::W     W:::::::::W     W:::::W    
+                                    W:::::W   W:::::W:::::W   W:::::W     
+                                     W:::::W W:::::W W:::::W W:::::W      
+                                      W:::::W:::::W   W:::::W:::::W       
+                                       W:::::::::W     W:::::::::W        
+ ,,,,,,                                 W:::::::W       W:::::::W         
+ ,::::,                                  W:::::W         W:::::W          
+ ,::::,                                   W:::W           W:::W           
+ ,:::,,                                    WWW             WWW            
+,:::,  ________________________                                           
+,,,,   _::::::::::::::::::::::_                                           
+       ________________________                                           
+                                                                          
+                                                                          
+                                                                          
+                                                                          
+                                                                     
+                                                        dddddddd     
+                                    lllllll             d::::::d !!! 
+                                    l:::::l             d::::::d!!:!!
+                                    l:::::l             d::::::d!:::!
+                                    l:::::l             d:::::d !:::!
+   ooooooooooo   rrrrr   rrrrrrrrr   l::::l     ddddddddd:::::d !:::!
+ oo:::::::::::oo r::::rrr:::::::::r  l::::l   dd::::::::::::::d !:::!
+o:::::::::::::::or:::::::::::::::::r l::::l  d::::::::::::::::d !:::!
+o:::::ooooo:::::orr::::::rrrrr::::::rl::::l d:::::::ddddd:::::d !:::!
+o::::o     o::::o r:::::r     r:::::rl::::l d::::::d    d:::::d !:::!
+o::::o     o::::o r:::::r     rrrrrrrl::::l d:::::d     d:::::d !:::!
+o::::o     o::::o r:::::r            l::::l d:::::d     d:::::d !!:!!
+o::::o     o::::o r:::::r            l::::l d:::::d     d:::::d  !!! 
+o:::::ooooo:::::o r:::::r           l::::::ld::::::ddddd::::::dd     
+o:::::::::::::::o r:::::r           l::::::l d:::::::::::::::::d !!! 
+ oo:::::::::::oo  r:::::r           l::::::l  d:::::::::ddd::::d!!:!!
+   ooooooooooo    rrrrrrr           llllllll   ddddddddd   ddddd !!! 
+                                                                     
+                                                                     
+                                                                     
+                                                                     
+                                                                     
+                                                                     
+                                                                     
+````

@@ -2,7 +2,7 @@
 font: fourtops
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 0bccf113f0d9216be6a8aa08dd68c0e9641f04d2b1014db4c798f135d607fa32
+checksum_sha256: dfaca22d981fbd34d96fd921e5d5f7c1b45932356c56674cf412f0b6d1b9972b
 ---
 
-```text
+````text
 |  |   ||      |  |  |       |   ||
 |--|/~/||/~\   |  |  |/~\|/~\|/~~||
-|  |\/_||\_/    \/ \/ \_/|   |\__|.
+|  |\/_||\_/ __ \/ \/ \_/|   |\__|.
             /                      
-```
+````

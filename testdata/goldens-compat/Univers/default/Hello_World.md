@@ -2,7 +2,7 @@
 font: Univers
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,21 +11,21 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 06d4e57fd67b6c34d27954109033b81ccd87c8c9342cbec9e29f3c270f981a38
+checksum_sha256: 6327c74ec4eecab3d297a9270bfd97b865b9703713d69bfd4bf7f749c056ceb5
 ---
 
-```text
-                                               
-88        88            88 88                  
-88        88            88 88                  
-88        88            88 88                  
-88aaaaaaaa88  ,adPPYba, 88 88  ,adPPYba,       
-88""""""""88 a8P_____88 88 88 a8"     "8a      
-88        88 8PP""""""" 88 88 8b       d8 aaa  
-88        88 "8b,   ,aa 88 88 "8a,   ,a8" "88  
-88        88  `"Ybbd8"' 88 88  `"YbbdP"'  d8'  
-                                         8"    
-                                               
+````text
+                                                           
+88        88            88 88                              
+88        88            88 88                              
+88        88            88 88                              
+88aaaaaaaa88  ,adPPYba, 88 88  ,adPPYba,                   
+88""""""""88 a8P_____88 88 88 a8"     "8a                  
+88        88 8PP""""""" 88 88 8b       d8 aaa              
+88        88 "8b,   ,aa 88 88 "8a,   ,a8" "88              
+88        88  `"Ybbd8"' 88 88  `"YbbdP"'  d8'              
+                                         8"                
+                                             888888888888  
                                                                 
 I8,        8        ,8I                      88          88 88  
 `8b       d8b       d8'                      88          88 88  
@@ -37,4 +37,4 @@ I8,        8        ,8I                      88          88 88
      `8'       `8'     `"YbbdP"'  88         88  `"8bbdP"Y8 88  
                                                                 
                                                                 
-```
+````

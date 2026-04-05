@@ -2,7 +2,7 @@
 font: AMC 3 Liv1
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,16 +11,16 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: 0a1d8a6e1765d97c704e1b0999a7a12ac2eaa86f8477789a560296b97902d501
+checksum_sha256: ac91ff27c095e39b3991f2637d7d3bbf1e43b4e4926bd5597d5b7bd17be03bb9
 ---
 
-```text
-.:;S;:.              :.      :. .:;S;:. 
-   S    S  S  S       S       S S     S 
-`:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' 
-                                        
-.:;S;:. .:;S;:. .:;.;:.      :.  .:;:.          
-     (  S     S S  S          S S     S .:;s ;: 
-`:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:'         
-                                                
-```
+````text
+.:;S;:.              :.      :. .:;S;:. .:;S;:. .:;S;:. .:;.;:.      :. 
+   S    S  S  S       S       S S     S      (  S     S S  S          S 
+`:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' `:;S;:' 
+                                                                        
+ .:;:.          
+S     S .:;s ;: 
+`:;S;:'         
+                
+````

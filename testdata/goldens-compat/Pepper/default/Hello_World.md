@@ -2,7 +2,7 @@
 font: Pepper
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: aa606c6c486a23953c9ff35942e0206408fc85d62dacef4f1844e1b7d6df04e0
+checksum_sha256: 08d40d975b9fe216062197bedfd580d7cfc146439b2ad95e94c0416977a4f158
 ---
 
-```text
-                           
- /_/_  //_   | | |_  _/ _//
-/ //_'///_// |/|//_////_/. 
-                           
-```
+````text
+                            
+ /_/_  //_    | | |_  _/ _//
+/ //_'///_//__|/|//_////_/. 
+                            
+````

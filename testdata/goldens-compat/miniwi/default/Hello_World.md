@@ -2,7 +2,7 @@
 font: miniwi
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Hello, World!
+sample: Hello,_World!
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,12 +11,12 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: bfc24aaa8965896459561b05f6b27b916a76bda63938f667cfd3306cac10858c
+checksum_sha256: eb9b3cba3c55ce72c7b43277e1cfde285f2103f0369de1359713b58d5cf3cb99
 ---
 
-```text
+````text
 ▖▖  ▜ ▜       ▖  ▖    ▜  ▌▌
 ▙▌█▌▐ ▐ ▛▌    ▌▞▖▌▛▌▛▘▐ ▛▌▌
-▌▌▙▖▐▖▐▖▙▌▗   ▛ ▝▌▙▌▌ ▐▖▙▌▖
+▌▌▙▖▐▖▐▖▙▌▗ ▄▖▛ ▝▌▙▌▌ ▐▖▙▌▖
           ▘                
-```
+````

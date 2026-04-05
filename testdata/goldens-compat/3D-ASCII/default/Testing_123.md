@@ -2,7 +2,7 @@
 font: 3D-ASCII
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: 1270e823b9cad16f2f87a2cc1aee4cfbc515363340117e0d14fca82811e4d2ce
 ---
 
-```text
+````text
  _________  _______   ________  _________  ___  ________   ________     
 |\___   ___\\  ___ \ |\   ____\|\___   ___\\  \|\   ___  \|\   ____\    
 \|___ \  \_\ \   __/|\ \  \___|\|___ \  \_\ \  \ \  \\ \  \ \  \___|    
@@ -35,4 +35,4 @@ checksum_sha256: 1270e823b9cad16f2f87a2cc1aee4cfbc515363340117e0d14fca82811e4d2c
                                  
                                  
                                  
-```
+````

@@ -2,7 +2,7 @@
 font: Fire Font-s
 font_dir: testdata/figlet-fonts
 layout: default
-sample: Testing 123
+sample: Testing_123
 width: 80
 figlet_version: FIGlet Copyright
 font_info: FIGlet Copyright (C) 1991-2012 Glenn Chappell, Ian Chai, John Cowan,
@@ -11,10 +11,10 @@ print_direction: 0
 generated: "2026-04-05"
 generator: generate-goldens
 figlet_args: -w 80
-checksum_sha256: d40c76050e7b0c731adf50248ef0c9bf3f2bcfb51b2436e6dd2a488b8fbf4f72
+checksum_sha256: f8611ee81f75c9fd021a66372ac729f2e9e7a8c4a113c99577bd7802303475aa
 ---
 
-```text
+````text
                                                    
   *   )          )                    )    )    )  
 ` )  /(  (    ( /((        (  (    ( /( ( /( ( /(  
@@ -22,6 +22,6 @@ checksum_sha256: d40c76050e7b0c731adf50248ef0c9bf3f2bcfb51b2436e6dd2a488b8fbf4f7
 (_(_())/((_)\(_))((_) )\ )((_))\  ((_)\((_) ((_)\  
 |_   _(_))((_) |_ (_)_(_/( (()(_)  / (_)_  )__ (_) 
   | | / -_|_-<  _|| | ' \)) _` |   | |  / / |_ \   
-  |_| \___/__/\__||_|_||_|\__, |   |_| /___|___/   
-                          |___/                    
-```
+  |_| \___/__/\__||_|_||_|\__, |___|_| /___|___/   
+                          |___/_____|              
+````

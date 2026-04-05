@@ -73,25 +73,37 @@ func parseGoldenFile(path string) (*goldenMetadata, string, error) {
 		return nil, "", fmt.Errorf("failed to parse YAML front matter: %w", err)
 	}
 
-	// Find and extract ASCII art from code block
+	// Find and extract ASCII art from code block.
+	// Track fence length so art containing backtick runs won't be mistaken for the closing fence.
 	var artLines []string
 	inCodeBlock := false
+	fenceLen := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if strings.HasPrefix(line, "```text") {
-			inCodeBlock = true
+		if !inCodeBlock {
+			n := 0
+			for n < len(line) && line[n] == '`' {
+				n++
+			}
+			if n >= 3 && strings.HasPrefix(line[n:], "text") {
+				fenceLen = n
+				inCodeBlock = true
+			}
 			continue
 		}
 
-		if strings.HasPrefix(line, "```") && inCodeBlock {
+		// Closing fence: at least fenceLen backticks with no other content
+		n := 0
+		for n < len(line) && line[n] == '`' {
+			n++
+		}
+		if n >= fenceLen && strings.TrimSpace(line[n:]) == "" {
 			break
 		}
 
-		if inCodeBlock {
-			artLines = append(artLines, line)
-		}
+		artLines = append(artLines, line)
 	}
 
 	if err := scanner.Err(); err != nil {

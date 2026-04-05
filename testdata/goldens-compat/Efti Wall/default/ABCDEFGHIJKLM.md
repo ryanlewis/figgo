@@ -14,7 +14,7 @@ figlet_args: -w 80
 checksum_sha256: d2730816058d31a12cec0ed5747cbc37446290d34912d1ad64ffc6ec3bf23d30
 ---
 
-```text
+````text
                                                                       
      ___           ,,,           ooo           ===           +++      
     (o o)         (o o)         (o o)         (o o)         (o o)     
@@ -27,4 +27,4 @@ ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo-
      /777          _/7           )))      
     (o o)         (o o)         (o o)     
 ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo-
-```
+````

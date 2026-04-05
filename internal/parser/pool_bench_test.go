@@ -45,7 +45,7 @@ func BenchmarkParseWithPooling(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				r := strings.NewReader(fontData)
 				_, _ = Parse(r)
 			}
@@ -77,11 +77,13 @@ func BenchmarkLazyTrimComputation(b *testing.B) {
 	b.Run("FirstAccess", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		i := 0
+		for b.Loop() {
 			// Access a character that hasn't been computed yet
 			// This simulates worst-case scenario
 			testRune := rune(33 + (i % 94))
 			_, _ = font.GetCharacterTrims(testRune)
+			i++
 		}
 	})
 
@@ -93,10 +95,12 @@ func BenchmarkLazyTrimComputation(b *testing.B) {
 	b.Run("CachedAccess", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		i := 0
+		for b.Loop() {
 			// Access already computed trims
 			testRune := rune(33 + (i % 94))
 			_, _ = font.GetCharacterTrims(testRune)
+			i++
 		}
 	})
 }
@@ -112,7 +116,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 			b.ReportAllocs()
 
 			var totalMem int64
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				r := strings.NewReader(fontData)
 				font, _ := Parse(r)
 
@@ -162,7 +166,7 @@ func BenchmarkScannerBufferReuse(b *testing.B) {
 	b.Run("WithPooling", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r := strings.NewReader(fontData)
 			scanner, buf := createPooledScanner(r)
 
@@ -178,7 +182,7 @@ func BenchmarkScannerBufferReuse(b *testing.B) {
 	b.Run("WithoutPooling", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r := strings.NewReader(fontData)
 			scanner := bufio.NewScanner(r)
 			scanner.Buffer(make([]byte, 0, defaultBufferSize), maxBufferSize)
@@ -196,7 +200,7 @@ func BenchmarkGlyphSlicePooling(b *testing.B) {
 	b.Run("WithPooling", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			slice := acquireGlyphSlice(20)
 
 			// Simulate usage
@@ -211,7 +215,7 @@ func BenchmarkGlyphSlicePooling(b *testing.B) {
 	b.Run("WithoutPooling", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			slice := make([]string, 0, 20)
 
 			// Simulate usage
@@ -257,7 +261,7 @@ func BenchmarkRealWorldFont(b *testing.B) {
 	b.Run("Parse", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r := strings.NewReader(fontData)
 			_, _ = Parse(r)
 		}
@@ -266,7 +270,7 @@ func BenchmarkRealWorldFont(b *testing.B) {
 	b.Run("ParseHeader", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r := strings.NewReader(fontData)
 			_, _ = ParseHeader(r)
 		}

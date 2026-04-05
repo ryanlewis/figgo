@@ -24,7 +24,7 @@ func BenchmarkStripTrailingRun(b *testing.B) {
 
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _, _ = stripTrailingRun(tt.input)
 			}
 		})
@@ -86,7 +86,7 @@ func BenchmarkParseGlyph(b *testing.B) {
 			content := strings.Join(tt.lines, "\n")
 
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				scanner := strings.NewReader(content)
 				s := bufio.NewScanner(scanner)
 				_, _, _ = parseGlyph(s, tt.height, 100)
@@ -150,7 +150,7 @@ of new full-width/kern/smush alternatives, but default output is NOT changed.
 
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				r := strings.NewReader(tt.content)
 				_, _ = Parse(r)
 			}
@@ -184,7 +184,7 @@ func BenchmarkParseHeader(b *testing.B) {
 
 	for _, h := range headers {
 		b.Run(h.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				r := strings.NewReader(h.content)
 				_, _ = ParseHeader(r)
 			}

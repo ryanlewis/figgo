@@ -67,6 +67,6 @@ checksum_sha256: "..."
 
 ## Requirements
 
-- Go 1.22 or later
+- Go 1.24 or later
 - `figlet` command-line tool installed and in PATH
 - FIGlet fonts available (standard, slant, small, big)

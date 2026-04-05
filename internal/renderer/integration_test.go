@@ -380,7 +380,7 @@ func BenchmarkRenderFullWidth(b *testing.B) {
 	opts := &Options{Layout: 0}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render("HELLO WORLD", font, opts)
 	}
 }
@@ -390,7 +390,7 @@ func BenchmarkRenderKerning(b *testing.B) {
 	font.OldLayout = 0
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render("HELLO WORLD", font, nil)
 	}
 }
@@ -400,7 +400,7 @@ func BenchmarkRenderSmushing(b *testing.B) {
 	opts := &Options{Layout: (1 << 7) | 63} // All smushing rules
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render("HELLO WORLD", font, opts)
 	}
 }
@@ -410,7 +410,7 @@ func BenchmarkRenderRTLDirection(b *testing.B) {
 	font.PrintDirection = 1
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render("HELLO WORLD", font, nil)
 	}
 }

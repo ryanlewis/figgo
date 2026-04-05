@@ -267,7 +267,7 @@ func BenchmarkEmitDisabled(b *testing.B) {
 	session := NewSession(sink)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		session.Emit("test", "Event", nil)
 	}
 
@@ -299,7 +299,7 @@ func BenchmarkEmitEnabled(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		session.Emit("render", "SmushAmountRow", data)
 	}
 }

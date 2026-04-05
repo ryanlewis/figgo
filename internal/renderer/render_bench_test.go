@@ -290,7 +290,7 @@ func BenchmarkRenderOptimized(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render(text, font, opts)
 	}
 }
@@ -304,7 +304,7 @@ func BenchmarkRenderLongText(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render(text, font, opts)
 	}
 }
@@ -318,7 +318,7 @@ func BenchmarkRenderRTL(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render(text, font, nil)
 	}
 }
@@ -332,7 +332,7 @@ func BenchmarkRenderWithSmushing(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = Render(text, font, opts)
 	}
 }
@@ -362,7 +362,7 @@ func BenchmarkRenderTo(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = RenderTo(io.Discard, text, font, opts)
 	}
 }
@@ -377,7 +377,7 @@ func BenchmarkRenderToBuffer(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		buf.Reset()
 		_ = RenderTo(&buf, text, font, opts)
 	}
@@ -391,7 +391,7 @@ func BenchmarkRenderVsRenderTo(b *testing.B) {
 
 	b.Run("Render", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = Render(text, font, opts)
 		}
 	})
@@ -399,7 +399,7 @@ func BenchmarkRenderVsRenderTo(b *testing.B) {
 	b.Run("RenderTo", func(b *testing.B) {
 		var buf bytes.Buffer
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			buf.Reset()
 			_ = RenderTo(&buf, text, font, opts)
 		}
@@ -407,7 +407,7 @@ func BenchmarkRenderVsRenderTo(b *testing.B) {
 
 	b.Run("RenderToDiscard", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_ = RenderTo(io.Discard, text, font, opts)
 		}
 	})
@@ -450,7 +450,7 @@ func BenchmarkSimpleText(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, nil)
 			}
 		})
@@ -477,7 +477,7 @@ func BenchmarkSimpleTextRenderTo(b *testing.B) {
 		b.Run(tt.name, func(b *testing.B) {
 			b.ReportAllocs()
 			var buf bytes.Buffer
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				buf.Reset()
 				_ = RenderTo(&buf, tt.text, font, nil)
 			}
@@ -504,7 +504,7 @@ func BenchmarkThroughput(b *testing.B) {
 		b.Run("Render_"+tt.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, nil)
 			}
 			ops := float64(b.N) / b.Elapsed().Seconds()
@@ -515,7 +515,7 @@ func BenchmarkThroughput(b *testing.B) {
 			b.ReportAllocs()
 			var buf bytes.Buffer
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				buf.Reset()
 				_ = RenderTo(&buf, tt.text, font, nil)
 			}

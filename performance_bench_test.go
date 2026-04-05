@@ -25,7 +25,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = Render(text, font, WithLayout(benchLayoutFullWidth))
 		}
 	})
@@ -35,7 +35,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = Render(text, font, WithLayout(benchLayoutKerning))
 		}
 	})
@@ -45,7 +45,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = Render(text, font, WithLayout(benchLayoutSmushing))
 		}
 	})
@@ -56,7 +56,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			buf.Reset()
 			_ = RenderTo(&buf, text, font, WithLayout(benchLayoutKerning))
 		}
@@ -85,7 +85,7 @@ func BenchmarkAllocationTarget(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, WithLayout(benchLayoutFullWidth))
 			}
 		})
@@ -94,7 +94,7 @@ func BenchmarkAllocationTarget(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, WithLayout(benchLayoutKerning))
 			}
 		})
@@ -103,7 +103,7 @@ func BenchmarkAllocationTarget(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, WithLayout(benchLayoutSmushing))
 			}
 		})
@@ -138,7 +138,7 @@ func BenchmarkThroughputTarget(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(tt.text, font, WithLayout(tt.layout))
 			}
 
@@ -170,7 +170,7 @@ func BenchmarkMultipleFonts(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(text, font, WithLayout(benchLayoutFullWidth))
 			}
 		})
@@ -179,7 +179,7 @@ func BenchmarkMultipleFonts(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(text, font, WithLayout(benchLayoutKerning))
 			}
 		})
@@ -188,7 +188,7 @@ func BenchmarkMultipleFonts(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, _ = Render(text, font, WithLayout(benchLayoutSmushing))
 			}
 		})
@@ -265,7 +265,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 			b.ResetTimer()
 
 			var totalBytes int64
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				result, _ := Render(tt.text, font, WithLayout(benchLayoutSmushing))
 				totalBytes += int64(len(result))
 			}
@@ -283,7 +283,7 @@ func BenchmarkEndToEnd(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			font, _ := LoadFont("fonts/standard.flf")
 			_, _ = Render(text, font, WithLayout(benchLayoutKerning))
 		}
@@ -294,7 +294,7 @@ func BenchmarkEndToEnd(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			font, _ := cache.LoadFont("fonts/standard.flf")
 			_, _ = Render(text, font, WithLayout(benchLayoutKerning))
 		}

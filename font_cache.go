@@ -3,33 +3,26 @@ package figgo
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
 
-// FontCache provides thread-safe caching of parsed fonts for long-running applications.
-// The cache uses a simple LRU eviction policy when the maximum size is reached.
-//
-// Cache Implementation Details:
-// - Uses a hash map for O(1) lookups combined with a doubly-linked list for LRU tracking
-// - RWMutex allows concurrent reads while protecting writes
-// - Atomic counters for statistics avoid lock contention during metrics collection
-// - Memory size estimation helps with capacity planning but is approximate
-//
-// Key Generation Strategy:
-// - File paths: Used directly as keys (assumes paths uniquely identify font content)
-// - Byte data: SHA256 hash ensures identical content gets same cache entry
-// - Hash prefix "sha256:" distinguishes content-based keys from path-based keys
-//
-// LRU Policy:
-// - Every cache hit moves the entry to the front of the LRU list
-// - When cache is full, the tail (least recently used) entry is evicted
-// - This balances memory usage with performance for frequently used fonts
+func contentHash(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+// FontCache provides thread-safe LRU caching of parsed fonts.
+// Path-based keys use the file path directly; byte-based keys use a
+// "sha256:" prefixed content hash to avoid collisions.
 type FontCache struct {
 	mu        sync.RWMutex
 	fonts     map[string]*cacheEntry
 	lru       *lruList
 	maxSize   int
+	disk      *diskCache // nil when disk caching is not enabled
 	hits      atomic.Uint64
 	misses    atomic.Uint64
 	evictions atomic.Uint64
@@ -54,17 +47,43 @@ type lruList struct {
 	size int
 }
 
-// Global default cache for convenience
+// CacheOption configures optional FontCache behavior.
+type CacheOption func(*cacheConfig)
+
+type cacheConfig struct {
+	diskCacheCfg *DiskCacheConfig
+}
+
+// WithDiskCache enables an on-disk binary cache that persists parsed fonts
+// across process restarts. The disk cache acts as an L2 behind the in-memory LRU.
+func WithDiskCache(cfg DiskCacheConfig) CacheOption {
+	return func(c *cacheConfig) {
+		c.diskCacheCfg = &cfg
+	}
+}
+
 var defaultCache = NewFontCache(100)
 
 // NewFontCache creates a new font cache with the specified maximum number of fonts.
 // A maxSize of 0 or negative means unlimited cache size.
-func NewFontCache(maxSize int) *FontCache {
-	return &FontCache{
+// Optional CacheOption values configure additional behavior (e.g., disk caching).
+func NewFontCache(maxSize int, opts ...CacheOption) *FontCache {
+	var cfg cacheConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	fc := &FontCache{
 		fonts:   make(map[string]*cacheEntry),
 		lru:     &lruList{},
 		maxSize: maxSize,
 	}
+
+	if cfg.diskCacheCfg != nil {
+		fc.disk = newDiskCache(*cfg.diskCacheCfg)
+	}
+
+	return fc
 }
 
 // LoadFontCached loads a font from the filesystem with caching.
@@ -77,20 +96,42 @@ func LoadFontCached(path string) (*Font, error) {
 // LoadFont loads a font from the filesystem with caching.
 // This method is safe for concurrent use.
 func (c *FontCache) LoadFont(path string) (*Font, error) {
-	// Check cache first
-	if font := c.get(path); font != nil {
+	if font, ok := c.lookup(path); ok {
 		return font, nil
 	}
 
-	// Load the font
-	font, err := LoadFont(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		c.misses.Add(1)
 		return nil, err
 	}
 
-	// Cache it
+	if c.disk != nil {
+		hash := contentHash(data)
+		if font := c.disk.get(hash); font != nil {
+			if font.Name == "" {
+				font.Name = filepath.Base(path)
+			}
+			c.put(path, font)
+			c.hits.Add(1)
+			return font, nil
+		}
+	}
+
+	font, err := ParseFontBytes(data)
+	if err != nil {
+		c.misses.Add(1)
+		return nil, err
+	}
+	font.Name = filepath.Base(path)
+
 	c.put(path, font)
+
+	if c.disk != nil {
+		hash := contentHash(data)
+		c.disk.put(hash, font)
+	}
+
 	return font, nil
 }
 
@@ -102,95 +143,70 @@ func ParseFontCached(data []byte) (*Font, error) {
 }
 
 // ParseFont parses a font from byte data with caching.
+// Uses SHA256 content hash as the cache key. The "sha256:" prefix
+// distinguishes content keys from path keys.
 // This method is safe for concurrent use.
-//
-// Content-Based Caching:
-// Uses SHA256 hash of the font data as the cache key. This ensures:
-// - Identical font content gets cached once regardless of source
-// - Different versions of fonts with same filename are cached separately
-// - Hash collisions are astronomically unlikely (2^128 probability)
-//
-// The "sha256:" prefix distinguishes content keys from path keys,
-// preventing conflicts when both approaches are used.
 func (c *FontCache) ParseFont(data []byte) (*Font, error) {
-	// Generate cache key from content hash
-	hash := sha256.Sum256(data)
-	key := "sha256:" + hex.EncodeToString(hash[:])
+	hash := contentHash(data)
+	key := "sha256:" + hash
 
-	// Check cache first
-	if font := c.get(key); font != nil {
+	if font, ok := c.lookup(key); ok {
 		return font, nil
 	}
 
-	// Parse the font
+	if c.disk != nil {
+		if font := c.disk.get(hash); font != nil {
+			c.put(key, font)
+			c.hits.Add(1)
+			return font, nil
+		}
+	}
+
 	font, err := ParseFontBytes(data)
 	if err != nil {
 		c.misses.Add(1)
 		return nil, err
 	}
 
-	// Cache it
 	c.put(key, font)
+
+	if c.disk != nil {
+		c.disk.put(hash, font)
+	}
+
 	return font, nil
 }
 
-// get retrieves a font from the cache using optimized locking.
-//
-// Locking Strategy:
-// 1. Fast path: RLock for existence check (allows concurrent reads)
-// 2. If found, acquire full Lock only to update LRU position
-// 3. This minimizes lock contention for cache hits
-//
-// The two-phase locking is crucial for performance:
-// - Multiple goroutines can check cache simultaneously
-// - Only LRU updates require exclusive access
-// - Cache misses don't block other readers
-func (c *FontCache) get(key string) *Font {
+// lookup checks the in-memory cache. Increments hits on success; callers handle misses.
+func (c *FontCache) lookup(key string) (*Font, bool) {
 	c.mu.RLock()
 	entry, exists := c.fonts[key]
 	c.mu.RUnlock()
 
 	if !exists {
-		c.misses.Add(1)
-		return nil
+		return nil, false
 	}
 
-	// Update LRU position
 	c.mu.Lock()
 	c.lru.moveToFront(entry.lruNode)
 	c.mu.Unlock()
 
 	c.hits.Add(1)
-	return entry.font
+	return entry.font, true
 }
 
-// put adds a font to the cache with automatic LRU eviction.
-//
-// Cache Insertion Process:
-// 1. Check if key already exists (avoid duplicates)
-// 2. Evict LRU entry if cache is at capacity
-// 3. Create new cache entry with size estimation
-// 4. Add to both hash map and LRU list atomically
-//
-// Memory Management:
-// - Size estimation helps with capacity planning
-// - LRU eviction prevents unbounded memory growth
-// - Entry size includes glyph data and map overhead
 func (c *FontCache) put(key string, font *Font) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if already exists
 	if _, exists := c.fonts[key]; exists {
 		return
 	}
 
-	// Evict if necessary
 	if c.maxSize > 0 && len(c.fonts) >= c.maxSize {
 		c.evictLRU()
 	}
 
-	// Add to cache
 	node := c.lru.pushFront(key)
 	c.fonts[key] = &cacheEntry{
 		key:     key,
@@ -200,7 +216,6 @@ func (c *FontCache) put(key string, font *Font) {
 	}
 }
 
-// evictLRU removes the least recently used font from the cache
 func (c *FontCache) evictLRU() {
 	if c.lru.tail == nil {
 		return
@@ -212,14 +227,17 @@ func (c *FontCache) evictLRU() {
 	c.evictions.Add(1)
 }
 
-// Clear removes all fonts from the cache.
+// Clear removes all fonts from both memory and disk caches.
 // This method is safe for concurrent use.
 func (c *FontCache) Clear() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.fonts = make(map[string]*cacheEntry)
 	c.lru = &lruList{}
+	c.mu.Unlock()
+
+	if c.disk != nil {
+		c.disk.clear()
+	}
 }
 
 // Stats returns cache statistics.
@@ -256,47 +274,25 @@ func (s CacheStats) HitRate() float64 {
 	return float64(s.Hits) * 100 / float64(total)
 }
 
-// estimateFontSize estimates the memory size of a font in bytes.
-//
-// Size Calculation Strategy:
-// The estimation includes several components but prioritizes speed over accuracy:
-//
-// 1. Base struct overhead (~100 bytes for Font struct fields)
-// 2. Glyph data: Sum of all string lengths in all glyphs
-// 3. Slice overhead: 8 bytes per slice header ([]string)
-// 4. Map overhead: ~40 bytes per map entry (key + value + bucket overhead)
-//
-// Trade-offs:
-// - Fast calculation (linear scan of glyph data)
-// - Underestimates pointer overhead and heap fragmentation
-// - Doesn't account for string header overhead (16 bytes per string)
-// - Good enough for capacity planning and cache size decisions
-//
-// For precise memory usage, consider using runtime.MemStats or pprof,
-// but this estimation is sufficient for LRU eviction decisions.
+// estimateFontSize returns an approximate byte size for cache capacity decisions.
+// Intentionally underestimates (ignores pointer/header overhead).
 func estimateFontSize(f *Font) int64 {
 	if f == nil {
 		return 0
 	}
 
-	// Base struct size
-	size := int64(100) // Approximate base struct overhead
-
-	// Add glyph data size
+	size := int64(100)
 	for _, glyph := range f.glyphs {
 		for _, line := range glyph {
 			size += int64(len(line))
 		}
-		size += int64(len(glyph) * 8) // Slice overhead
+		size += int64(len(glyph) * 8)
 	}
-
-	// Add map overhead (rough estimate)
 	size += int64(len(f.glyphs) * 40)
 
 	return size
 }
 
-// LRU list operations
 func (l *lruList) pushFront(key string) *lruNode {
 	node := &lruNode{key: key}
 
@@ -318,7 +314,6 @@ func (l *lruList) moveToFront(node *lruNode) {
 		return
 	}
 
-	// Remove from current position
 	if node.prev != nil {
 		node.prev.next = node.next
 	}
@@ -329,7 +324,6 @@ func (l *lruList) moveToFront(node *lruNode) {
 		l.tail = node.prev
 	}
 
-	// Move to front
 	node.prev = nil
 	node.next = l.head
 	l.head.prev = node
@@ -366,4 +360,10 @@ func ClearDefaultCache() {
 // DefaultCacheStats returns statistics for the default cache.
 func DefaultCacheStats() CacheStats {
 	return defaultCache.Stats()
+}
+
+// EnableDefaultDiskCache enables on-disk caching for the default font cache.
+// This replaces the default cache with one backed by a disk cache.
+func EnableDefaultDiskCache(cfg DiskCacheConfig) {
+	defaultCache = NewFontCache(100, WithDiskCache(cfg))
 }

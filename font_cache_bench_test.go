@@ -43,7 +43,7 @@ No commercial use
 	b.Run("LoadWithoutCache", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, err := LoadFont(fontPath)
 			if err != nil {
 				b.Fatal(err)
@@ -55,7 +55,7 @@ No commercial use
 		cache := NewFontCache(10)
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, err := cache.LoadFont(fontPath)
 			if err != nil {
 				b.Fatal(err)
@@ -66,7 +66,7 @@ No commercial use
 	b.Run("ParseBytesWithoutCache", func(b *testing.B) {
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, err := ParseFontBytes(fontData)
 			if err != nil {
 				b.Fatal(err)
@@ -78,7 +78,7 @@ No commercial use
 		cache := NewFontCache(10)
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, err := cache.ParseFont(fontData)
 			if err != nil {
 				b.Fatal(err)
@@ -116,13 +116,15 @@ Font %d
 
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		i := 0
+		for b.Loop() {
 			// Access mostly cached fonts (90% hit rate)
 			idx := i % 10
 			if idx >= 7 {
 				idx = idx % 3
 			}
 			cache.ParseFont(fonts[idx])
+			i++
 		}
 
 		stats := cache.Stats()
@@ -133,10 +135,12 @@ Font %d
 		cache.Clear()
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		i := 0
+		for b.Loop() {
 			// Access all 10 fonts cyclically (cache size is 5)
 			idx := i % 10
 			cache.ParseFont(fonts[idx])
+			i++
 		}
 
 		stats := cache.Stats()
@@ -198,10 +202,12 @@ Font %d
 
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		// Access fonts in a pattern that triggers evictions
 		idx := i % 10
 		cache.ParseFont(fonts[idx])
+		i++
 	}
 
 	stats := cache.Stats()

@@ -76,6 +76,19 @@ Text: "The quick brown fox" (19 characters)
 
 **Analysis:** Font caching provides massive performance gains. Cache hits are essentially free.
 
+### Disk Cache Performance (Binary Serialization)
+
+Comparison of parsing a `.flf` file from scratch vs decoding from the on-disk binary cache (`standard.flf`, Apple M5 Pro):
+
+| Scenario | Time (ns/op) | Allocs | Memory |
+|----------|--------------|--------|---------|
+| Parse `.flf` from scratch | 34,400 | 1,062 | 84,000 B |
+| Decode from disk cache | 28,100 | 1,134 | 51,400 B |
+
+**Improvement:** ~18% faster decode, ~39% less memory allocation.
+
+The disk cache stores pre-parsed `Font` structs in gob-encoded binary files, skipping text parsing on subsequent loads. The real-world benefit is larger than the decode-only benchmark shows — the `.gob` file is smaller than the `.flf` file, reducing disk I/O on cold starts.
+
 ## Running Benchmarks
 
 ### Core Performance Suite
@@ -113,6 +126,9 @@ go test -bench=. -benchmem ./internal/parser/
 
 # Font cache benchmarks
 go test -bench=BenchmarkFontCache -benchmem .
+
+# Disk cache benchmarks (parse vs decode comparison)
+go test -bench=BenchmarkDiskCache -benchmem .
 
 # Full benchmark suite
 just bench
@@ -199,7 +215,7 @@ To add benchmark tracking to CI, update `.github/workflows/test.yml`:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: stable
 
       - name: Run Benchmarks
         run: |
@@ -229,4 +245,5 @@ To add benchmark tracking to CI, update `.github/workflows/test.yml`:
   - `performance_bench_test.go` - PRD-targeted benchmarks
   - `internal/renderer/render_bench_test.go` - Renderer internals
   - `internal/parser/parser_bench_test.go` - Parser performance
-  - `font_cache_bench_test.go` - Cache performance
+  - `font_cache_bench_test.go` - In-memory cache performance
+  - `disk_cache_test.go` - Disk cache and parse-vs-decode comparison

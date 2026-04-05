@@ -18,368 +18,351 @@ func RenderTo(w io.Writer, text string, font *parser.Font, opts *Options) error 
 		return ErrNilFont
 	}
 
-	// Get render state from pool
 	state := acquireRenderState(font.Height, font.Hardblank, len(text))
 	defer releaseRenderState(state)
 
-	// Set debug session if provided
+	state.initFromOptions(font, opts)
+	startTime := state.emitRenderStart(text)
+
+	if err := state.processText(text, font, opts); err != nil {
+		return err
+	}
+
+	return state.writeOutput(w, text, startTime, font.Height)
+}
+
+// initFromOptions configures the render state from font and options.
+func (state *renderState) initFromOptions(font *parser.Font, opts *Options) {
 	if opts != nil && opts.Debug != nil {
 		state.debug = opts.Debug
 	}
 
-	// Set trim whitespace option
+	state.outlineLenLimit = 10000 // Default for golden test compatibility
 	if opts != nil {
 		state.trimWhitespace = opts.TrimWhitespace
-
-		// Set width limit
 		if opts.Width != nil && *opts.Width > 0 {
-			state.outlineLenLimit = *opts.Width - 1 // -1 to match figlet behavior
-		} else {
-			// Use large default for golden test compatibility
-			// Golden tests were generated with effectively no wrapping
-			state.outlineLenLimit = 10000
+			state.outlineLenLimit = *opts.Width - 1
 		}
-	} else {
-		// Use large default for golden test compatibility
-		state.outlineLenLimit = 10000
 	}
 
-	// Set print direction from options or font
 	if opts != nil && opts.PrintDirection != nil {
 		state.right2left = *opts.PrintDirection
 	} else {
 		state.right2left = font.PrintDirection
 	}
 
-	// Convert layout to smush mode
-	if opts != nil {
-		// Check if FitSmushing (bit 7) is specified without rule bits (bits 0-5)
-		// This means "use font's default smushing rules"
-		if opts.Layout == (1 << 7) {
-			// Use font's default smushing rules
-			if font.FullLayoutSet && font.FullLayout != 0 {
-				// Extract horizontal layout from FullLayout
-				state.smushMode = font.FullLayout & 0xFF
-			} else {
-				// Fall back to converting OldLayout
-				state.smushMode = oldLayoutToSmushMode(font.OldLayout)
-			}
-			// Ensure smushing mode is enabled
-			state.smushMode |= SMSmush
-		} else {
-			state.smushMode = layoutToSmushMode(opts.Layout)
-		}
-	} else {
-		// Use font's default layout
-		// Use FullLayout when available, fall back to OldLayout
-		if font.FullLayoutSet && font.FullLayout != 0 {
-			// Extract horizontal layout from FullLayout
-			// FullLayout contains both horizontal (bits 0-7) and vertical (bits 8-14) layout
-			// We only need horizontal for now
-			state.smushMode = font.FullLayout & 0xFF // Get bits 0-7 for horizontal layout
-		} else {
-			// Fall back to converting OldLayout
-			state.smushMode = oldLayoutToSmushMode(font.OldLayout)
-		}
-	}
+	state.smushMode = resolveSmushMode(font, opts)
+}
 
-	// Log render start
-	var startTime time.Time
-	if state.debug != nil {
-		startTime = time.Now()
-		state.debug.Emit("render", "Start", debug.RenderStartData{
-			Text:       text,
-			TextLength: len(text),
-			CharHeight: state.charHeight,
-			Hardblank:  state.hardblank,
-			WidthLimit: state.outlineLenLimit,
-			PrintDir:   state.right2left,
-			SmushMode:  state.smushMode,
-			SmushRules: debug.FormatSmushRules(state.smushMode),
-		})
+// resolveSmushMode determines the smushing mode from font and options.
+func resolveSmushMode(font *parser.Font, opts *Options) int {
+	if opts == nil {
+		return fontDefaultSmushMode(font)
 	}
+	// FitSmushing (bit 7) without rule bits means "use font's default rules"
+	if opts.Layout == (1 << 7) {
+		mode := fontDefaultSmushMode(font)
+		return mode | SMSmush
+	}
+	return layoutToSmushMode(opts.Layout)
+}
 
-	// Process each character in the input text
+// fontDefaultSmushMode extracts the default smush mode from a font.
+func fontDefaultSmushMode(font *parser.Font) int {
+	if font.FullLayoutSet && font.FullLayout != 0 {
+		return font.FullLayout & 0xFF
+	}
+	return oldLayoutToSmushMode(font.OldLayout)
+}
+
+// emitRenderStart emits a render start debug event and returns the start time.
+func (state *renderState) emitRenderStart(text string) time.Time {
+	if state.debug == nil {
+		return time.Time{}
+	}
+	start := time.Now()
+	state.debug.Emit("render", "Start", debug.RenderStartData{
+		Text:       text,
+		TextLength: len(text),
+		CharHeight: state.charHeight,
+		Hardblank:  state.hardblank,
+		WidthLimit: state.outlineLenLimit,
+		PrintDir:   state.right2left,
+		SmushMode:  state.smushMode,
+		SmushRules: debug.FormatSmushRules(state.smushMode),
+	})
+	return start
+}
+
+// processText iterates over the input text and builds the rendered output.
+func (state *renderState) processText(text string, font *parser.Font, opts *Options) error {
 	for charIdx, r := range text {
-		// FIRST: Normalize whitespace
 		if r == '\t' {
 			r = ' '
 		}
 
-		// Handle newlines
 		if r == '\n' {
-			// Flush current line and start new one
-			if state.outlineLen > 0 {
-				// Emit Split event for newline
-				if state.debug != nil {
-					state.debug.Emit("render", "Split", debug.SplitData{
-						Reason:     "newline",
-						FSMPrev:    state.wordbreakmode,
-						FSMNext:    0,
-						OutlineLen: state.outlineLen,
-						Position:   charIdx,
-					})
-				}
-				state.flushLine()
-			}
-			// Reset FSM and buffer state unconditionally
-			state.wordbreakmode = 0
-			state.inputCount = 0
-			state.lastWordBreak = -1
+			state.handleNewline(charIdx)
 			continue
 		}
 
-		// Early space absorption for wordbreakmode == -1
 		if state.wordbreakmode == -1 && r == ' ' {
-			continue // Absorb space (includes normalized tabs)
+			continue
 		}
-
-		// Skip control characters
 		if r < ' ' {
 			continue
 		}
 
-		// Retry loop for character processing
-		retry := true
-		for retry {
-			retry = false
-
-			// Get character glyph
-			glyph, exists := font.Characters[r]
-			unknownSubstituted := false
-			if !exists {
-				// Handle unknown character
-				if opts != nil && opts.UnknownRune != nil {
-					originalRune := r
-					r = *opts.UnknownRune
-					glyph, exists = font.Characters[r]
-					unknownSubstituted = true
-					if !exists {
-						return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(originalRune))
-					}
-				} else {
-					return fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
-				}
-			}
-
-			// Track when processing a space character - spaces should not
-			// overlap with adjacent characters in smushing mode, but we
-			// preserve the font's original space glyph width (not 1-column)
-			state.processingSpaceGlyph = (r == ' ')
-
-			// Emit glyph event
-			if state.debug != nil {
-				glyphWidth := 0
-				if len(glyph) > 0 {
-					glyphWidth = getCachedRuneCount(glyph[0])
-				}
-				state.debug.Emit("render", "Glyph", debug.GlyphData{
-					Index:        state.inputCount,
-					Rune:         r,
-					Width:        glyphWidth,
-					SpaceGlyph:   state.processingSpaceGlyph,
-					UnknownSubst: unknownSubstituted,
-				})
-			}
-
-			// Try to add character to output
-			if state.addChar(glyph) {
-				// Clear flag after add
-				state.processingSpaceGlyph = false
-
-				// SUCCESS - NOW append to buffer
-				if len(state.inputBuffer) <= state.inputCount {
-					state.inputBuffer = append(state.inputBuffer, r)
-				} else {
-					state.inputBuffer[state.inputCount] = r
-				}
-
-				// Track word boundaries
-				if r == ' ' {
-					state.lastWordBreak = state.inputCount
-				}
-				state.inputCount++
-
-				// Debug: log successful addition
-				// fmt.Fprintf(os.Stderr, "Added '%c' at position %d (inputCount now %d)\n", r, state.inputCount-1, state.inputCount)
-
-				// Update FSM on success
-				if r != ' ' {
-					if state.wordbreakmode >= 2 {
-						state.wordbreakmode = 3
-					} else {
-						state.wordbreakmode = 1
-					}
-				} else {
-					if state.wordbreakmode > 0 {
-						state.wordbreakmode = 2
-					} else {
-						state.wordbreakmode = 0
-					}
-				}
-			} else {
-				// Clear flag after failed add
-				state.processingSpaceGlyph = false
-
-				// FAILURE - handle based on context without buffer contamination
-				if state.outlineLen == 0 {
-					// Skip if glyph height doesn't match font height (malformed font)
-					if len(glyph) != state.charHeight {
-						continue
-					}
-					// Oversized first char - print truncated version
-					for row := 0; row < state.charHeight; row++ {
-						glyphRow := glyph[row]
-						runeSlice := []rune(glyphRow)
-
-						if state.right2left != 0 && state.outlineLenLimit > 1 {
-							// RTL: Copy rightmost outlineLenLimit runes
-							start := len(runeSlice) - state.outlineLenLimit
-							if start < 0 {
-								start = 0
-							}
-							truncated := runeSlice[start:]
-							copy(state.outputLine[row], truncated)
-							state.rowLengths[row] = len(truncated)
-						} else {
-							// LTR: Copy leftmost outlineLenLimit runes
-							limit := len(runeSlice)
-							if limit > state.outlineLenLimit {
-								limit = state.outlineLenLimit
-							}
-							copy(state.outputLine[row], runeSlice[:limit])
-							state.rowLengths[row] = limit
-						}
-					}
-					state.outlineLen = state.rowLengths[0]
-					// Emit Split event for width overflow
-					if state.debug != nil {
-						state.debug.Emit("render", "Split", debug.SplitData{
-							Reason:     "width",
-							FSMPrev:    state.wordbreakmode,
-							FSMNext:    -1,
-							OutlineLen: state.outlineLen,
-							Position:   charIdx,
-						})
-					}
-					state.flushLine()
-					state.wordbreakmode = -1 // Enter absorption mode
-				} else if r == ' ' {
-					// Space failure
-					if state.wordbreakmode == 2 {
-						state.splitLine(font, opts)
-					} else {
-						state.flushLine()
-					}
-					state.wordbreakmode = -1 // Enter absorption mode
-					// NO RETRY - space is consumed
-				} else {
-					// Non-space failure
-					// Capture previous state BEFORE split/flush
-					prevState := state.wordbreakmode
-
-					if state.wordbreakmode >= 2 {
-						split := state.splitLine(font, opts)
-						if !split {
-							state.flushLine()
-						}
-					} else {
-						state.flushLine()
-					}
-
-					// Update FSM using PREVIOUS state for correct transition
-					if prevState == 3 {
-						state.wordbreakmode = 1
-					} else {
-						state.wordbreakmode = 0
-					}
-
-					// ALWAYS retry non-space (unconditional)
-					retry = true
-				}
-			}
+		if err := state.processChar(r, charIdx, font, opts); err != nil {
+			return err
 		}
 	}
 
 	// Flush any remaining line
 	if state.outlineLen > 0 {
-		// Emit a final Split event to mark end-of-input before the flush
-		if state.debug != nil {
-			state.debug.Emit("render", "Split", debug.SplitData{
-				Reason:     "end",
-				FSMPrev:    state.wordbreakmode,
-				FSMNext:    0,
-				OutlineLen: state.outlineLen,
-				Position:   state.inputCount,
-			})
+		state.emitSplit("end", 0, state.inputCount)
+		state.flushLine()
+	}
+	return nil
+}
+
+// handleNewline processes a newline character in the input.
+func (state *renderState) handleNewline(charIdx int) {
+	if state.outlineLen > 0 {
+		state.emitSplit("newline", 0, charIdx)
+		state.flushLine()
+	}
+	state.wordbreakmode = 0
+	state.inputCount = 0
+	state.lastWordBreak = -1
+}
+
+// emitSplit emits a split debug event.
+func (state *renderState) emitSplit(reason string, fsmNext, position int) {
+	if state.debug == nil {
+		return
+	}
+	state.debug.Emit("render", "Split", debug.SplitData{
+		Reason:     reason,
+		FSMPrev:    state.wordbreakmode,
+		FSMNext:    fsmNext,
+		OutlineLen: state.outlineLen,
+		Position:   position,
+	})
+}
+
+// processChar handles a single character with retry logic for line wrapping.
+func (state *renderState) processChar(r rune, charIdx int, font *parser.Font, opts *Options) error {
+	retry := true
+	for retry {
+		retry = false
+
+		glyph, resolvedRune, err := state.lookupGlyph(r, font, opts)
+		if err != nil {
+			return err
 		}
+		r = resolvedRune
+
+		state.processingSpaceGlyph = (r == ' ')
+		state.emitGlyphEvent(r, glyph)
+
+		if state.addChar(glyph) {
+			state.processingSpaceGlyph = false
+			state.recordSuccess(r)
+		} else {
+			state.processingSpaceGlyph = false
+			retry = state.handleAddFailure(r, glyph, charIdx, font, opts)
+		}
+	}
+	return nil
+}
+
+// lookupGlyph finds the glyph for a rune, handling unknown rune substitution.
+func (state *renderState) lookupGlyph(r rune, font *parser.Font, opts *Options) ([]string, rune, error) {
+	glyph, exists := font.Characters[r]
+	if exists {
+		return glyph, r, nil
+	}
+	if opts != nil && opts.UnknownRune != nil {
+		originalRune := r
+		r = *opts.UnknownRune
+		glyph, exists = font.Characters[r]
+		if exists {
+			return glyph, r, nil
+		}
+		return nil, r, fmt.Errorf("%w: %s", ErrUnsupportedRune, string(originalRune))
+	}
+	return nil, r, fmt.Errorf("%w: %s", ErrUnsupportedRune, string(r))
+}
+
+// emitGlyphEvent emits a debug event for glyph processing.
+func (state *renderState) emitGlyphEvent(r rune, glyph []string) {
+	if state.debug == nil {
+		return
+	}
+	glyphWidth := 0
+	if len(glyph) > 0 {
+		glyphWidth = getCachedRuneCount(glyph[0])
+	}
+	state.debug.Emit("render", "Glyph", debug.GlyphData{
+		Index:        state.inputCount,
+		Rune:         r,
+		Width:        glyphWidth,
+		SpaceGlyph:   state.processingSpaceGlyph,
+		UnknownSubst: false,
+	})
+}
+
+// recordSuccess records a successfully added character in the input buffer and updates FSM.
+func (state *renderState) recordSuccess(r rune) {
+	if len(state.inputBuffer) <= state.inputCount {
+		state.inputBuffer = append(state.inputBuffer, r)
+	} else {
+		state.inputBuffer[state.inputCount] = r
+	}
+
+	if r == ' ' {
+		state.lastWordBreak = state.inputCount
+	}
+	state.inputCount++
+
+	state.updateFSMSuccess(r)
+}
+
+// updateFSMSuccess updates the word-break FSM after a successful character addition.
+func (state *renderState) updateFSMSuccess(r rune) {
+	if r != ' ' {
+		if state.wordbreakmode >= 2 {
+			state.wordbreakmode = 3
+		} else {
+			state.wordbreakmode = 1
+		}
+	} else {
+		if state.wordbreakmode > 0 {
+			state.wordbreakmode = 2
+		} else {
+			state.wordbreakmode = 0
+		}
+	}
+}
+
+// handleAddFailure handles the case when addChar returns false (character doesn't fit).
+// Returns true if the character should be retried.
+func (state *renderState) handleAddFailure(r rune, glyph []string, charIdx int, font *parser.Font, opts *Options) bool {
+	switch {
+	case state.outlineLen == 0:
+		return state.handleOversizedFirstChar(glyph, charIdx)
+	case r == ' ':
+		state.handleSpaceFailure(font, opts)
+		return false
+	default:
+		return state.handleNonSpaceFailure(font, opts)
+	}
+}
+
+// handleOversizedFirstChar handles a glyph that's too wide even for an empty line.
+func (state *renderState) handleOversizedFirstChar(glyph []string, charIdx int) bool {
+	if len(glyph) != state.charHeight {
+		return false // malformed font - skip
+	}
+	for row := 0; row < state.charHeight; row++ {
+		runeSlice := []rune(glyph[row])
+		if state.right2left != 0 && state.outlineLenLimit > 1 {
+			start := len(runeSlice) - state.outlineLenLimit
+			if start < 0 {
+				start = 0
+			}
+			truncated := runeSlice[start:]
+			copy(state.outputLine[row], truncated)
+			state.rowLengths[row] = len(truncated)
+		} else {
+			limit := len(runeSlice)
+			if limit > state.outlineLenLimit {
+				limit = state.outlineLenLimit
+			}
+			copy(state.outputLine[row], runeSlice[:limit])
+			state.rowLengths[row] = limit
+		}
+	}
+	state.outlineLen = state.rowLengths[0]
+	state.emitSplit("width", -1, charIdx)
+	state.flushLine()
+	state.wordbreakmode = -1
+	return false
+}
+
+// handleSpaceFailure handles when a space character doesn't fit on the line.
+func (state *renderState) handleSpaceFailure(font *parser.Font, opts *Options) {
+	if state.wordbreakmode == 2 {
+		state.splitLine(font, opts)
+	} else {
+		state.flushLine()
+	}
+	state.wordbreakmode = -1
+}
+
+// handleNonSpaceFailure handles when a non-space character doesn't fit.
+// Returns true to indicate the character should be retried on the new line.
+func (state *renderState) handleNonSpaceFailure(font *parser.Font, opts *Options) bool {
+	prevState := state.wordbreakmode
+
+	if state.wordbreakmode >= 2 {
+		if !state.splitLine(font, opts) {
+			state.flushLine()
+		}
+	} else {
 		state.flushLine()
 	}
 
-	// Write accumulated output to writer
-	bytesWritten := 0
+	if prevState == 3 {
+		state.wordbreakmode = 1
+	} else {
+		state.wordbreakmode = 0
+	}
+	return true
+}
+
+// writeOutput writes the accumulated render output to the writer.
+func (state *renderState) writeOutput(w io.Writer, text string, startTime time.Time, fontHeight int) error {
 	if len(state.outputBuffer) > 0 {
-		// Remove the trailing newline from the last line
 		if state.outputBuffer[len(state.outputBuffer)-1] == '\n' {
 			state.outputBuffer = state.outputBuffer[:len(state.outputBuffer)-1]
 		}
-		bytesWritten = len(state.outputBuffer)
+		bytesWritten := len(state.outputBuffer)
 		_, err := w.Write(state.outputBuffer)
-
-		// Log render end
-		if state.debug != nil {
-			elapsed := time.Since(startTime)
-			state.debug.Emit("render", "End", debug.RenderEndData{
-				TotalLines:   strings.Count(string(state.outputBuffer), "\n") + 1,
-				TotalRunes:   len([]rune(text)),
-				TotalGlyphs:  state.inputCount,
-				ElapsedMs:    elapsed.Milliseconds(),
-				BytesWritten: bytesWritten,
-			})
-		}
-
+		state.emitRenderEnd(text, startTime, strings.Count(string(state.outputBuffer), "\n")+1, bytesWritten)
 		return err
 	}
 
 	// Handle empty output - return height-1 blank lines
-	// This applies when input is empty OR when all characters were skipped (e.g., malformed glyphs)
-	// (Tests expect height-1 newlines since final trailing newline is trimmed)
-	if len(state.outputBuffer) == 0 && font.Height > 1 {
-		blankLines := make([]byte, font.Height-1)
-		for i := 0; i < font.Height-1; i++ {
+	if fontHeight > 1 {
+		blankLines := make([]byte, fontHeight-1)
+		for i := range blankLines {
 			blankLines[i] = '\n'
 		}
-		bytesWritten = len(blankLines)
+		bytesWritten := len(blankLines)
 		_, err := w.Write(blankLines)
-
-		// Log render end for empty input
-		if state.debug != nil {
-			elapsed := time.Since(startTime)
-			state.debug.Emit("render", "End", debug.RenderEndData{
-				TotalLines:   font.Height - 1,
-				TotalRunes:   0,
-				TotalGlyphs:  0,
-				ElapsedMs:    elapsed.Milliseconds(),
-				BytesWritten: bytesWritten,
-			})
-		}
-
+		state.emitRenderEnd("", startTime, fontHeight-1, bytesWritten)
 		return err
 	}
 
-	// Log render end for zero output
-	if state.debug != nil {
-		elapsed := time.Since(startTime)
-		state.debug.Emit("render", "End", debug.RenderEndData{
-			TotalLines:   0,
-			TotalRunes:   len([]rune(text)),
-			TotalGlyphs:  state.inputCount,
-			ElapsedMs:    elapsed.Milliseconds(),
-			BytesWritten: 0,
-		})
-	}
-
+	state.emitRenderEnd(text, startTime, 0, 0)
 	return nil
+}
+
+// emitRenderEnd emits a render end debug event.
+func (state *renderState) emitRenderEnd(text string, startTime time.Time, totalLines, bytesWritten int) {
+	if state.debug == nil {
+		return
+	}
+	elapsed := time.Since(startTime)
+	state.debug.Emit("render", "End", debug.RenderEndData{
+		TotalLines:   totalLines,
+		TotalRunes:   len([]rune(text)),
+		TotalGlyphs:  state.inputCount,
+		ElapsedMs:    elapsed.Milliseconds(),
+		BytesWritten: bytesWritten,
+	})
 }
 
 // Render converts text to ASCII art using the font and options.
@@ -474,16 +457,17 @@ func layoutToSmushMode(layout int) int {
 //
 // Invalid values (<-1) default to full-width for safety.
 func oldLayoutToSmushMode(oldLayout int) int {
-	if oldLayout == -1 {
+	switch {
+	case oldLayout == -1:
 		// Full-width mode
 		return 0
-	} else if oldLayout == 0 {
+	case oldLayout == 0:
 		// Kerning mode
 		return SMKern
-	} else if oldLayout < 0 {
+	case oldLayout < 0:
 		// Invalid, default to full-width
 		return 0
-	} else {
+	default:
 		// Smushing mode with rules (1..63)
 		return SMSmush | (oldLayout & 63)
 	}
@@ -510,33 +494,25 @@ func oldLayoutToSmushMode(oldLayout int) int {
 // RTL processing requires a temporary buffer to reverse the merge order.
 func (state *renderState) addChar(glyph []string) bool {
 	if len(glyph) != state.charHeight {
-		return false // Invalid glyph height
+		return false
 	}
 
 	// Save previous width BEFORE updating current character
 	state.previousCharWidth = state.currentCharWidth
-
-	// Set current character data
 	state.currentChar = glyph
 
-	// Calculate character width using full glyph width
 	if len(glyph) > 0 {
 		state.currentCharWidth = getCachedRuneCount(glyph[0])
 	} else {
 		state.currentCharWidth = 0
 	}
 
-	// Calculate smush amount
-	smushAmount := state.smushAmount()
-
-	// Ensure smushAmount is not negative
-	if smushAmount < 0 {
-		smushAmount = 0
+	smushAmt := state.smushAmount()
+	if smushAmt < 0 {
+		smushAmt = 0
 	}
 
-	// Check if character fits
-	newLength := state.outlineLen + state.currentCharWidth - smushAmount
-	if newLength > state.outlineLenLimit {
+	if state.outlineLen+state.currentCharWidth-smushAmt > state.outlineLenLimit {
 		return false
 	}
 
@@ -544,199 +520,143 @@ func (state *renderState) addChar(glyph []string) bool {
 	runeBuffer := acquireRuneSlice()
 	defer releaseRuneSlice(runeBuffer)
 
-	// Add character to each row
+	// Get temp buffer from pool for RTL processing
+	var tempLine []rune
+	if state.right2left != 0 {
+		tempLine = acquireTempLine()
+		defer releaseTempLine(tempLine)
+	}
+
 	for row := 0; row < state.charHeight; row++ {
-		// Convert to runes using pooled buffer for efficiency
-		rowStr := glyph[row]
-
-		// Ensure buffer is large enough
-		needed := len(rowStr) // Worst case: all ASCII
-		if cap(runeBuffer) < needed {
-			runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
-		} else {
-			runeBuffer = runeBuffer[:0] // Reset length
-		}
-
-		// Convert string to runes
-		for _, r := range rowStr {
-			runeBuffer = append(runeBuffer, r)
-		}
+		runeBuffer = runeBufferFromString(runeBuffer, glyph[row])
 		rowRunes := runeBuffer
 
 		if state.right2left != 0 {
-			// Right-to-left processing
-			// Track per-row end position to emulate C string truncation
-			end := state.rowLengths[row]
-
-			// Get temp buffer from pool
-			tempLine := acquireTempLine()
-			defer releaseTempLine(tempLine)
-
-			// Copy current character to temp buffer
-			copy(tempLine, rowRunes)
-
-			// Apply smushing at overlap positions
-			for k := 0; k < smushAmount; k++ {
-				column := state.currentCharWidth - smushAmount + k
-
-				// CRITICAL: Use 0 for past-end (not space) to match figlet behavior
-				var existing rune = 0
-				if k < end {
-					existing = state.outputLine[row][k]
-				}
-
-				if k < len(rowRunes) && column >= 0 && column < len(tempLine) {
-					// Capture original character before mutation
-					left := tempLine[column]
-					smushResult := state.smush(left, existing)
-					if smushResult != 0 {
-						// Emit debug event for smush decision BEFORE mutation
-						if state.debug != nil {
-							state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
-								Row:    row,
-								Col:    column,   // Use column for consistency with LTR
-								Lch:    left,     // Original left character
-								Rch:    existing, // Original right character
-								Result: smushResult,
-								Rule:   debug.ClassifySmushRule(left, existing, smushResult, state.smushMode),
-							})
-						}
-						// Write result after emitting event
-						tempLine[column] = smushResult
-					} else {
-						// Emulate truncation for RTL
-						// For RTL, we need to track how this affects the merge
-						// The temp buffer will be copied back, so we handle it there
-						tempLine[column] = 0 // Mark for truncation
-					}
-				}
-			}
-
-			// Build final output in tempLine following FIGlet's algorithm:
-			// 1. tempLine already has the new character (with smushing applied)
-			// 2. Append existing output (after smush region) to tempLine
-			// 3. Copy complete tempLine back to outputLine
-
-			// First, find where the new character content ends (handling truncation)
-			tempEnd := 0
-			for i := 0; i < state.currentCharWidth; i++ {
-				if tempLine[i] != 0 {
-					tempEnd = i + 1
-				} else {
-					// Hit truncation point
-					break
-				}
-			}
-
-			// Append remaining output line content to tempLine (after smush region)
-			appendStart := tempEnd
-			if smushAmount < end && tempEnd == state.currentCharWidth {
-				// STRCAT equivalent: append outputLine[row][smushAmount:end] to tempLine
-				for i := smushAmount; i < end; i++ {
-					tempLine[tempEnd] = state.outputLine[row][i]
-					tempEnd++
-				}
-
-				// Emit debug event for row append
-				if state.debug != nil {
-					state.debug.Emit("render", "RowAppend", debug.RowAppendData{
-						Row:       row,
-						StartPos:  appendStart,
-						CharCount: end - smushAmount,
-						EndBefore: appendStart,
-						EndAfter:  tempEnd,
-					})
-				}
-			}
-
-			// STRCPY equivalent: copy complete tempLine back to outputLine
-			copy(state.outputLine[row][:tempEnd], tempLine[:tempEnd])
-
-			// Update row length
-			state.rowLengths[row] = tempEnd
+			state.addCharRowRTL(row, rowRunes, tempLine, smushAmt)
 		} else {
-			// Left-to-right processing
-			// Track per-row end position to emulate C string truncation
-			end := state.rowLengths[row]
-
-			// Apply smushing at overlap positions
-			for k := 0; k < smushAmount; k++ {
-				column := state.outlineLen - smushAmount + k
-				if column < 0 {
-					column = 0
-				}
-
-				// CRITICAL: Use 0 for past-end (not space) to match figlet behavior
-				var existing rune = 0
-				if column < end {
-					existing = state.outputLine[row][column]
-				}
-
-				// Smush characters
-				if k < len(rowRunes) {
-					smushResult := state.smush(existing, rowRunes[k])
-					if smushResult != 0 {
-						// Write result and extend end if needed
-						state.outputLine[row][column] = smushResult
-						if column >= end {
-							end = column + 1
-						}
-
-						// Emit debug event for smush decision
-						if state.debug != nil {
-							state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
-								Row:    row,
-								Col:    column,
-								Lch:    existing,
-								Rch:    rowRunes[k],
-								Result: smushResult,
-								Rule:   debug.ClassifySmushRule(existing, rowRunes[k], smushResult, state.smushMode),
-							})
-						}
-					} else {
-						// Emulate C string truncation - shrink end
-						// DO NOT write 0 rune
-						if column < end {
-							end = column
-						}
-					}
-				}
-			}
-
-			// CRITICAL: Append at per-row end, not at outlineLen
-			// This emulates figlet's STRCAT behavior after NUL truncation
-			if smushAmount < len(rowRunes) {
-				remaining := rowRunes[smushAmount:]
-				dest := end // Use per-row end, not outlineLen!
-				startPos := dest
-				copy(state.outputLine[row][dest:], remaining)
-				end += len(remaining)
-
-				// Emit debug event for row append
-				if state.debug != nil {
-					state.debug.Emit("render", "RowAppend", debug.RowAppendData{
-						Row:       row,
-						StartPos:  startPos,
-						CharCount: len(remaining),
-						EndBefore: startPos,
-						EndAfter:  end,
-					})
-				}
-			}
-
-			// Update row length with new end position
-			state.rowLengths[row] = end
+			state.addCharRowLTR(row, rowRunes, smushAmt)
 		}
 	}
 
-	// Update output length based on row 0's length
-	// In figlet.c, this is done with: outlinelen = STRLEN(outputline[0])
-	// Trust the rowLengths we maintained during merge operations
 	state.outlineLen = state.rowLengths[0]
-
-	// No need to rescan - we trust rowLengths maintained during operations
-
 	return true
+}
+
+// addCharRowRTL processes a single row for right-to-left character addition.
+func (state *renderState) addCharRowRTL(row int, rowRunes, tempLine []rune, smushAmt int) {
+	end := state.rowLengths[row]
+	copy(tempLine, rowRunes)
+
+	// Apply smushing at overlap positions
+	for k := 0; k < smushAmt; k++ {
+		column := state.currentCharWidth - smushAmt + k
+		var existing rune
+		if k < end {
+			existing = state.outputLine[row][k]
+		}
+
+		if k < len(rowRunes) && column >= 0 && column < len(tempLine) {
+			left := tempLine[column]
+			smushResult := state.smush(left, existing)
+			if smushResult != 0 {
+				state.emitSmushDecision(row, column, left, existing, smushResult)
+				tempLine[column] = smushResult
+			} else {
+				tempLine[column] = 0 // Mark for truncation
+			}
+		}
+	}
+
+	// Build final output: find content end, then append remaining output
+	tempEnd := 0
+	for i := 0; i < state.currentCharWidth; i++ {
+		if tempLine[i] != 0 {
+			tempEnd = i + 1
+		} else {
+			break
+		}
+	}
+
+	appendStart := tempEnd
+	if smushAmt < end && tempEnd == state.currentCharWidth {
+		for i := smushAmt; i < end; i++ {
+			tempLine[tempEnd] = state.outputLine[row][i]
+			tempEnd++
+		}
+		state.emitRowAppend(row, appendStart, end-smushAmt, appendStart, tempEnd)
+	}
+
+	copy(state.outputLine[row][:tempEnd], tempLine[:tempEnd])
+	state.rowLengths[row] = tempEnd
+}
+
+// addCharRowLTR processes a single row for left-to-right character addition.
+func (state *renderState) addCharRowLTR(row int, rowRunes []rune, smushAmt int) {
+	end := state.rowLengths[row]
+
+	for k := 0; k < smushAmt; k++ {
+		column := state.outlineLen - smushAmt + k
+		if column < 0 {
+			column = 0
+		}
+
+		var existing rune
+		if column < end {
+			existing = state.outputLine[row][column]
+		}
+
+		if k < len(rowRunes) {
+			smushResult := state.smush(existing, rowRunes[k])
+			if smushResult != 0 {
+				state.outputLine[row][column] = smushResult
+				if column >= end {
+					end = column + 1
+				}
+				state.emitSmushDecision(row, column, existing, rowRunes[k], smushResult)
+			} else if column < end {
+				end = column
+			}
+		}
+	}
+
+	if smushAmt < len(rowRunes) {
+		remaining := rowRunes[smushAmt:]
+		startPos := end
+		copy(state.outputLine[row][end:], remaining)
+		end += len(remaining)
+		state.emitRowAppend(row, startPos, len(remaining), startPos, end)
+	}
+
+	state.rowLengths[row] = end
+}
+
+// emitSmushDecision emits a debug event for a smushing decision.
+func (state *renderState) emitSmushDecision(row, col int, lch, rch, result rune) {
+	if state.debug == nil {
+		return
+	}
+	state.debug.Emit("render", "SmushDecision", debug.SmushDecisionData{
+		Row:    row,
+		Col:    col,
+		Lch:    lch,
+		Rch:    rch,
+		Result: result,
+		Rule:   debug.ClassifySmushRule(lch, rch, result, state.smushMode),
+	})
+}
+
+// emitRowAppend emits a debug event for a row append operation.
+func (state *renderState) emitRowAppend(row, startPos, charCount, endBefore, endAfter int) {
+	if state.debug == nil {
+		return
+	}
+	state.debug.Emit("render", "RowAppend", debug.RowAppendData{
+		Row:       row,
+		StartPos:  startPos,
+		CharCount: charCount,
+		EndBefore: endBefore,
+		EndAfter:  endAfter,
+	})
 }
 
 // writeTo writes the rendered output directly to an io.Writer.
@@ -773,43 +693,10 @@ func (state *renderState) writeTo(w io.Writer) error {
 	}
 
 	for i, line := range state.outputLine {
-		// Extract only the actual content using row-specific length
-		actualLine := line[:state.rowLengths[i]]
-
-		// Process the line, replacing hardblanks and optionally trimming
-		lastNonSpace := len(actualLine) - 1
-		if state.trimWhitespace {
-			// Find last non-space character
-			for lastNonSpace >= 0 && actualLine[lastNonSpace] == ' ' {
-				lastNonSpace--
-			}
-		}
-
-		// Write runes to buffer, replacing hardblanks
-		buf = buf[:0] // Reset buffer
-		for j := 0; j <= lastNonSpace; j++ {
-			r := actualLine[j]
-			if r == state.hardblank {
-				r = ' '
-			}
-
-			// Append rune to buffer
-			buf = utf8.AppendRune(buf, r)
-
-			// Flush buffer if getting full (leave room for max rune size)
-			if len(buf) > 250 {
-				if _, err := w.Write(buf); err != nil {
-					return err
-				}
-				buf = buf[:0]
-			}
-		}
-
-		// Write any remaining buffer content
-		if len(buf) > 0 {
-			if _, err := w.Write(buf); err != nil {
-				return err
-			}
+		var err error
+		buf, err = state.writeRow(w, buf, line[:state.rowLengths[i]])
+		if err != nil {
+			return err
 		}
 
 		// Write newline between lines (but not after last line)
@@ -823,7 +710,43 @@ func (state *renderState) writeTo(w io.Writer) error {
 	return nil
 }
 
+// writeRow writes a single row of output to w, replacing hardblanks and optionally trimming.
+// It reuses buf for UTF-8 encoding and returns the (possibly reallocated) buffer.
+func (state *renderState) writeRow(w io.Writer, buf []byte, actualLine []rune) ([]byte, error) {
+	lastNonSpace := len(actualLine) - 1
+	if state.trimWhitespace {
+		for lastNonSpace >= 0 && actualLine[lastNonSpace] == ' ' {
+			lastNonSpace--
+		}
+	}
+
+	buf = buf[:0]
+	for j := 0; j <= lastNonSpace; j++ {
+		r := actualLine[j]
+		if r == state.hardblank {
+			r = ' '
+		}
+		buf = utf8.AppendRune(buf, r)
+
+		if len(buf) > 250 {
+			if _, err := w.Write(buf); err != nil {
+				return buf, err
+			}
+			buf = buf[:0]
+		}
+	}
+
+	if len(buf) > 0 {
+		if _, err := w.Write(buf); err != nil {
+			return buf, err
+		}
+	}
+
+	return buf, nil
+}
+
 // outputToString converts the output lines to a final string.
+//
 // Deprecated: Use writeTo for better performance.
 func (state *renderState) outputToString() string {
 	var sb strings.Builder

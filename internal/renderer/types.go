@@ -23,7 +23,7 @@ const (
 	// SMKern indicates kerning mode is active
 	SMKern = 64
 
-	// Smushing rules (bits 0-5)
+	// SMEqual is the equal character smushing rule (bit 0).
 	SMEqual     = 1  // Equal character rule
 	SMLowline   = 2  // Underscore rule
 	SMHierarchy = 4  // Hierarchy rule

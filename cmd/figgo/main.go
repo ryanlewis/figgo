@@ -104,39 +104,13 @@ func run() int {
 	text := strings.Join(args, " ")
 
 	// Setup debug if enabled
-	var debugSession interface{}
-	if debugMode || debugFile != "" || os.Getenv("FIGGO_DEBUG") == "1" {
-		// Enable debug mode
-		debug.SetEnabled(true)
-		// Initialize debug from environment
-		debug.InitFromEnv()
-
-		// Create output sink
-		var output io.Writer = os.Stderr
-		if debugFile != "" {
-			file, err := os.Create(debugFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating debug file: %v\n", err)
-				return 1
-			}
-			defer file.Close()
-			output = file
-		}
-
-		// Create sink based on format preference
-		var sink debug.Sink
-		if debugPretty || os.Getenv("FIGGO_DEBUG_PRETTY") == "1" {
-			sink = debug.NewPrettySink(output)
-		} else {
-			sink = debug.NewJSONSink(output)
-		}
-
-		// Create session
-		session := debug.NewSession(sink)
-		if session != nil {
-			defer session.Close()
-			debugSession = session
-		}
+	debugSession, debugCleanup, debugErr := setupDebug(debugMode, debugFile, debugPretty)
+	if debugErr != nil {
+		fmt.Fprintf(os.Stderr, "Error setting up debug: %v\n", debugErr)
+		return 1
+	}
+	if debugCleanup != nil {
+		defer debugCleanup()
 	}
 
 	// Build render options
@@ -153,11 +127,12 @@ func run() int {
 		renderOpts = append(renderOpts, figgo.WithTrimWhitespace(true))
 	}
 	// Layout mode flags are mutually exclusive
-	if fullWidth {
+	switch {
+	case fullWidth:
 		renderOpts = append(renderOpts, figgo.WithLayout(figgo.FitFullWidth))
-	} else if kernMode {
+	case kernMode:
 		renderOpts = append(renderOpts, figgo.WithLayout(figgo.FitKerning))
-	} else if smushMode {
+	case smushMode:
 		// Use smushing mode - this tells figgo to use the font's default smushing rules
 		// Don't specify any rules - let the font's layout be used
 		// This matches figlet's behavior when -s is specified (no override)
@@ -171,6 +146,48 @@ func run() int {
 
 	fmt.Println(output)
 	return 0
+}
+
+// setupDebug initializes the debug system and returns the session, a cleanup function, and any error.
+func setupDebug(debugMode bool, debugFile string, debugPretty bool) (interface{}, func(), error) {
+	if !debugMode && debugFile == "" && os.Getenv("FIGGO_DEBUG") != "1" {
+		return nil, nil, nil
+	}
+
+	debug.SetEnabled(true)
+	debug.InitFromEnv()
+
+	var output io.Writer = os.Stderr
+	var closers []func()
+
+	if debugFile != "" {
+		f, err := os.Create(debugFile)
+		if err != nil {
+			return nil, nil, err
+		}
+		output = f
+		closers = append(closers, func() { f.Close() })
+	}
+
+	var sink debug.Sink
+	if debugPretty || os.Getenv("FIGGO_DEBUG_PRETTY") == "1" {
+		sink = debug.NewPrettySink(output)
+	} else {
+		sink = debug.NewJSONSink(output)
+	}
+
+	session := debug.NewSession(sink)
+	if session != nil {
+		closers = append(closers, func() { session.Close() })
+	}
+
+	cleanup := func() {
+		for i := len(closers) - 1; i >= 0; i-- {
+			closers[i]()
+		}
+	}
+
+	return session, cleanup, nil
 }
 
 // parseUnknownRune parses the unknown rune flag value which can be in various formats:

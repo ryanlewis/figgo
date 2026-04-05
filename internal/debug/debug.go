@@ -101,7 +101,7 @@ func (s *Session) Emit(phase, event string, data interface{}) {
 
 	// Write errors are intentionally ignored - debug failures should not break normal operation
 	//nolint:errcheck // Debug sink errors are non-critical
-	s.sink.Write(evt)
+	s.sink.Write(&evt)
 }
 
 // Close flushes and closes the debug session.
@@ -126,11 +126,12 @@ func generateSessionID() string {
 	_, err := rand.Read(b)
 	if err != nil {
 		// Fallback to time-based ID if crypto/rand fails
+		n := time.Now().UnixNano()
 		return hex.EncodeToString([]byte{
-			byte(time.Now().UnixNano() >> 24),
-			byte(time.Now().UnixNano() >> 16),
-			byte(time.Now().UnixNano() >> 8),
-			byte(time.Now().UnixNano()),
+			byte(n >> 24 & 0xFF),
+			byte(n >> 16 & 0xFF),
+			byte(n >> 8 & 0xFF),
+			byte(n & 0xFF),
 		})
 	}
 	return hex.EncodeToString(b)

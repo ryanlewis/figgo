@@ -10,7 +10,7 @@ import (
 
 // Sink is the interface for debug output destinations.
 type Sink interface {
-	Write(event Event) error
+	Write(event *Event) error
 	Flush() error
 	Close() error
 }
@@ -31,7 +31,7 @@ func NewJSONSink(w io.Writer) *JSONSink {
 }
 
 // Write encodes and writes an event as a JSON line.
-func (s *JSONSink) Write(event Event) error {
+func (s *JSONSink) Write(event *Event) error {
 	return s.encoder.Encode(event)
 }
 
@@ -58,18 +58,18 @@ func NewPrettySink(w io.Writer) *PrettySink {
 }
 
 // Write formats and writes an event in human-readable format.
-func (s *PrettySink) Write(event Event) error {
+func (s *PrettySink) Write(event *Event) error {
 	// Format: [timestamp] [phase/event]
 	fmt.Fprintf(s.w, "[%s] [%s/%s] session=%s\n", event.Timestamp, event.Phase, event.Event, event.SessionID)
 
 	// Pretty print data based on type
 	switch d := event.Data.(type) {
 	case SmushAmountRowData:
-		s.writeSmushAmountRow(d)
+		s.writeSmushAmountRow(&d)
 	case SmushDecisionData:
 		s.writeSmushDecision(d)
 	case RenderStartData:
-		s.writeRenderStart(d)
+		s.writeRenderStart(&d)
 	case RenderEndData:
 		s.writeRenderEnd(d)
 	case GlyphData:
@@ -93,7 +93,7 @@ func (s *PrettySink) Write(event Event) error {
 	return nil
 }
 
-func (s *PrettySink) writeSmushAmountRow(d SmushAmountRowData) {
+func (s *PrettySink) writeSmushAmountRow(d *SmushAmountRowData) {
 	fmt.Fprintf(s.w, "  glyph: %d, row: %d\n", d.GlyphIdx, d.Row)
 	fmt.Fprintf(s.w, "  boundaries: line=%d (%s), char=%d (%s)\n",
 		d.LineBoundaryIdx, runeStr(d.Ch1),
@@ -111,7 +111,7 @@ func (s *PrettySink) writeSmushDecision(d SmushDecisionData) {
 	fmt.Fprintf(s.w, "  rule: %s\n", d.Rule)
 }
 
-func (s *PrettySink) writeRenderStart(d RenderStartData) {
+func (s *PrettySink) writeRenderStart(d *RenderStartData) {
 	fmt.Fprintf(s.w, "  text: %q (length: %d)\n", d.Text, d.TextLength)
 	fmt.Fprintf(s.w, "  char_height: %d, hardblank: %s\n", d.CharHeight, runeStr(d.Hardblank))
 	fmt.Fprintf(s.w, "  width_limit: %d, print_dir: %s\n", d.WidthLimit, dirStr(d.PrintDir))

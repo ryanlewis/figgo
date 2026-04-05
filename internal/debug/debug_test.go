@@ -101,7 +101,7 @@ func TestJSONSink(t *testing.T) {
 		Data:      map[string]int{"count": 42},
 	}
 
-	if err := sink.Write(event); err != nil {
+	if err := sink.Write(&event); err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}
 	if err := sink.Flush(); err != nil {
@@ -141,7 +141,7 @@ func TestPrettySink(t *testing.T) {
 		},
 	}
 
-	if err := sink.Write(event); err != nil {
+	if err := sink.Write(&event); err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}
 	if err := sink.Flush(); err != nil {

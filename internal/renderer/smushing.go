@@ -46,147 +46,139 @@ func (state *renderState) smush(lch, rch rune) rune {
 
 	// Universal smushing mode (no specific rules set)
 	if (state.smushMode & 63) == 0 {
-		// This is smushing by universal overlapping
+		return state.smushUniversal(lch, rch)
+	}
 
-		// Handle hardblanks - prefer visible characters
-		if lch == state.hardblank {
-			return rch
-		}
-		if rch == state.hardblank {
-			return lch
-		}
+	return state.smushControlled(lch, rch)
+}
 
-		// For right-to-left, prefer left character (latter in user's text)
-		if state.right2left == 1 {
-			return lch
-		}
-
-		// Default: prefer right character
+// smushUniversal handles universal smushing (no specific rules set).
+func (state *renderState) smushUniversal(lch, rch rune) rune {
+	// Handle hardblanks - prefer visible characters
+	if lch == state.hardblank {
 		return rch
 	}
-
-	// Controlled smushing rules - check in order of precedence
-
-	// Rule 6: Hardblank smushing
-	if (state.smushMode & SMHardblank) != 0 {
-		if lch == state.hardblank && rch == state.hardblank {
-			return lch
-		}
+	if rch == state.hardblank {
+		return lch
 	}
 
-	// If either character is hardblank and we're not doing hardblank rule, no smushing
+	// For right-to-left, prefer left character (latter in user's text)
+	if state.right2left == 1 {
+		return lch
+	}
+	return rch
+}
+
+// smushControlled applies controlled smushing rules in order of precedence.
+func (state *renderState) smushControlled(lch, rch rune) rune {
+	// Rule 6: Hardblank smushing
+	if (state.smushMode&SMHardblank) != 0 && lch == state.hardblank && rch == state.hardblank {
+		return lch
+	}
+
+	// If either character is hardblank, no further smushing
 	if lch == state.hardblank || rch == state.hardblank {
 		return 0
 	}
 
 	// Rule 1: Equal character smushing
-	if (state.smushMode & SMEqual) != 0 {
-		if lch == rch {
-			return lch
-		}
+	if (state.smushMode&SMEqual) != 0 && lch == rch {
+		return lch
 	}
 
 	// Rule 2: Underscore smushing
-	if (state.smushMode & SMLowline) != 0 {
-		if lch == '_' && underscoreBorders[rch] {
-			return rch
-		}
-		if rch == '_' && underscoreBorders[lch] {
-			return lch
-		}
+	if r := smushUnderscore(lch, rch, state.smushMode); r != 0 {
+		return r
 	}
 
 	// Rule 3: Hierarchy smushing
-	// Character hierarchy (strongest to weakest):
-	// Level 0: | (strongest)
-	// Level 1: /\
-	// Level 2: []
-	// Level 3: {}
-	// Level 4: ()
-	// Level 5: <> (weakest)
-	//
-	// When two characters from different hierarchy classes meet,
-	// the WEAKER character is returned (opposite of what the spec implies).
-	// This matches figlet.c's actual implementation.
-	if (state.smushMode & SMHierarchy) != 0 {
-		// "|" with weaker class → return the weaker character
-		if lch == '|' && hierarchyLevel1[rch] {
-			return rch // return the weaker character
-		}
-		if rch == '|' && hierarchyLevel1[lch] {
-			return lch // return the weaker character
-		}
-
-		// "/\" with weaker class → return the weaker character
-		if (lch == '/' || lch == '\\') && hierarchyLevel2[rch] {
-			return rch // return the weaker character
-		}
-		if (rch == '/' || rch == '\\') && hierarchyLevel2[lch] {
-			return lch // return the weaker character
-		}
-
-		// "[]" with weaker class → return the weaker character
-		if (lch == '[' || lch == ']') && hierarchyLevel3[rch] {
-			return rch // return the weaker character
-		}
-		if (rch == '[' || rch == ']') && hierarchyLevel3[lch] {
-			return lch // return the weaker character
-		}
-
-		// "{}" with weaker class → return the weaker character
-		if (lch == '{' || lch == '}') && hierarchyLevel4[rch] {
-			return rch // return the weaker character
-		}
-		if (rch == '{' || rch == '}') && hierarchyLevel4[lch] {
-			return lch // return the weaker character
-		}
-
-		// "()" with weaker class → return the weaker character
-		if (lch == '(' || lch == ')') && hierarchyLevel5[rch] {
-			return rch // return the weaker character
-		}
-		if (rch == '(' || rch == ')') && hierarchyLevel5[lch] {
-			return lch // return the weaker character
-		}
+	if r := smushHierarchy(lch, rch, state.smushMode); r != 0 {
+		return r
 	}
 
 	// Rule 4: Opposite pair smushing
-	if (state.smushMode & SMPair) != 0 {
-		if lch == '[' && rch == ']' {
-			return '|'
-		}
-		if rch == '[' && lch == ']' {
-			return '|'
-		}
-		if lch == '{' && rch == '}' {
-			return '|'
-		}
-		if rch == '{' && lch == '}' {
-			return '|'
-		}
-		if lch == '(' && rch == ')' {
-			return '|'
-		}
-		if rch == '(' && lch == ')' {
-			return '|'
-		}
+	if r := smushPair(lch, rch, state.smushMode); r != 0 {
+		return r
 	}
 
 	// Rule 5: Big X smushing
-	if (state.smushMode & SMBigX) != 0 {
-		if lch == '/' && rch == '\\' {
-			return '|'
-		}
-		if rch == '/' && lch == '\\' {
-			return 'Y'
-		}
-		if lch == '>' && rch == '<' {
-			return 'X'
-		}
-		// Note: Don't want the reverse of above to give 'X'
+	if r := smushBigX(lch, rch, state.smushMode); r != 0 {
+		return r
 	}
 
-	// No smushing rule matched
+	return 0
+}
+
+// smushUnderscore applies underscore smushing (Rule 2).
+func smushUnderscore(lch, rch rune, smushMode int) rune {
+	if (smushMode & SMLowline) == 0 {
+		return 0
+	}
+	if lch == '_' && underscoreBorders[rch] {
+		return rch
+	}
+	if rch == '_' && underscoreBorders[lch] {
+		return lch
+	}
+	return 0
+}
+
+// hierarchyLevel maps hierarchy characters to their class level.
+// Lower level = stronger. Returns -1 if not a hierarchy character.
+var hierarchyLevelMap = map[rune]int{
+	'|': 0, '/': 1, '\\': 1,
+	'[': 2, ']': 2, '{': 3, '}': 3,
+	'(': 4, ')': 4, '<': 5, '>': 5,
+}
+
+// smushHierarchy applies hierarchy smushing (Rule 3).
+// The WEAKER character is returned, matching figlet.c's implementation.
+func smushHierarchy(lch, rch rune, smushMode int) rune {
+	if (smushMode & SMHierarchy) == 0 {
+		return 0
+	}
+
+	lLevel, lOk := hierarchyLevelMap[lch]
+	rLevel, rOk := hierarchyLevelMap[rch]
+	if !lOk || !rOk || lLevel == rLevel {
+		return 0
+	}
+
+	// Return the character from the STRONGER (lower level) class
+	if lLevel < rLevel {
+		return rch
+	}
+	return lch
+}
+
+// smushPair applies opposite pair smushing (Rule 4).
+func smushPair(lch, rch rune, smushMode int) rune {
+	if (smushMode & SMPair) == 0 {
+		return 0
+	}
+	switch {
+	case lch == '[' && rch == ']', rch == '[' && lch == ']',
+		lch == '{' && rch == '}', rch == '{' && lch == '}',
+		lch == '(' && rch == ')', rch == '(' && lch == ')':
+		return '|'
+	}
+	return 0
+}
+
+// smushBigX applies Big X smushing (Rule 5).
+func smushBigX(lch, rch rune, smushMode int) rune {
+	if (smushMode & SMBigX) == 0 {
+		return 0
+	}
+	if lch == '/' && rch == '\\' {
+		return '|'
+	}
+	if rch == '/' && lch == '\\' {
+		return 'Y'
+	}
+	if lch == '>' && rch == '<' {
+		return 'X'
+	}
 	return 0
 }
 
@@ -215,173 +207,165 @@ func (state *renderState) smush(lch, rch rune) rune {
 // - Characters that can smush together allow additional overlap (+1)
 // - First character in a line gets special handling
 func (state *renderState) smushAmount() int {
-	// Get a pooled rune buffer for conversions
-	runeBuffer := acquireRuneSlice()
-	defer releaseRuneSlice(runeBuffer)
 	// If not in kerning or smushing mode, no overlap
 	if (state.smushMode & (SMSmush | SMKern)) == 0 {
 		return 0
 	}
 
-	// Calculate overlap even for the first character
+	// Get a pooled rune buffer for conversions
+	runeBuffer := acquireRuneSlice()
+	defer releaseRuneSlice(runeBuffer)
 
 	maxSmush := state.currentCharWidth
 
 	for row := 0; row < state.charHeight; row++ {
-		var amt int
-		var ch1, ch2 rune
-		var lineBoundary, charBoundary int // Declare here for debug access
+		// Apply RTL cap before row calculation
+		if state.right2left != 0 && maxSmush > len(state.outputLine[row]) {
+			maxSmush = len(state.outputLine[row])
+		}
 
+		var rowResult smushRowResult
 		if state.right2left != 0 {
-			// Right-to-left processing
-			if maxSmush > len(state.outputLine[row]) {
-				maxSmush = len(state.outputLine[row])
-			}
-
-			// Find rightmost non-space in current character
-			// Use pooled buffer for rune conversion
-			rowStr := state.currentChar[row]
-			needed := len(rowStr)
-			if cap(runeBuffer) < needed {
-				runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
-			} else {
-				runeBuffer = runeBuffer[:0]
-			}
-			for _, r := range rowStr {
-				runeBuffer = append(runeBuffer, r)
-			}
-			currRunes := runeBuffer
-
-			// Match figlet.c: charbd is the INDEX of the rightmost non-space
-			// for (charbd=STRLEN(currchar[row]); ch1=currchar[row][charbd],(charbd>0&&(!ch1||ch1==' ')); charbd--);
-			charBoundary = len(currRunes)
-			for {
-				// Get character at current position (like figlet.c accessing currchar[charbd])
-				if charBoundary < len(currRunes) {
-					ch1 = currRunes[charBoundary]
-				} else {
-					ch1 = 0 // Null terminator equivalent
-				}
-				// Continue while: charbd > 0 && (!ch1 || ch1 == ' ')
-				if !(charBoundary > 0 && (ch1 == 0 || ch1 == ' ')) {
-					break
-				}
-				charBoundary--
-			}
-
-			// Find leftmost non-space in output line
-			// Use rowLengths[row] for actual content length, not buffer size
-			lineBoundary = 0
-			for lineBoundary < state.rowLengths[row] {
-				ch2 = state.outputLine[row][lineBoundary]
-				if ch2 != ' ' {
-					break
-				}
-				lineBoundary++
-			}
-
-			amt = lineBoundary + state.currentCharWidth - 1 - charBoundary
+			runeBuffer, rowResult = state.smushAmountRTL(row, runeBuffer, maxSmush)
 		} else {
-			// Left-to-right processing
-			// Find the rightmost non-space character in output line
-			// Start at the position after the last character (like figlet.c's STRLEN)
-			lineBoundary = state.rowLengths[row]
-
-			// Find rightmost non-space in output line
-			// This matches figlet.c: for (linebd=STRLEN(outputline[row]); ...; linebd--)
-			for {
-				// Get character at linebd position
-				// When linebd == rowLengths[row], we're at the "null terminator" position
-				if lineBoundary < state.rowLengths[row] {
-					ch1 = state.outputLine[row][lineBoundary]
-				} else {
-					ch1 = 0 // Treat as null terminator at end
-				}
-
-				// Check condition: linebd>0 && (!ch1 || ch1==' ')
-				if !(lineBoundary > 0 && (ch1 == 0 || ch1 == ' ')) {
-					break
-				}
-				lineBoundary--
-			}
-			// Now lineBd points to rightmost non-space character
-			// ch1 already has the correct value from the loop above
-
-			// Find the leftmost non-space character in the current character
-			// Find leftmost non-space in current character
-			charBoundary = 0
-			// Use pooled buffer for rune conversion
-			rowStr := state.currentChar[row]
-			needed := len(rowStr)
-			if cap(runeBuffer) < needed {
-				runeBuffer = make([]rune, 0, needed) // length 0, capacity needed
-			} else {
-				runeBuffer = runeBuffer[:0]
-			}
-			for _, r := range rowStr {
-				runeBuffer = append(runeBuffer, r)
-			}
-			currRunes := runeBuffer
-
-			// Loop until we find a non-space or reach the end
-			for {
-				// Get character at charbd position
-				if charBoundary < len(currRunes) {
-					ch2 = currRunes[charBoundary]
-				} else {
-					ch2 = 0 // Treat as null when past end
-					break   // Exit loop when we hit the "null terminator"
-				}
-
-				// Check if it's a space - if not, exit loop
-				if ch2 != ' ' {
-					break
-				}
-				charBoundary++
-			}
-			// charBd is the 0-based index of leftmost non-space (or length if all spaces)
-			// ch2 has the character at that position (or 0 if all spaces)
-
-			// Calculate overlap amount
-			amt = charBoundary + state.outlineLen - 1 - lineBoundary
+			runeBuffer, rowResult = state.smushAmountLTR(row, runeBuffer)
 		}
 
 		// Adjust amount based on character overlap rules
-		// These adjustments determine if characters can overlap by one more position:
-		// 1. If boundary character is null, safe to overlap (+1)
-		// 2. If both characters exist and can smush, safe to overlap (+1)
-		// 3. Otherwise, maintain current overlap amount (no adjustment)
-		amtBefore := amt
-		reason := "none"
-		if ch1 == 0 {
-			amt++
-			reason = "ch1_null"
-		} else if ch2 != 0 && state.smush(ch1, ch2) != 0 {
-			amt++
-			reason = "smushable"
-		}
+		amt, reason := state.adjustSmushAmount(rowResult)
 
 		// Emit debug event for this row's calculation
 		if state.debug != nil {
 			state.debug.Emit("render", "SmushAmountRow", debug.SmushAmountRowData{
 				GlyphIdx:        state.inputCount,
 				Row:             row,
-				LineBoundaryIdx: lineBoundary,
-				CharBoundaryIdx: charBoundary,
-				Ch1:             ch1,
-				Ch2:             ch2,
-				AmountBefore:    amtBefore,
+				LineBoundaryIdx: rowResult.lineBoundary,
+				CharBoundaryIdx: rowResult.charBoundary,
+				Ch1:             rowResult.ch1,
+				Ch2:             rowResult.ch2,
+				AmountBefore:    rowResult.amt,
 				AmountAfter:     amt,
 				Reason:          reason,
 				RTL:             state.right2left != 0,
 			})
 		}
 
-		// Take minimum overlap across all rows
 		if amt < maxSmush {
 			maxSmush = amt
 		}
 	}
 
 	return maxSmush
+}
+
+// smushRowResult holds the boundary calculation results for a single row.
+type smushRowResult struct {
+	amt          int
+	ch1, ch2     rune
+	lineBoundary int
+	charBoundary int
+}
+
+// adjustSmushAmount applies the final overlap adjustment based on boundary characters.
+func (state *renderState) adjustSmushAmount(r smushRowResult) (int, string) {
+	amt := r.amt
+	if r.ch1 == 0 {
+		return amt + 1, "ch1_null"
+	}
+	if r.ch2 != 0 && state.smush(r.ch1, r.ch2) != 0 {
+		return amt + 1, "smushable"
+	}
+	return amt, "none"
+}
+
+// smushAmountRTL calculates the overlap for a single row in RTL mode.
+func (state *renderState) smushAmountRTL(row int, runeBuffer []rune, _ int) ([]rune, smushRowResult) {
+	var r smushRowResult
+
+	// Find rightmost non-space in current character
+	rowStr := state.currentChar[row]
+	runeBuffer = runeBufferFromString(runeBuffer, rowStr)
+	currRunes := runeBuffer
+
+	// Match figlet.c: charbd is the INDEX of the rightmost non-space
+	r.charBoundary = len(currRunes)
+	for {
+		if r.charBoundary < len(currRunes) {
+			r.ch1 = currRunes[r.charBoundary]
+		} else {
+			r.ch1 = 0
+		}
+		if r.charBoundary <= 0 || (r.ch1 != 0 && r.ch1 != ' ') {
+			break
+		}
+		r.charBoundary--
+	}
+
+	// Find leftmost non-space in output line
+	r.lineBoundary = 0
+	for r.lineBoundary < state.rowLengths[row] {
+		r.ch2 = state.outputLine[row][r.lineBoundary]
+		if r.ch2 != ' ' {
+			break
+		}
+		r.lineBoundary++
+	}
+
+	r.amt = r.lineBoundary + state.currentCharWidth - 1 - r.charBoundary
+	return runeBuffer, r
+}
+
+// smushAmountLTR calculates the overlap for a single row in LTR mode.
+func (state *renderState) smushAmountLTR(row int, runeBuffer []rune) ([]rune, smushRowResult) {
+	var r smushRowResult
+
+	// Find the rightmost non-space character in output line
+	r.lineBoundary = state.rowLengths[row]
+	for {
+		if r.lineBoundary < state.rowLengths[row] {
+			r.ch1 = state.outputLine[row][r.lineBoundary]
+		} else {
+			r.ch1 = 0
+		}
+		if r.lineBoundary <= 0 || (r.ch1 != 0 && r.ch1 != ' ') {
+			break
+		}
+		r.lineBoundary--
+	}
+
+	// Find the leftmost non-space in current character
+	r.charBoundary = 0
+	rowStr := state.currentChar[row]
+	runeBuffer = runeBufferFromString(runeBuffer, rowStr)
+	currRunes := runeBuffer
+
+	for {
+		if r.charBoundary < len(currRunes) {
+			r.ch2 = currRunes[r.charBoundary]
+		} else {
+			r.ch2 = 0
+			break
+		}
+		if r.ch2 != ' ' {
+			break
+		}
+		r.charBoundary++
+	}
+
+	r.amt = r.charBoundary + state.outlineLen - 1 - r.lineBoundary
+	return runeBuffer, r
+}
+
+// runeBufferFromString converts a string to runes using a pooled buffer.
+func runeBufferFromString(buf []rune, s string) []rune {
+	needed := len(s)
+	if cap(buf) < needed {
+		buf = make([]rune, 0, needed)
+	} else {
+		buf = buf[:0]
+	}
+	for _, r := range s {
+		buf = append(buf, r)
+	}
+	return buf
 }

@@ -51,10 +51,9 @@ func parseGoldenFile(path string) (*goldenMetadata, string, error) {
 			if !inFrontMatter {
 				inFrontMatter = true
 				continue
-			} else {
-				// End of front matter
-				break
 			}
+			// End of front matter
+			break
 		}
 
 		if inFrontMatter {
@@ -104,10 +103,13 @@ func parseGoldenFile(path string) (*goldenMetadata, string, error) {
 	return metadata, art, nil
 }
 
+// Layout name used in golden files for font default layout.
+const goldenLayoutDefault = "default"
+
 // mapLayoutString converts layout string from golden file to Layout constant
 func mapLayoutString(layout string) Layout {
 	switch layout {
-	case "default":
+	case goldenLayoutDefault:
 		// Return 0 to use font's default layout
 		return 0
 	case "full":
@@ -182,7 +184,7 @@ func TestGoldenFiles(t *testing.T) {
 
 			// Map layout string to Layout constant
 			// Special handling for "default" - don't pass any layout option to use font's default
-			if metadata.Layout != "default" {
+			if metadata.Layout != goldenLayoutDefault {
 				layout := mapLayoutString(metadata.Layout)
 				// Always add the layout option, even if it's 0 (FitFullWidth)
 				// This ensures we override the font's default layout
@@ -287,7 +289,7 @@ func TestGoldenFilesSubset(t *testing.T) {
 			// Construct golden file path
 			slug := slugify(tc.sample)
 			layoutName := getLayoutName(tc.layout)
-			goldenFile := filepath.Join("testdata/goldens", tc.font, layoutName, slug+".md")
+			goldenFile := filepath.Join("testdata", "goldens", tc.font, layoutName, slug+".md")
 
 			// Check if golden file exists
 			if _, err := os.Stat(goldenFile); os.IsNotExist(err) {
@@ -311,7 +313,7 @@ func TestGoldenFilesSubset(t *testing.T) {
 			opts := []Option{}
 			// Always add layout option unless it's "default"
 			// Note: FitFullWidth == 0, so we can't check layout != 0
-			if tc.layout != "default" {
+			if tc.layout != goldenLayoutDefault {
 				layout := mapLayoutString(tc.layout)
 				opts = append(opts, WithLayout(layout))
 			}
@@ -381,8 +383,8 @@ func slugify(s string) string {
 
 func getLayoutName(layout string) string {
 	switch layout {
-	case "default":
-		return "default"
+	case goldenLayoutDefault:
+		return goldenLayoutDefault
 	case "full":
 		return "full-width"
 	case "kern":

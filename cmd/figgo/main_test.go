@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -81,7 +82,10 @@ func TestParseUnknownRune(t *testing.T) {
 
 // projectRoot returns the absolute path to the project root directory.
 func projectRoot() string {
-	_, file, _, _ := runtime.Caller(0)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("runtime.Caller failed")
+	}
 	// cmd/figgo/main_test.go -> project root
 	return filepath.Dir(filepath.Dir(filepath.Dir(file)))
 }
@@ -98,7 +102,7 @@ func TestCLIConcurrentSubprocesses(t *testing.T) {
 
 	// Build the binary once for all concurrent invocations
 	binPath := t.TempDir() + "/figgo-test"
-	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", binPath, ".")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to build binary: %v\n%s", err, out)
 	}
@@ -134,7 +138,7 @@ func TestCLIConcurrentSubprocesses(t *testing.T) {
 			go func(text, font string) {
 				defer wg.Done()
 
-				cmd := exec.Command(binPath, "-f", font, text)
+				cmd := exec.CommandContext(context.Background(), binPath, "-f", font, text)
 				var stdout, stderr bytes.Buffer
 				cmd.Stdout = &stdout
 				cmd.Stderr = &stderr

@@ -120,29 +120,39 @@ func isUnderscoreBorder(r rune) bool {
 	return false
 }
 
+// hierarchyClass returns the hierarchy class for a rune, or -1 if not a hierarchy character.
+// Higher class = stronger. Class 0 is strongest ('|'), class 4 is weakest ('<>').
+func hierarchyClass(r rune) int {
+	switch r {
+	case '|':
+		return 0
+	case '/', '\\':
+		return 1
+	case '[', ']':
+		return 2
+	case '{', '}':
+		return 3
+	case '(', ')':
+		return 4
+	case '<', '>':
+		return 5
+	default:
+		return -1
+	}
+}
+
 // isHierarchySmush checks if the result follows hierarchy smushing rules.
 func isHierarchySmush(lch, rch, result rune) bool {
-	// '|' beats everything except itself
-	if result == '|' && (lch == '|' || rch == '|') {
-		return true
+	resultClass := hierarchyClass(result)
+	if resultClass < 0 {
+		return false
 	}
-	// '/\' beats '[]', '{}', '()', '<>'
-	if (result == '/' || result == '\\') && (lch == '/' || lch == '\\' || rch == '/' || rch == '\\') {
-		return true
-	}
-	// '[]' beats '{}', '()', '<>'
-	if (result == '[' || result == ']') && (lch == '[' || lch == ']' || rch == '[' || rch == ']') {
-		return true
-	}
-	// '{}' beats '()', '<>'
-	if (result == '{' || result == '}') && (lch == '{' || lch == '}' || rch == '{' || rch == '}') {
-		return true
-	}
-	// '()' beats '<>'
-	if (result == '(' || result == ')') && (lch == '(' || lch == ')' || rch == '(' || rch == ')') {
-		return true
-	}
-	return false
+	lClass := hierarchyClass(lch)
+	rClass := hierarchyClass(rch)
+	// Result must match one of the input characters' class,
+	// and that character must be from a stronger (lower number) class than the other
+	return (resultClass == lClass && lClass < rClass) ||
+		(resultClass == rClass && rClass < lClass)
 }
 
 // isPairSmush checks if the characters form an opposite pair.

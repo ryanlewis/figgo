@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -165,7 +166,7 @@ func generateGoldenFile(font, layout, layoutName, sample, figletVersion string) 
 }
 
 func getFigletVersion(figletPath string) string {
-	cmd := exec.Command(figletPath, "-v")
+	cmd := exec.CommandContext(context.Background(), figletPath, "-v")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "unknown"
@@ -192,7 +193,7 @@ func getFigletInfo(figletPath, font string, args ...string) string {
 	cmdArgs = append(cmdArgs, "-f", font)
 	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.Command(figletPath, cmdArgs...)
+	cmd := exec.CommandContext(context.Background(), figletPath, cmdArgs...)
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -215,7 +216,7 @@ func getLayoutArgs(layout string) string {
 	case "smush":
 		// Check if figlet supports -s
 		//nolint:gosec // figlet path is from trusted flag, not user input
-		cmd := exec.Command(*figlet, "-s", "-f", "standard")
+		cmd := exec.CommandContext(context.Background(), *figlet, "-s", "-f", "standard")
 		cmd.Stdin = strings.NewReader("test")
 		if err := cmd.Run(); err == nil {
 			return "-s"
@@ -250,7 +251,7 @@ func generateArt(figletPath, font, sample, layoutArgs string) (string, error) {
 		cmdArgs = append(cmdArgs, strings.Fields(layoutArgs)...)
 	}
 
-	cmd := exec.Command(figletPath, cmdArgs...)
+	cmd := exec.CommandContext(context.Background(), figletPath, cmdArgs...)
 	cmd.Stdin = strings.NewReader(sample)
 	output, err := cmd.Output()
 	if err != nil {

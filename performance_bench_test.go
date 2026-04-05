@@ -10,6 +10,8 @@ const (
 	benchLayoutFullWidth = FitFullWidth
 	benchLayoutKerning   = FitKerning
 	benchLayoutSmushing  = FitSmushing | RuleEqualChar | RuleUnderscore | RuleHierarchy | RuleOppositePair | RuleBigX | RuleHardblank
+
+	benchTextQuickBrownFox = "The quick brown fox"
 )
 
 // BenchmarkPRDTargets benchmarks the specific performance targets from the PRD
@@ -21,7 +23,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 	}
 
 	b.Run("QuickBrownFox_FullWidth", func(b *testing.B) {
-		text := "The quick brown fox"
+		text := benchTextQuickBrownFox
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -31,7 +33,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 	})
 
 	b.Run("QuickBrownFox_Kerning", func(b *testing.B) {
-		text := "The quick brown fox"
+		text := benchTextQuickBrownFox
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -41,7 +43,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 	})
 
 	b.Run("QuickBrownFox_Smushing", func(b *testing.B) {
-		text := "The quick brown fox"
+		text := benchTextQuickBrownFox
 		b.ReportAllocs()
 		b.ResetTimer()
 
@@ -51,7 +53,7 @@ func BenchmarkPRDTargets(b *testing.B) {
 	})
 
 	b.Run("QuickBrownFox_RenderTo", func(b *testing.B) {
-		text := "The quick brown fox"
+		text := benchTextQuickBrownFox
 		var buf bytes.Buffer
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -76,7 +78,7 @@ func BenchmarkAllocationTarget(b *testing.B) {
 	}{
 		{"SingleWord", "Hello"},
 		{"TwoWords", "Hello World"},
-		{"ShortSentence", "The quick brown fox"},
+		{"ShortSentence", benchTextQuickBrownFox},
 		{"LongSentence", "The quick brown fox jumps over the lazy dog"},
 	}
 
@@ -125,9 +127,9 @@ func BenchmarkThroughputTarget(b *testing.B) {
 		{"ShortText_FullWidth", "Hello", benchLayoutFullWidth},
 		{"ShortText_Kerning", "Hello", benchLayoutKerning},
 		{"ShortText_Smushing", "Hello", benchLayoutSmushing},
-		{"MediumText_FullWidth", "The quick brown fox", benchLayoutFullWidth},
-		{"MediumText_Kerning", "The quick brown fox", benchLayoutKerning},
-		{"MediumText_Smushing", "The quick brown fox", benchLayoutSmushing},
+		{"MediumText_FullWidth", benchTextQuickBrownFox, benchLayoutFullWidth},
+		{"MediumText_Kerning", benchTextQuickBrownFox, benchLayoutKerning},
+		{"MediumText_Smushing", benchTextQuickBrownFox, benchLayoutSmushing},
 		{"LongText_FullWidth", "The quick brown fox jumps over the lazy dog", benchLayoutFullWidth},
 		{"LongText_Kerning", "The quick brown fox jumps over the lazy dog", benchLayoutKerning},
 		{"LongText_Smushing", "The quick brown fox jumps over the lazy dog", benchLayoutSmushing},
@@ -205,7 +207,7 @@ func BenchmarkConcurrentRendering(b *testing.B) {
 	texts := []string{
 		"Hello",
 		"World",
-		"The quick brown fox",
+		benchTextQuickBrownFox,
 		"Go",
 		"FIGlet",
 	}
@@ -254,7 +256,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 	}{
 		{"VeryShort", "Hi"},
 		{"Short", "Hello"},
-		{"Medium", "The quick brown fox"},
+		{"Medium", benchTextQuickBrownFox},
 		{"Long", "The quick brown fox jumps over the lazy dog"},
 		{"VeryLong", "The quick brown fox jumps over the lazy dog every single day of the week"},
 	}
@@ -277,7 +279,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 
 // BenchmarkEndToEnd measures complete workflow including font loading
 func BenchmarkEndToEnd(b *testing.B) {
-	text := "The quick brown fox"
+	text := benchTextQuickBrownFox
 
 	b.Run("LoadAndRender", func(b *testing.B) {
 		b.ReportAllocs()

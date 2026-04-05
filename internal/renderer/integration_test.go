@@ -347,11 +347,14 @@ func TestIntegrationComplexScenarios(t *testing.T) {
 	}
 }
 
+// testTextHelloWorld is a common test string used across integration tests and benchmarks.
+const testTextHelloWorld = "HELLO WORLD"
+
 func TestIntegrationLargeText(t *testing.T) {
 	font := createTestFont()
 
 	// Test with a longer string
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 	opts := &Options{Layout: 0} // Full width
 
 	got, err := Render(text, font, opts)
@@ -381,7 +384,7 @@ func BenchmarkRenderFullWidth(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, _ = Render("HELLO WORLD", font, opts)
+		_, _ = Render(testTextHelloWorld, font, opts)
 	}
 }
 
@@ -391,7 +394,7 @@ func BenchmarkRenderKerning(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, _ = Render("HELLO WORLD", font, nil)
+		_, _ = Render(testTextHelloWorld, font, nil)
 	}
 }
 
@@ -401,7 +404,7 @@ func BenchmarkRenderSmushing(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, _ = Render("HELLO WORLD", font, opts)
+		_, _ = Render(testTextHelloWorld, font, opts)
 	}
 }
 
@@ -411,6 +414,6 @@ func BenchmarkRenderRTLDirection(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, _ = Render("HELLO WORLD", font, nil)
+		_, _ = Render(testTextHelloWorld, font, nil)
 	}
 }

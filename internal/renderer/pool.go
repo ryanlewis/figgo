@@ -256,35 +256,6 @@ var (
 		'[': true, ']': true, '{': true, '}': true,
 		'(': true, ')': true, '<': true, '>': true,
 	}
-
-	// Hierarchy level 1: can be replaced by |
-	hierarchyLevel1 = map[rune]bool{
-		'/': true, '\\': true,
-		'[': true, ']': true, '{': true, '}': true,
-		'(': true, ')': true, '<': true, '>': true,
-	}
-
-	// Hierarchy level 2: can be replaced by /\
-	hierarchyLevel2 = map[rune]bool{
-		'[': true, ']': true, '{': true, '}': true,
-		'(': true, ')': true, '<': true, '>': true,
-	}
-
-	// Hierarchy level 3: can be replaced by []
-	hierarchyLevel3 = map[rune]bool{
-		'{': true, '}': true,
-		'(': true, ')': true, '<': true, '>': true,
-	}
-
-	// Hierarchy level 4: can be replaced by {}
-	hierarchyLevel4 = map[rune]bool{
-		'(': true, ')': true, '<': true, '>': true,
-	}
-
-	// Hierarchy level 5: can be replaced by ()
-	hierarchyLevel5 = map[rune]bool{
-		'<': true, '>': true,
-	}
 )
 
 // Pre-calculated capacity for strings.Builder based on typical output

@@ -285,7 +285,7 @@ func createBenchmarkFont() *parser.Font {
 func BenchmarkRenderOptimized(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 6)} // Kerning mode
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -313,7 +313,7 @@ func BenchmarkRenderLongText(b *testing.B) {
 func BenchmarkRenderRTL(b *testing.B) {
 	font := createBenchmarkFont()
 	font.PrintDirection = 1
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -327,7 +327,7 @@ func BenchmarkRenderRTL(b *testing.B) {
 func BenchmarkRenderWithSmushing(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 7) | 63} // All smushing rules
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -341,7 +341,7 @@ func BenchmarkRenderWithSmushing(b *testing.B) {
 func BenchmarkRenderParallel(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 6)} // Kerning mode
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -357,7 +357,7 @@ func BenchmarkRenderParallel(b *testing.B) {
 func BenchmarkRenderTo(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 6)} // Kerning mode
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -371,7 +371,7 @@ func BenchmarkRenderTo(b *testing.B) {
 func BenchmarkRenderToBuffer(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 6)} // Kerning mode
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 	var buf bytes.Buffer
 
 	b.ResetTimer()
@@ -417,7 +417,7 @@ func BenchmarkRenderVsRenderTo(b *testing.B) {
 func BenchmarkRenderToParallel(b *testing.B) {
 	font := createBenchmarkFont()
 	opts := &Options{Layout: (1 << 6)} // Kerning mode
-	text := "HELLO WORLD"
+	text := testTextHelloWorld
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -440,7 +440,7 @@ func BenchmarkSimpleText(b *testing.B) {
 		text string
 	}{
 		{"Single Word", "HELLO"},
-		{"Two Words", "HELLO WORLD"},
+		{"Two Words", testTextHelloWorld},
 		{"Short Sentence", "WELCOME TO FIGGO"},
 		{"Long Sentence", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"},
 		{"Single Char", "A"},
@@ -466,7 +466,7 @@ func BenchmarkSimpleTextRenderTo(b *testing.B) {
 		text string
 	}{
 		{"Single Word", "HELLO"},
-		{"Two Words", "HELLO WORLD"},
+		{"Two Words", testTextHelloWorld},
 		{"Short Sentence", "WELCOME TO FIGGO"},
 		{"Long Sentence", "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"},
 		{"Single Char", "A"},

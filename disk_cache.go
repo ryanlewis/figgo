@@ -14,6 +14,7 @@ import (
 var diskCacheMagic = [6]byte{'F', 'I', 'G', 'G', 'O', 0}
 
 const diskCacheVersion uint16 = 1
+const diskCacheHeaderSize = 8 // 6-byte magic + 2-byte version
 
 // DiskCacheConfig configures the on-disk font cache.
 type DiskCacheConfig struct {
@@ -71,7 +72,7 @@ func fontToGobEntry(f *Font) fontGobEntry {
 	}
 }
 
-func gobEntryToFont(e fontGobEntry) *Font {
+func gobEntryToFont(e *fontGobEntry) *Font {
 	// Gob decoder allocates fresh maps/slices, so no deep copy needed.
 	return &Font{
 		glyphs:         e.Glyphs,
@@ -104,7 +105,7 @@ func encodeFont(f *Font) ([]byte, error) {
 }
 
 func decodeFont(data []byte) (*Font, error) {
-	if len(data) < 8 {
+	if len(data) < diskCacheHeaderSize {
 		return nil, fmt.Errorf("data too short: %d bytes", len(data))
 	}
 
@@ -114,18 +115,18 @@ func decodeFont(data []byte) (*Font, error) {
 		return nil, fmt.Errorf("invalid magic: %x", magic)
 	}
 
-	version := binary.LittleEndian.Uint16(data[6:8])
+	version := binary.LittleEndian.Uint16(data[6:diskCacheHeaderSize])
 	if version != diskCacheVersion {
 		return nil, fmt.Errorf("unsupported version: %d", version)
 	}
 
 	var entry fontGobEntry
-	dec := gob.NewDecoder(bytes.NewReader(data[8:]))
+	dec := gob.NewDecoder(bytes.NewReader(data[diskCacheHeaderSize:]))
 	if err := dec.Decode(&entry); err != nil {
 		return nil, fmt.Errorf("gob decode: %w", err)
 	}
 
-	return gobEntryToFont(entry), nil
+	return gobEntryToFont(&entry), nil
 }
 
 // newDiskCache returns nil if the cache directory cannot be resolved.
@@ -171,7 +172,7 @@ func (dc *diskCache) get(hash string) *Font {
 
 	font, err := decodeFont(data)
 	if err != nil {
-		os.Remove(dc.gobPath(hash))
+		_ = os.Remove(dc.gobPath(hash))
 		dc.removeEntryAt(idx)
 		dc.saveMeta()
 		return nil
@@ -203,7 +204,7 @@ func (dc *diskCache) put(hash string, font *Font) {
 
 	for len(dc.meta.Entries) > dc.maxEntries {
 		tail := dc.meta.Entries[len(dc.meta.Entries)-1]
-		os.Remove(dc.gobPath(tail.Hash))
+		_ = os.Remove(dc.gobPath(tail.Hash))
 		dc.meta.Entries = dc.meta.Entries[:len(dc.meta.Entries)-1]
 	}
 
@@ -215,7 +216,7 @@ func (dc *diskCache) clear() {
 	defer dc.mu.Unlock()
 
 	for _, e := range dc.meta.Entries {
-		os.Remove(dc.gobPath(e.Hash))
+		_ = os.Remove(dc.gobPath(e.Hash))
 	}
 	dc.meta.Entries = nil
 	dc.saveMeta()
@@ -268,13 +269,13 @@ func (dc *diskCache) saveMeta() {
 	if err != nil {
 		return
 	}
-	atomicWriteFile(dc.metaPath(), data)
+	_ = atomicWriteFile(dc.metaPath(), data)
 }
 
 // atomicWriteFile writes data to path via temp file + rename.
 func atomicWriteFile(path string, data []byte) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(dir, "*.tmp")
@@ -284,16 +285,16 @@ func atomicWriteFile(path string, data []byte) error {
 	tmpPath := tmp.Name()
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return nil

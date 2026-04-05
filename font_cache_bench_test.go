@@ -35,7 +35,7 @@ No commercial use
 @@
 @@`)
 
-	err := os.WriteFile(fontPath, fontData, 0644)
+	err := os.WriteFile(fontPath, fontData, 0o644)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -121,7 +121,7 @@ Font %d
 			// Access mostly cached fonts (90% hit rate)
 			idx := i % 10
 			if idx >= 7 {
-				idx = idx % 3
+				idx %= 3
 			}
 			cache.ParseFont(fonts[idx])
 			i++

@@ -196,12 +196,12 @@ Comment
 			errContains: "height must be positive",
 		},
 		{
-			name: "baseline_exceeds_height",
+			name: "baseline_exceeds_height_clamped",
 			input: `flf2a$ 8 10 14 15 16
 Comment
 `,
 			wantErr:     true,
-			errContains: "baseline exceeds height",
+			errContains: "comment lines", // baseline clamped; fails at comment parsing
 		},
 		{
 			name: "negative_maxlength",

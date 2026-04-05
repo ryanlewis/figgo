@@ -343,11 +343,14 @@ func parseRequiredFields(fields []string, font *Font) error {
 	if err != nil {
 		return fmt.Errorf("invalid baseline: %w", err)
 	}
+	// Clamp baseline to valid range rather than rejecting the font.
+	// Many real-world fonts have out-of-spec baseline values that FIGlet
+	// handles gracefully (e.g. baseline=0 or baseline > height).
 	if baseline < 1 {
-		return fmt.Errorf("baseline must be at least 1, got %d", baseline)
+		baseline = 1
 	}
 	if baseline > height {
-		return fmt.Errorf("baseline exceeds height: %d > %d", baseline, height)
+		baseline = height
 	}
 	font.Baseline = baseline
 
@@ -572,7 +575,9 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 //
 // The function is permissive about MaxLength violations (only warns) because
 // real-world fonts often exceed their stated MaxLength. Width consistency
-// within a glyph is enforced strictly as it's essential for proper rendering.
+// within a glyph is normalized by padding shorter rows with spaces to match
+// the widest row. Many real-world fonts have inconsistent row widths which
+// the reference FIGlet implementation handles gracefully.
 //
 // Note on width calculation: We use rune counts, not visual width. This means
 // combining marks count as separate runes. FIGfonts are primarily ASCII art,
@@ -583,7 +588,7 @@ func stripTrailingRun(line string) (body string, endmark rune, runLen int) {
 func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings []string, err error) {
 	glyph = acquireGlyphSlice(height)
 	warnings = acquireWarnings()
-	width := -1 // -1 indicates width not yet set
+	maxWidth := 0 // track widest row for padding
 
 	// Ensure we release the warnings slice if we don't use it
 	needsWarnings := false
@@ -622,22 +627,22 @@ func parseGlyph(scanner *bufio.Scanner, height, maxLength int) (glyph, warnings 
 					row+1, bodyWidth, maxLength))
 		}
 
-		// Check width consistency
-		w := utf8.RuneCountInString(body)
-		if width == -1 {
-			// First row: set the expected width
-			width = w
-		} else if w != width {
-			// Note: We compare rune counts for width consistency, not visual width.
-			// This means combining marks are counted as separate runes, which may
-			// differ from visual width. FIGfonts overwhelmingly use ASCII art, so
-			// this limitation rarely matters in practice.
-			return nil, warnings, fmt.Errorf(
-				"inconsistent row width in glyph: row %d has %d, expected %d",
-				row+1, w, width)
+		if bodyWidth > maxWidth {
+			maxWidth = bodyWidth
 		}
 
 		glyph = append(glyph, body)
+	}
+
+	// Pad shorter rows with spaces to match the widest row.
+	// Many real-world fonts have inconsistent row widths (e.g. blank rows
+	// that are empty strings while other rows have content). The reference
+	// FIGlet implementation handles this gracefully.
+	for i, row := range glyph {
+		w := utf8.RuneCountInString(row)
+		if w < maxWidth {
+			glyph[i] = row + strings.Repeat(" ", maxWidth-w)
+		}
 	}
 
 	return glyph, warnings, nil

@@ -368,8 +368,11 @@ func NormalizeLayoutFromHeader(oldLayout, fullLayout int, fullLayoutSet bool) (N
 	if oldLayout < -1 || oldLayout > 63 {
 		return NormalizedLayout{}, ErrInvalidOldLayout
 	}
+	// If FullLayout is out of range, ignore it and fall back to OldLayout.
+	// Some real-world fonts have invalid FullLayout values that FIGlet
+	// handles by ignoring the field.
 	if fullLayout < 0 || fullLayout > 32767 {
-		return NormalizedLayout{}, ErrInvalidFullLayout
+		fullLayoutSet = false
 	}
 
 	var result NormalizedLayout

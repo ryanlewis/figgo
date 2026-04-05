@@ -73,3 +73,6 @@ Desktop.ini
 # Editor backup files
 *.bak
 *.backup
+
+# External font collections (cloned for testing)
+testdata/figlet-fonts/

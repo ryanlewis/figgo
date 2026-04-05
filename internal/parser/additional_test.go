@@ -303,16 +303,14 @@ func TestParseHeader_AllValidations(t *testing.T) {
 			errContains: "height must be positive",
 		},
 		{
-			name:        "baseline_zero",
-			input:       "flf2a$ 5 0 10 0 0\n",
-			wantErr:     true,
-			errContains: "baseline must be at least 1",
+			name:    "baseline_zero_clamped_to_1",
+			input:   "flf2a$ 5 0 10 0 0\n",
+			wantErr: false,
 		},
 		{
-			name:        "baseline_exceeds_height",
-			input:       "flf2a$ 5 6 10 0 0\n",
-			wantErr:     true,
-			errContains: "baseline exceeds height",
+			name:    "baseline_exceeds_height_clamped",
+			input:   "flf2a$ 5 6 10 0 0\n",
+			wantErr: false,
 		},
 		{
 			name:        "maxlength_zero",

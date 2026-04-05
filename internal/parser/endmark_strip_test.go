@@ -177,14 +177,13 @@ func TestParseGlyphs_WidthConsistency(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name: "inconsistent_width_should_error",
+			name: "inconsistent_width_padded",
 			input: `flf2a@ 3 3 10 0 0
 test@@
 da@@
 longer@@
 `,
-			wantErr:     true,
-			errContains: "inconsistent",
+			wantErr: false, // rows are padded to max width
 		},
 		{
 			name: "consistent_width_ok",
@@ -235,18 +234,16 @@ func TestParseHeader_BaselineValidation(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name: "baseline_zero_should_error",
+			name: "baseline_zero_clamped",
 			input: `flf2a@ 5 0 10 0 0
 `,
-			wantErr:     true,
-			errContains: "baseline must be",
+			wantErr: false, // baseline clamped to 1
 		},
 		{
-			name: "baseline_negative_should_error",
+			name: "baseline_negative_clamped",
 			input: `flf2a@ 5 -1 10 0 0
 `,
-			wantErr:     true,
-			errContains: "baseline",
+			wantErr: false, // baseline clamped to 1
 		},
 		{
 			name: "baseline_one_ok",

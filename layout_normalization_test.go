@@ -342,22 +342,28 @@ func TestNormalizeLayoutFromOldLayout(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		// Invalid FullLayout tests
+		// Invalid FullLayout falls back to OldLayout
 		{
-			name:          "FullLayout negative -> Invalid",
+			name:          "FullLayout negative -> fallback to OldLayout",
 			oldLayout:     0,
 			fullLayout:    -1,
 			fullLayoutSet: true,
-			want:          NormalizedLayout{},
-			wantErr:       true,
+			want: NormalizedLayout{
+				HorzMode: ModeFitting,
+				VertMode: ModeFull,
+			},
+			wantErr: false,
 		},
 		{
-			name:          "FullLayout > 32767 -> Invalid",
+			name:          "FullLayout > 32767 -> fallback to OldLayout",
 			oldLayout:     0,
 			fullLayout:    32768,
 			fullLayoutSet: true,
-			want:          NormalizedLayout{},
-			wantErr:       true,
+			want: NormalizedLayout{
+				HorzMode: ModeFitting,
+				VertMode: ModeFull,
+			},
+			wantErr: false,
 		},
 	}
 
@@ -552,12 +558,6 @@ func TestNormalizeLayoutFromHeader_InvalidRanges(t *testing.T) {
 			oldLayout:     -4,
 			fullLayout:    0,
 			fullLayoutSet: false,
-		},
-		{
-			name:          "FullLayout 32768 invalid",
-			oldLayout:     0,
-			fullLayout:    32768,
-			fullLayoutSet: true,
 		},
 	}
 

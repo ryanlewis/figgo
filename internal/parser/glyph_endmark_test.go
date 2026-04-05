@@ -80,14 +80,13 @@ da@ta@@
 			},
 		},
 		{
-			name: "inconsistent_endmark_error",
+			name: "inconsistent_endmark_padded",
 			input: `flf2a@ 3 3 10 0 0
 test@
 data#
 end@@
 `,
-			wantErr:     true,
-			errContains: "inconsistent", // Width inconsistency now detected
+			wantErr: false, // rows are padded to max width
 		},
 		{
 			name: "no_endmark_becomes_wrong_parse",

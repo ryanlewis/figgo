@@ -87,25 +87,23 @@ func acquireRenderState(height int, hardblank rune, textLen int) *renderState {
 		}
 	}
 
-	// Reset and initialize the state
-	state.charHeight = height
-	state.hardblank = hardblank
-	state.outlineLenLimit = defaultOutlineLimit
-	state.outlineLen = 0
-	state.currentChar = nil
-	state.currentCharWidth = 0
-	state.previousCharWidth = 0
-	state.right2left = 0
-	state.smushMode = 0
-	state.trimWhitespace = false
+	state.reset(height, hardblank, textLen)
+	return state
+}
 
-	// Reset new line breaking fields
-	state.inputCount = 0
-	state.lastWordBreak = -1
-	state.wordbreakmode = 0
-
-	// Reset output buffer
-	state.outputBuffer = state.outputBuffer[:0]
+// reset returns a pooled state to its zero value, keeping only the reusable
+// buffers, so no per-render field can carry over from a previous render.
+func (state *renderState) reset(height int, hardblank rune, textLen int) {
+	*state = renderState{
+		outputLine:      state.outputLine,
+		rowLengths:      state.rowLengths,
+		inputBuffer:     state.inputBuffer,
+		outputBuffer:    state.outputBuffer[:0],
+		charHeight:      height,
+		hardblank:       hardblank,
+		outlineLenLimit: defaultOutlineLimit,
+		lastWordBreak:   -1,
+	}
 
 	// Resize slices if needed (without reallocating if possible)
 	if cap(state.outputLine) < height {
@@ -133,15 +131,10 @@ func acquireRenderState(height int, hardblank rune, textLen int) *renderState {
 		if state.outputLine[i] == nil || cap(state.outputLine[i]) < defaultOutlineLimit {
 			state.outputLine[i] = make([]rune, defaultOutlineLimit)
 		} else {
-			// Clear existing buffer
-			for j := range state.outputLine[i] {
-				state.outputLine[i][j] = 0
-			}
+			clear(state.outputLine[i])
 		}
 		state.rowLengths[i] = 0
 	}
-
-	return state
 }
 
 // releaseRenderState returns a renderState to the pool.
@@ -153,6 +146,7 @@ func releaseRenderState(state *renderState) {
 
 	// Clear references to help GC
 	state.currentChar = nil
+	state.debug = nil
 
 	// Shrink oversized buffers to prevent memory bloat
 	// These will be reallocated at appropriate size when needed

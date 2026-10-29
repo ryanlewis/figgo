@@ -2,7 +2,7 @@ module github.com/ryanlewis/figgo
 
 go 1.24
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require github.com/spf13/pflag v1.0.7
 

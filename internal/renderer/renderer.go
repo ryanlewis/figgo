@@ -758,9 +758,9 @@ func (state *renderState) outputToString() string {
 	var sb strings.Builder
 	// Pre-calculate capacity
 	maxWidth := 0
-	for _, len := range state.rowLengths {
-		if len > maxWidth {
-			maxWidth = len
+	for _, rowLen := range state.rowLengths {
+		if rowLen > maxWidth {
+			maxWidth = rowLen
 		}
 	}
 	sb.Grow(calculateBuilderCapacity(state.charHeight, maxWidth))

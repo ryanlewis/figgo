@@ -34,7 +34,7 @@ jobs:
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
         with:
-          version: v2.11.4
+          version: v2.15.0
           args: --timeout=5m
 
       - name: Run tests
@@ -43,7 +43,7 @@ jobs:
           gotestsum --junitfile test-results.xml --format github-actions -- -race -count=1 -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        uses: EnricoMi/publish-unit-test-result-action@da5b7be67623cd59bbbd1a0ce4f022050a55605f # v2.26.0
         if: '!cancelled()'
         with:
           files: test-results.xml
